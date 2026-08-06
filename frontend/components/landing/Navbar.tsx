@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { SignInButton, UserButton, useUser } from "@clerk/nextjs";
 
 const LINKS = [
   { href: "#how-it-works", label: "How it works" },
@@ -45,6 +46,7 @@ function LogoMark() {
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const { isSignedIn, isLoaded } = useUser();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gruvbg-3 bg-gruvbg/85 backdrop-blur-md">
@@ -73,10 +75,24 @@ export default function Navbar() {
             href="https://github.com"
             target="_blank"
             rel="noreferrer"
-            className="text-[14px] text-gruvfg-2 transition-colors hover:text-gruv-aqua"
+            className="inline-flex items-center justify-center text-[14px] text-gruvfg-2 transition-colors hover:text-gruv-aqua"
           >
             GitHub
           </a>
+          {isLoaded && (
+            isSignedIn ? (
+              <UserButton />
+            ) : (
+              <SignInButton mode="modal">
+                <button
+                  type="button"
+                  className="rounded-md border border-gruvbg-3 px-4 py-2 text-[14px] font-medium text-gruvfg transition-colors hover:border-gruv-aqua hover:text-gruv-aqua"
+                >
+                  Sign in / Sign up
+                </button>
+              </SignInButton>
+            )
+          )}
           <a
             href="#trace"
             className="rounded-md bg-gruvfg px-4 py-2 text-[14px] font-medium text-gruvbg transition-colors hover:bg-gruv-aqua"
@@ -136,10 +152,27 @@ export default function Navbar() {
                 href="https://github.com"
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-md px-2 py-2.5 text-[15px] text-gruvfg-2 hover:bg-gruvbg-2 hover:text-gruv-aqua"
+                className="flex items-center justify-center rounded-md px-2 py-2.5 text-[15px] text-gruvfg-2 hover:bg-gruvbg-2 hover:text-gruv-aqua"
               >
                 GitHub
               </a>
+              {isLoaded && (
+                isSignedIn ? (
+                  <div className="mt-2 flex items-center gap-2 px-2 py-1.5">
+                    <UserButton />
+                  </div>
+                ) : (
+                  <SignInButton mode="modal">
+                    <button
+                      type="button"
+                      onClick={() => setOpen(false)}
+                      className="mt-2 rounded-md border border-gruvbg-3 px-4 py-2.5 text-center text-[15px] font-medium text-gruvfg hover:border-gruv-aqua hover:text-gruv-aqua"
+                    >
+                      Sign in / Sign up
+                    </button>
+                  </SignInButton>
+                )
+              )}
               <a
                 href="#trace"
                 onClick={() => setOpen(false)}
