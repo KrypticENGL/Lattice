@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Gruvbox — pale/light palette */
+  --gruvbg: #f9f5d7; /* bg0_h — page background */
+  --gruvbg-1: #f2e5bc; /* bg0_s — raised surface */
+  --gruvbg-2: #ebdbb2; /* bg1 — card surface */
+  --gruvbg-3: #d5c4a1; /* bg2 — borders / dividers */
+  --gruvbg-4: #bdae93; /* bg3 — stronger borders */
+
+  --gruvfg: #3c3836; /* fg1 — primary text */
+  --gruvfg-2: #504945; /* fg2 — secondary text */
+  --gruvfg-3: #665c54; /* fg3 — tertiary text */
+  --gruvfg-4: #7c6f64; /* fg4 — muted text */
+
+  --gruv-red: #9d0006;
+  --gruv-green: #79740e;
+  --gruv-yellow: #b57614;
+  --gruv-blue: #076678;
+  --gruv-purple: #8f3f71;
+  --gruv-aqua: #427b58;
+  --gruv-orange: #af3a03;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-gruvbg: var(--gruvbg);
+  --color-gruvbg-1: var(--gruvbg-1);
+  --color-gruvbg-2: var(--gruvbg-2);
+  --color-gruvbg-3: var(--gruvbg-3);
+  --color-gruvbg-4: var(--gruvbg-4);
+
+  --color-gruvfg: var(--gruvfg);
+  --color-gruvfg-2: var(--gruvfg-2);
+  --color-gruvfg-3: var(--gruvfg-3);
+  --color-gruvfg-4: var(--gruvfg-4);
+
+  --color-gruv-red: var(--gruv-red);
+  --color-gruv-green: var(--gruv-green);
+  --color-gruv-yellow: var(--gruv-yellow);
+  --color-gruv-blue: var(--gruv-blue);
+  --color-gruv-purple: var(--gruv-purple);
+  --color-gruv-aqua: var(--gruv-aqua);
+  --color-gruv-orange: var(--gruv-orange);
+
+  --color-background: var(--gruvbg);
+  --color-foreground: var(--gruvfg);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--gruvbg);
+  color: var(--gruvfg);
+}
+
+::selection {
+  background: var(--gruv-aqua);
+  color: var(--gruvbg);
+}
+
+/* subtle scrollbar to match the palette */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--gruvbg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gruvbg-4);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gruvfg-4);
 }
