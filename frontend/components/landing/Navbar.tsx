@@ -51,12 +51,22 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gruvbg-3 bg-gruvbg/85 backdrop-blur-md">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <a href="#top" className="flex items-center gap-2.5">
-          <LogoMark />
-          <span className="font-mono text-[17px] font-semibold tracking-tight text-gruvfg">
-            Lattice
-          </span>
-        </a>
+        <div className="flex items-center gap-4">
+          <a href="#top" className="flex items-center gap-2.5">
+            <LogoMark />
+            <span className="font-mono text-[17px] font-semibold tracking-tight text-gruvfg">
+              Lattice
+            </span>
+          </a>
+          <a
+            href="https://github.com"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden rounded-md border border-gruvbg-3 px-3 py-1.5 text-[13px] font-medium text-gruvfg-2 transition-colors hover:border-gruv-aqua hover:text-gruv-aqua md:inline-flex md:items-center md:justify-center"
+          >
+            Visit GitHub
+          </a>
+        </div>
 
         <div className="hidden items-center gap-8 md:flex">
           {LINKS.map((link) => (
@@ -71,14 +81,6 @@ export default function Navbar() {
         </div>
 
         <div className="hidden items-center gap-4 md:flex">
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center text-[14px] text-gruvfg-2 transition-colors hover:text-gruv-aqua"
-          >
-            GitHub
-          </a>
           {isLoaded && (
             isSignedIn ? (
               <UserButton />
@@ -152,9 +154,9 @@ export default function Navbar() {
                 href="https://github.com"
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center rounded-md px-2 py-2.5 text-[15px] text-gruvfg-2 hover:bg-gruvbg-2 hover:text-gruv-aqua"
+                className="flex items-center justify-center rounded-md border border-gruvbg-3 px-2 py-2.5 text-[15px] font-medium text-gruvfg-2 hover:border-gruv-aqua hover:text-gruv-aqua"
               >
-                GitHub
+                Visit GitHub
               </a>
               {isLoaded && (
                 isSignedIn ? (
