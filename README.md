@@ -1,2 +1,1 @@
-# Lattice
-Runtime-Trace Based Data-Structure Visualizer with Dynamic Input
+Data Structure Visualizer Through Runtime Trace

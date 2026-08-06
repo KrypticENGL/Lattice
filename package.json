@@ -1,0 +1,23 @@
+{
+  "name": "lattice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runtime-Trace Based Data-Structure Visualizer with Dynamic Input",
+  "scripts": {
+    "dev": "concurrently --names backend,frontend --prefix-colors cyan,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && cargo run",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "lint": "npm --prefix frontend run lint",
+    "check": "cd backend && cargo check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KrypticENGL/Lattice.git"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

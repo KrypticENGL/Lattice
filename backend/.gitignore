@@ -1,0 +1,10 @@
+# Build artifacts (this is also covered by the repo-root .gitignore,
+# but Rust projects conventionally keep this here too — it's what
+# `cargo new` generates by default, and keeps this crate self-contained
+# if it's ever split into its own repo).
+/target
+
+# Local environment overrides (DB URLs, Docker socket path, etc.)
+.env
+.env.*
+!.env.example
