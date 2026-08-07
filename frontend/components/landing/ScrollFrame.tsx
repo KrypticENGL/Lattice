@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
 const DURATION = 900;
-const COOLDOWN = 250;
 
 function easeInOutCubic(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -55,7 +54,7 @@ export default function ScrollFrame({ children }: { children: ReactNode }) {
 
       if (target === current) return;
 
-      lockedUntilRef.current = now + DURATION + COOLDOWN;
+      lockedUntilRef.current = now + DURATION;
       animateTo(target * panelHeight);
     }
 

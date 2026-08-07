@@ -73,14 +73,23 @@ body {
   flex-shrink: 0;
 }
 
-/* Frosted glass — panels, pills, code windows, animation stages */
+/* Frosted liquid glass — panels, pills, code windows, animation stages.
+   Modeled on Apple's Liquid Glass material: strong blur/saturation, a
+   bright specular rim catching light along the top edge, a soft inner
+   shadow underneath for depth, and a floating outer drop shadow. */
 .glass {
   position: relative;
   isolation: isolate;
-  background: color-mix(in srgb, var(--bg-surface) 62%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 58%, transparent);
   border: 1px solid var(--hairline);
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px 0 0 rgba(0, 0, 0, 0.15),
+    0 24px 48px -22px rgba(0, 0, 0, 0.65);
 }
 
 .glass::before {
@@ -102,11 +111,13 @@ body {
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--text-primary) 8%, transparent),
-    transparent 40%
-  );
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 24%),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--text-primary) 10%, transparent),
+      transparent 45%
+    );
   pointer-events: none;
 }
 
@@ -114,14 +125,16 @@ body {
 .glass-nav {
   position: relative;
   isolation: isolate;
-  background: color-mix(in srgb, var(--bg-surface) 55%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 52%, transparent);
   border: 1px solid var(--hairline-strong);
   border-radius: 50px;
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
   box-shadow:
-    0 8px 32px -8px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(230, 237, 243, 0.08);
+    0 14px 44px -14px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .glass-nav::before {
@@ -137,41 +150,52 @@ body {
   pointer-events: none;
 }
 
+.glass-nav::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 32%);
+  pointer-events: none;
+}
+
 .text-balance {
   text-wrap: balance;
 }
 
 /* Freeform gradient + grain — the page backdrop inside the framed box.
-   Strictly grayscale: color is reserved for interactive/accent elements. */
+   Strictly grayscale, scaling from true black to near-white: color is
+   reserved for interactive/accent elements. */
 .grain-bg {
   position: relative;
   isolation: isolate;
-  background-color: var(--bg-base);
+  background-color: #000000;
   background-image:
     radial-gradient(
-      ellipse 60% 50% at 8% 12%,
-      rgba(255, 255, 255, 0.14),
+      ellipse 70% 60% at 8% 10%,
+      rgba(255, 255, 255, 0.45),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 92% 6%,
+      rgba(255, 255, 255, 0.2),
       transparent 60%
     ),
     radial-gradient(
-      ellipse 50% 42% at 92% 6%,
-      rgba(255, 255, 255, 0.08),
-      transparent 58%
-    ),
-    radial-gradient(
       ellipse 65% 55% at 88% 96%,
-      rgba(0, 0, 0, 0.55),
-      transparent 62%
+      rgba(0, 0, 0, 0.9),
+      transparent 60%
     ),
     radial-gradient(
       ellipse 55% 48% at 6% 92%,
-      rgba(255, 255, 255, 0.07),
-      transparent 58%
+      rgba(255, 255, 255, 0.08),
+      transparent 55%
     ),
     radial-gradient(
-      ellipse 85% 75% at 45% 48%,
+      ellipse 90% 80% at 45% 45%,
       rgba(255, 255, 255, 0.05),
-      transparent 72%
+      transparent 75%
     );
   background-repeat: no-repeat;
 }
@@ -183,7 +207,7 @@ body {
   z-index: -1;
   background-image: var(--noise);
   background-size: 180px 180px;
-  opacity: 0.055;
+  opacity: 0.07;
   mix-blend-mode: overlay;
   pointer-events: none;
 }
