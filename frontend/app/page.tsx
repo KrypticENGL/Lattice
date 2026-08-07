@@ -6,6 +6,7 @@ import CodeShowcase from "@/components/landing/CodeShowcase";
 import Technologies from "@/components/landing/Technologies";
 import CTA from "@/components/landing/CTA";
 import Footer from "@/components/landing/Footer";
+import ScrollFrame from "@/components/landing/ScrollFrame";
 
 export default function Home() {
   return (
@@ -16,7 +17,7 @@ export default function Home() {
 
       <div className="min-h-0 flex-1">
         <div className="h-full overflow-hidden rounded-[28px]">
-          <div className="snap-container scrollbar-hide px-4 sm:px-10 lg:px-16">
+          <ScrollFrame>
             <div className="snap-panel">
               <Hero />
             </div>
@@ -38,7 +39,7 @@ export default function Home() {
               </div>
               <Footer />
             </div>
-          </div>
+          </ScrollFrame>
         </div>
       </div>
     </div>
