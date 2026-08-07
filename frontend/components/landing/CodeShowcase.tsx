@@ -3,92 +3,103 @@
 import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 
+const KEYWORD = "var(--accent-primary)";
+const NAME = "var(--accent-secondary)";
+const SELF = "#60a5fa";
+const NUMBER = "#fbbf24";
+
 const CODE_LINES: ReactNode[] = [
   <>
-    <span className="text-gruv-orange">class</span>{" "}
-    <span className="text-gruv-yellow">Node</span>:
+    <span style={{ color: KEYWORD }}>class</span>{" "}
+    <span style={{ color: NAME }}>Node</span>:
   </>,
   <>
     {"    "}
-    <span className="text-gruv-orange">def</span>{" "}
-    <span className="text-gruv-yellow">__init__</span>(self, val):
+    <span style={{ color: KEYWORD }}>def</span>{" "}
+    <span style={{ color: NAME }}>__init__</span>(self, val):
   </>,
   <>
     {"        "}
-    <span className="text-gruv-blue">self</span>.val = val
+    <span style={{ color: SELF }}>self</span>.val = val
   </>,
   <>
     {"        "}
-    <span className="text-gruv-blue">self</span>.next ={" "}
-    <span className="text-gruv-orange">None</span>
+    <span style={{ color: SELF }}>self</span>.next ={" "}
+    <span style={{ color: KEYWORD }}>None</span>
   </>,
-  <>{" "}</>,
+  <>{" "}</>,
   <>
-    head = <span className="text-gruv-yellow">Node</span>(
-    <span className="text-gruv-purple">3</span>)
-  </>,
-  <>
-    head.next = <span className="text-gruv-yellow">Node</span>(
-    <span className="text-gruv-purple">7</span>)
+    head = <span style={{ color: NAME }}>Node</span>(
+    <span style={{ color: NUMBER }}>3</span>)
   </>,
   <>
-    head.next.next = <span className="text-gruv-yellow">Node</span>(
-    <span className="text-gruv-purple">1</span>)
+    head.next = <span style={{ color: NAME }}>Node</span>(
+    <span style={{ color: NUMBER }}>7</span>)
   </>,
   <>
-    head.next.next.next = <span className="text-gruv-yellow">Node</span>(
-    <span className="text-gruv-purple">9</span>)
+    head.next.next = <span style={{ color: NAME }}>Node</span>(
+    <span style={{ color: NUMBER }}>1</span>)
+  </>,
+  <>
+    head.next.next.next = <span style={{ color: NAME }}>Node</span>(
+    <span style={{ color: NUMBER }}>9</span>)
   </>,
 ];
 
 const NODES = [
-  { x: 30, y: 60, label: "3", color: "var(--gruv-aqua)" },
-  { x: 130, y: 60, label: "7", color: "var(--gruv-blue)" },
-  { x: 230, y: 60, label: "1", color: "var(--gruv-orange)" },
-  { x: 320, y: 60, label: "9", color: "var(--gruv-purple)" },
+  { x: 30, y: 60, label: "3", color: "var(--accent-secondary)" },
+  { x: 130, y: 60, label: "7", color: "#60a5fa" },
+  { x: 230, y: 60, label: "1", color: "#fbbf24" },
+  { x: 320, y: 60, label: "9", color: "var(--accent-primary)" },
 ];
 
 export default function CodeShowcase() {
   return (
-    <section id="trace" className="px-6 py-20">
-      <div className="mx-auto max-w-6xl">
+    <section
+      id="trace"
+      className="flex h-full flex-col justify-center px-6 pt-24 pb-10 sm:px-10 sm:pt-28"
+    >
+      <div className="mx-auto w-full max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
+          viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.5 }}
-          className="max-w-xl"
+          className="max-w-2xl"
         >
-          <h2 className="text-3xl font-semibold tracking-tight text-gruvfg">
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+            Trace schema
+          </span>
+          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
             Same idea, your own snippet.
           </h2>
-          <p className="mt-3 text-[15px] leading-7 text-gruvfg-3">
+          <p className="mt-4 max-w-xl font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
             Four lines of Python become a diagram you can step through — not
             a generic textbook picture, a trace of the object graph your
             code actually built.
           </p>
         </motion.div>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+        <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, x: -16 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
+            viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.5 }}
-            className="overflow-hidden rounded-2xl border border-gruvbg-3 bg-gruvbg-1"
+            className="glass overflow-hidden rounded-2xl"
           >
-            <div className="flex items-center gap-2 border-b border-gruvbg-3 bg-gruvbg-2 px-4 py-3">
-              <span className="h-2.5 w-2.5 rounded-full bg-gruv-red/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-gruv-yellow/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-gruv-green/70" />
-              <span className="ml-3 font-mono text-[12px] text-gruvfg-3">
+            <div className="flex items-center gap-2 border-b border-[var(--hairline)] px-4 py-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#f87171]/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#fbbf24]/70" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#34d399]/70" />
+              <span className="ml-3 font-mono text-[12px] text-[var(--text-secondary)]">
                 snippet.py
               </span>
             </div>
-            <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-7 text-gruvfg-2">
+            <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-7 text-[var(--text-primary)]">
               {CODE_LINES.map((line, i) => (
                 <div key={i} className="flex gap-4">
-                  <span className="w-4 shrink-0 select-none text-right text-gruvfg-4">
+                  <span className="w-4 shrink-0 select-none text-right text-[var(--text-secondary)]">
                     {i + 1}
                   </span>
                   <span>{line}</span>
@@ -100,15 +111,15 @@ export default function CodeShowcase() {
           <motion.div
             initial={{ opacity: 0, x: 16 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
+            viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="flex flex-col overflow-hidden rounded-2xl border border-gruvbg-3 bg-gruvbg-1"
+            className="glass flex flex-col overflow-hidden rounded-2xl"
           >
-            <div className="flex items-center justify-between border-b border-gruvbg-3 bg-gruvbg-2 px-4 py-3">
-              <span className="font-mono text-[12px] text-gruvfg-3">
+            <div className="flex items-center justify-between border-b border-[var(--hairline)] px-4 py-3">
+              <span className="font-mono text-[12px] text-[var(--text-secondary)]">
                 lattice.render() → LinkedList
               </span>
-              <span className="rounded-full bg-gruvbg px-2.5 py-1 font-mono text-[11px] text-gruvfg-3">
+              <span className="rounded-full bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[11px] text-[var(--text-secondary)]">
                 step 08/08
               </span>
             </div>
@@ -118,7 +129,7 @@ export default function CodeShowcase() {
                 className="h-auto w-full max-w-sm"
                 initial="hidden"
                 whileInView="visible"
-                viewport={{ once: true, margin: "-40px" }}
+                viewport={{ once: true, margin: "-30px" }}
               >
                 {NODES.slice(0, -1).map((n, i) => {
                   const next = NODES[i + 1];
@@ -129,7 +140,7 @@ export default function CodeShowcase() {
                       y1={n.y}
                       x2={next.x - 22}
                       y2={next.y}
-                      stroke="var(--gruvfg-4)"
+                      stroke="var(--text-secondary)"
                       strokeWidth={1.75}
                       strokeLinecap="round"
                       variants={{
@@ -163,7 +174,7 @@ export default function CodeShowcase() {
                       dominantBaseline="central"
                       fontFamily="var(--font-mono)"
                       fontSize={12}
-                      fill="var(--gruvbg)"
+                      fill="var(--bg-base)"
                     >
                       {n.label}
                     </text>

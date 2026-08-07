@@ -7,20 +7,20 @@ type NodeDef = { cx: number; cy: number; label: string; color: string };
 type EdgeDef = { x1: number; y1: number; x2: number; y2: number };
 type ShapeDef = { name: string; nodes: NodeDef[]; edges: EdgeDef[] };
 
-const AQUA = "var(--gruv-aqua)";
-const BLUE = "var(--gruv-blue)";
-const ORANGE = "var(--gruv-orange)";
-const PURPLE = "var(--gruv-purple)";
-const GREEN = "var(--gruv-green)";
-const YELLOW = "var(--gruv-yellow)";
+const PURPLE = "var(--accent-primary)";
+const CYAN = "var(--accent-secondary)";
+const PINK = "#f472b6";
+const BLUE = "#60a5fa";
+const GREEN = "#34d399";
+const AMBER = "#fbbf24";
 
 const SHAPES: ShapeDef[] = [
   {
     name: "LinkedList<int>",
     nodes: [
-      { cx: 55, cy: 150, label: "3", color: AQUA },
+      { cx: 55, cy: 150, label: "3", color: CYAN },
       { cx: 172, cy: 150, label: "7", color: BLUE },
-      { cx: 289, cy: 150, label: "1", color: ORANGE },
+      { cx: 289, cy: 150, label: "1", color: AMBER },
       { cx: 400, cy: 150, label: "9", color: PURPLE },
     ],
     edges: [
@@ -32,8 +32,8 @@ const SHAPES: ShapeDef[] = [
   {
     name: "TreeNode",
     nodes: [
-      { cx: 220, cy: 48, label: "8", color: ORANGE },
-      { cx: 128, cy: 128, label: "4", color: AQUA },
+      { cx: 220, cy: 48, label: "8", color: AMBER },
+      { cx: 128, cy: 128, label: "4", color: CYAN },
       { cx: 312, cy: 128, label: "12", color: BLUE },
       { cx: 260, cy: 218, label: "10", color: GREEN },
       { cx: 364, cy: 218, label: "15", color: PURPLE },
@@ -48,12 +48,12 @@ const SHAPES: ShapeDef[] = [
   {
     name: "Graph",
     nodes: [
-      { cx: 62, cy: 78, label: "a", color: AQUA },
+      { cx: 62, cy: 78, label: "a", color: CYAN },
       { cx: 196, cy: 46, label: "b", color: BLUE },
-      { cx: 340, cy: 84, label: "c", color: ORANGE },
+      { cx: 340, cy: 84, label: "c", color: AMBER },
       { cx: 396, cy: 190, label: "d", color: PURPLE },
       { cx: 250, cy: 232, label: "e", color: GREEN },
-      { cx: 96, cy: 206, label: "f", color: YELLOW },
+      { cx: 96, cy: 206, label: "f", color: PINK },
     ],
     edges: [
       { x1: 82, y1: 65, x2: 178, y2: 52 },
@@ -165,19 +165,19 @@ export default function HeroVisual() {
   }, []);
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-gruvbg-3 bg-gruvbg-1 shadow-[0_1px_0_rgba(60,56,54,0.05)]">
-      <div className="flex items-center justify-between border-b border-gruvbg-3 bg-gruvbg-2 px-4 py-3">
+    <div className="glass w-full overflow-hidden rounded-2xl">
+      <div className="flex items-center justify-between border-b border-[var(--hairline)] px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-gruv-red/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-gruv-yellow/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-gruv-green/70" />
-          <span className="ml-3 font-mono text-[12px] text-gruvfg-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#f87171]/70" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#fbbf24]/70" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#34d399]/70" />
+          <span className="ml-3 font-mono text-[12px] text-[var(--text-secondary)]">
             trace.json — <span ref={labelRef}>LinkedList&lt;int&gt;</span>
           </span>
         </div>
         <span
           ref={stepRef}
-          className="rounded-full bg-gruvbg px-2.5 py-1 font-mono text-[11px] text-gruvfg-3"
+          className="rounded-full bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[11px] text-[var(--text-secondary)]"
         >
           step 00/00
         </span>
@@ -200,7 +200,7 @@ export default function HeroVisual() {
                 y1={e.y1}
                 x2={e.x2}
                 y2={e.y2}
-                stroke="var(--gruvfg-4)"
+                stroke="var(--text-secondary)"
                 strokeWidth={1.75}
                 strokeLinecap="round"
                 pathLength={1}
@@ -229,7 +229,7 @@ export default function HeroVisual() {
                 dominantBaseline="central"
                 fontFamily="var(--font-mono)"
                 fontSize={13}
-                fill="var(--gruvbg)"
+                fill="var(--bg-base)"
                 opacity={0}
               >
                 {n.label}

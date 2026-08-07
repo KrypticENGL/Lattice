@@ -1,27 +1,31 @@
+"use client";
+
+import { scrollToSection } from "@/lib/scroll-to-section";
+
 export default function Footer() {
   return (
-    <footer className="border-t border-gruvbg-3 bg-gruvbg px-6 py-10">
+    <footer className="border-t border-[var(--hairline)] px-6 py-6 sm:px-10">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[14px] font-semibold text-gruvfg">
+          <span className="font-serif text-[15px] font-bold text-[var(--text-primary)]">
             Lattice
           </span>
-          <span className="text-[13px] text-gruvfg-4">
+          <span className="font-mono text-[11px] text-[var(--text-secondary)]">
             — trace first, visualize second.
           </span>
         </div>
-        <div className="flex items-center gap-6 text-[13px] text-gruvfg-3">
-          <a href="#how-it-works" className="hover:text-gruv-aqua">
+        <div className="flex items-center gap-6 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+          <button type="button" onClick={() => scrollToSection("how-it-works")} className="hover:text-[var(--accent-secondary)]">
             How it works
-          </a>
-          <a href="#features" className="hover:text-gruv-aqua">
+          </button>
+          <button type="button" onClick={() => scrollToSection("features")} className="hover:text-[var(--accent-secondary)]">
             Features
-          </a>
+          </button>
           <a
             href="https://github.com"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-gruv-aqua"
+            className="hover:text-[var(--accent-secondary)]"
           >
             GitHub
           </a>

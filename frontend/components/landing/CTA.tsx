@@ -1,30 +1,33 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { scrollToSection } from "@/lib/scroll-to-section";
 
 export default function CTA() {
   return (
-    <section className="border-t border-gruvbg-3 bg-gruvbg-2 px-6 py-20">
+    <section className="px-6 py-16 sm:px-10">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-80px" }}
+        viewport={{ once: true, margin: "-40px" }}
         transition={{ duration: 0.5 }}
         className="mx-auto flex max-w-4xl flex-col items-center gap-6 text-center"
       >
-        <h2 className="text-3xl font-semibold tracking-tight text-gruvfg sm:text-4xl">
+        <h2 className="text-balance font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] sm:text-6xl">
           Bring your code to life.
         </h2>
-        <p className="max-w-md text-[15px] leading-7 text-gruvfg-3">
+        <p className="max-w-md font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
           No accounts, no setup. Paste a snippet and watch the exact runtime
           trace draw itself.
         </p>
-        <a
-          href="#top"
-          className="mt-2 rounded-md bg-gruvfg px-6 py-3 text-[14px] font-medium text-gruvbg transition-colors hover:bg-gruv-aqua"
+        <button
+          type="button"
+          onClick={() => scrollToSection("top")}
+          className="mt-2 rounded-full px-7 py-3.5 font-mono text-[13px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_32px_var(--accent-glow)]"
+          style={{ background: "var(--accent-primary)" }}
         >
           Open the editor
-        </a>
+        </button>
       </motion.div>
     </section>
   );

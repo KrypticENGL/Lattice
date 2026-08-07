@@ -1,106 +1,109 @@
 /**
  * Shared Clerk theme, applied globally via <ClerkProvider appearance={clerkAppearance}>.
  * Drives the Sign in / Sign up modal and the UserButton popover so both match the
- * site's pale Gruvbox palette instead of Clerk's default look.
+ * site's dark slate-and-purple palette instead of Clerk's default look.
  */
 export const clerkAppearance = {
   variables: {
-    colorPrimary: "var(--gruvfg)",
-    colorPrimaryForeground: "var(--gruvbg)",
-    colorBackground: "var(--gruvbg-1)",
-    colorForeground: "var(--gruvfg)",
-    colorMuted: "var(--gruvbg-2)",
-    colorMutedForeground: "var(--gruvfg-3)",
-    colorInput: "var(--gruvbg)",
-    colorInputForeground: "var(--gruvfg)",
-    colorNeutral: "var(--gruvfg)",
-    colorBorder: "var(--gruvbg-3)",
-    colorRing: "var(--gruv-aqua)",
-    colorDanger: "var(--gruv-red)",
-    colorSuccess: "var(--gruv-green)",
-    colorWarning: "var(--gruv-yellow)",
-    colorShadow: "var(--gruvfg)",
-    colorModalBackdrop: "var(--gruvfg)",
-    fontFamily: "var(--font-geist-sans)",
-    fontFamilyButtons: "var(--font-geist-sans)",
-    fontFamilyMono: "var(--font-geist-mono)",
-    borderRadius: "0.5rem",
+    colorPrimary: "var(--accent-primary)",
+    colorPrimaryForeground: "var(--text-primary)",
+    colorBackground: "var(--bg-surface)",
+    colorForeground: "var(--text-primary)",
+    colorMuted: "var(--bg-elevated)",
+    colorMutedForeground: "var(--text-secondary)",
+    colorInput: "var(--bg-base)",
+    colorInputForeground: "var(--text-primary)",
+    colorNeutral: "var(--text-primary)",
+    colorBorder: "var(--hairline-strong)",
+    colorRing: "var(--accent-primary)",
+    colorDanger: "#f87171",
+    colorSuccess: "#34d399",
+    colorWarning: "#fbbf24",
+    colorShadow: "rgba(0, 0, 0, 0.6)",
+    colorModalBackdrop: "rgba(13, 17, 23, 0.7)",
+    fontFamily: "var(--font-serif)",
+    fontFamilyButtons: "var(--font-mono)",
+    fontFamilyMono: "var(--font-mono)",
+    borderRadius: "1rem",
   },
   elements: {
     card: {
-      borderRadius: "1rem",
+      borderRadius: "1.25rem",
       borderWidth: "1px",
-      borderColor: "var(--gruvbg-3)",
-      boxShadow: "0 12px 32px -12px rgba(60, 56, 54, 0.25)",
+      borderColor: "var(--hairline-strong)",
+      backgroundColor: "var(--bg-surface)",
+      boxShadow: "0 24px 60px -20px rgba(0, 0, 0, 0.6)",
     },
     headerTitle: {
-      color: "var(--gruvfg)",
-      fontWeight: 600,
+      color: "var(--text-primary)",
+      fontWeight: 700,
     },
     headerSubtitle: {
-      color: "var(--gruvfg-3)",
+      color: "var(--text-secondary)",
     },
     socialButtonsBlockButton: {
-      borderColor: "var(--gruvbg-3)",
-      color: "var(--gruvfg)",
+      borderColor: "var(--hairline-strong)",
+      color: "var(--text-primary)",
       "&:hover": {
-        borderColor: "var(--gruv-aqua)",
-        backgroundColor: "var(--gruvbg-2)",
+        borderColor: "var(--accent-primary)",
+        backgroundColor: "var(--bg-elevated)",
       },
     },
     dividerLine: {
-      backgroundColor: "var(--gruvbg-3)",
+      backgroundColor: "var(--hairline-strong)",
     },
     dividerText: {
-      color: "var(--gruvfg-3)",
+      color: "var(--text-secondary)",
     },
     formFieldLabel: {
-      color: "var(--gruvfg-2)",
+      color: "var(--text-secondary)",
     },
     formFieldInput: {
-      borderColor: "var(--gruvbg-3)",
-      backgroundColor: "var(--gruvbg)",
-      color: "var(--gruvfg)",
+      borderColor: "var(--hairline-strong)",
+      backgroundColor: "var(--bg-base)",
+      color: "var(--text-primary)",
       "&:focus": {
-        borderColor: "var(--gruv-aqua)",
+        borderColor: "var(--accent-primary)",
       },
     },
     formButtonPrimary: {
-      backgroundColor: "var(--gruvfg)",
-      color: "var(--gruvbg)",
+      backgroundColor: "var(--accent-primary)",
+      color: "var(--text-primary)",
       "&:hover": {
-        backgroundColor: "var(--gruv-aqua)",
+        backgroundColor: "var(--accent-primary)",
+        boxShadow: "0 0 24px var(--accent-glow)",
       },
       "&:focus": {
         boxShadow: "none",
       },
     },
     footerActionLink: {
-      color: "var(--gruv-aqua)",
+      color: "var(--accent-secondary)",
       "&:hover": {
-        color: "var(--gruvfg)",
+        color: "var(--text-primary)",
       },
     },
     modalBackdrop: {
-      backdropFilter: "blur(4px)",
+      backdropFilter: "blur(6px)",
     },
     userButtonPopoverCard: {
-      borderRadius: "1rem",
+      borderRadius: "1.25rem",
       borderWidth: "1px",
-      borderColor: "var(--gruvbg-3)",
-      boxShadow: "0 12px 32px -12px rgba(60, 56, 54, 0.25)",
+      borderColor: "var(--hairline-strong)",
+      backgroundColor: "var(--bg-surface)",
+      boxShadow: "0 24px 60px -20px rgba(0, 0, 0, 0.6)",
     },
     userButtonPopoverActionButton: {
-      color: "var(--gruvfg)",
+      color: "var(--text-primary)",
       "&:hover": {
-        backgroundColor: "var(--gruvbg-2)",
+        backgroundColor: "var(--bg-elevated)",
       },
     },
     userButtonPopoverActionButtonIcon: {
-      color: "var(--gruvfg-3)",
+      color: "var(--text-secondary)",
     },
     userButtonPopoverFooter: {
-      borderColor: "var(--gruvbg-3)",
+      borderColor: "var(--hairline-strong)",
     },
     avatarBox: {
       borderRadius: "0.5rem",
