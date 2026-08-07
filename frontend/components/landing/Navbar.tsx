@@ -32,7 +32,7 @@ export default function Navbar() {
   const primaryLabel = isSignedIn ? "Workstation" : "Try it live";
 
   return (
-    <header className="fixed inset-x-0 top-4 z-50 flex justify-center px-3 sm:top-6 sm:px-6">
+    <header className="relative z-50 flex justify-center">
       <nav className="glass-nav flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2.5 sm:px-7">
         <div className="flex items-center gap-3 sm:gap-5">
           <button

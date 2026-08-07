@@ -62,7 +62,7 @@ export default function Features() {
   return (
     <section
       id="features"
-      className="flex h-full flex-col justify-center border-t border-[var(--hairline)] px-6 pt-24 pb-10 sm:px-10 sm:pt-28"
+      className="flex h-full flex-col justify-center py-10"
     >
       <div className="mx-auto w-full max-w-6xl">
         <motion.div

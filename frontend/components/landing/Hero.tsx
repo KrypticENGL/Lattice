@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section
       id="top"
-      className="relative flex h-full items-center overflow-hidden px-6 pt-24 pb-10 sm:px-10 sm:pt-28"
+      className="relative flex h-full items-center overflow-hidden py-10"
     >
       <div
         aria-hidden="true"
