@@ -9,12 +9,12 @@ import Footer from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div className="grain-bg relative flex h-full flex-col">
-      <div className="shrink-0 px-3 pt-4 sm:px-6 sm:pt-6">
+    <div className="grain-bg relative flex h-full flex-col gap-5 p-4 sm:gap-8 sm:p-8">
+      <div className="shrink-0">
         <Navbar />
       </div>
 
-      <div className="min-h-0 flex-1 px-3 pb-3 sm:px-6 sm:pb-6">
+      <div className="min-h-0 flex-1">
         <div className="h-full overflow-hidden rounded-[28px] border border-white/25">
           <div className="snap-container scrollbar-hide px-4 sm:px-10 lg:px-16">
             <div className="snap-panel">
