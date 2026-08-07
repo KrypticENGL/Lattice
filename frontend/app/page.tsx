@@ -15,7 +15,7 @@ export default function Home() {
       </div>
 
       <div className="min-h-0 flex-1">
-        <div className="h-full overflow-hidden rounded-[28px] border border-white/25">
+        <div className="h-full overflow-hidden rounded-[28px]">
           <div className="snap-container scrollbar-hide px-4 sm:px-10 lg:px-16">
             <div className="snap-panel">
               <Hero />
