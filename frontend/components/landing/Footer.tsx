@@ -4,7 +4,7 @@ import { scrollToSection } from "@/lib/scroll-to-section";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[var(--hairline)] py-6">
+    <footer className="border-t border-[var(--hairline)] py-8">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
         <div className="flex items-center gap-2">
           <span className="font-serif text-[15px] font-bold text-[var(--text-primary)]">

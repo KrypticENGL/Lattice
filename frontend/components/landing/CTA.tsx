@@ -5,7 +5,7 @@ import { scrollToSection } from "@/lib/scroll-to-section";
 
 export default function CTA() {
   return (
-    <section className="py-16">
+    <section className="py-20 sm:py-24">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}

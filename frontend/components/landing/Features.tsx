@@ -62,7 +62,7 @@ export default function Features() {
   return (
     <section
       id="features"
-      className="flex h-full flex-col justify-center py-10"
+      className="flex h-full flex-col justify-center py-16 sm:py-20"
     >
       <div className="mx-auto w-full max-w-6xl">
         <motion.div
