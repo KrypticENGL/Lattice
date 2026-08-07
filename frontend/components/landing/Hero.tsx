@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section
       id="top"
-      className="relative flex h-full items-center overflow-hidden py-10"
+      className="relative flex h-full items-center overflow-hidden py-16 sm:py-20"
     >
       <div
         aria-hidden="true"
@@ -23,24 +23,11 @@ export default function Hero() {
 
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
         <div>
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--text-secondary)]"
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: "var(--accent-secondary)" }}
-            />
-            Runtime-trace visualizer
-          </motion.span>
-
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.08 }}
-            className="text-balance mt-6 font-serif text-[13vw] leading-[0.95] font-black tracking-tight text-[var(--text-primary)] sm:text-6xl lg:text-[5.2rem]"
+            transition={{ duration: 0.55 }}
+            className="text-balance font-serif text-[13vw] leading-[0.95] font-black tracking-tight text-[var(--text-primary)] sm:text-6xl lg:text-[5.2rem]"
           >
             Watch your code
             <br />
