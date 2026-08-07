@@ -9,7 +9,7 @@ import Footer from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div className="grain-bg relative flex h-full flex-col gap-5 p-4 sm:gap-8 sm:p-8">
+    <div className="grain-bg relative flex h-full flex-col gap-5 p-6 sm:gap-8 sm:p-12">
       <div className="shrink-0">
         <Navbar />
       </div>
