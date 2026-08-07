@@ -140,3 +140,50 @@ body {
 .text-balance {
   text-wrap: balance;
 }
+
+/* Freeform gradient + grain — the page backdrop inside the framed box.
+   Strictly grayscale: color is reserved for interactive/accent elements. */
+.grain-bg {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(
+      ellipse 60% 50% at 8% 12%,
+      rgba(255, 255, 255, 0.14),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 50% 42% at 92% 6%,
+      rgba(255, 255, 255, 0.08),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 65% 55% at 88% 96%,
+      rgba(0, 0, 0, 0.55),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 55% 48% at 6% 92%,
+      rgba(255, 255, 255, 0.07),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 85% 75% at 45% 48%,
+      rgba(255, 255, 255, 0.05),
+      transparent 72%
+    );
+  background-repeat: no-repeat;
+}
+
+.grain-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--noise);
+  background-size: 180px 180px;
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}

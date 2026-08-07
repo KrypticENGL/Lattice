@@ -9,10 +9,10 @@ import Footer from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div className="relative h-full bg-[var(--bg-base)]">
+    <div className="grain-bg relative h-full">
       <Navbar />
 
-      <div className="fixed inset-2.5 z-0 overflow-hidden rounded-[28px] border border-white/25 sm:inset-4">
+      <div className="grain-bg fixed inset-2.5 z-0 overflow-hidden rounded-[28px] border border-white/25 sm:inset-4">
         <div className="snap-container scrollbar-hide">
           <div className="snap-panel">
             <Hero />

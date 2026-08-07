@@ -8,22 +8,17 @@ export default function Hero() {
   return (
     <section
       id="top"
-      className="relative flex h-full items-center overflow-hidden bg-[var(--bg-base)] px-6 pt-24 pb-10 sm:px-10 sm:pt-28"
+      className="relative flex h-full items-center overflow-hidden px-6 pt-24 pb-10 sm:px-10 sm:pt-28"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 opacity-40"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-30"
         style={{
           backgroundImage:
             "radial-gradient(circle at 1px 1px, var(--hairline-strong) 1px, transparent 0)",
           backgroundSize: "28px 28px",
           maskImage: "radial-gradient(circle at 30% 30%, black, transparent 75%)",
         }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-32 right-[-10%] -z-10 h-[520px] w-[520px] rounded-full opacity-30 blur-[110px]"
-        style={{ background: "var(--accent-primary)" }}
       />
 
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
