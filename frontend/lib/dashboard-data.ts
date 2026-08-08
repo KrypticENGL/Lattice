@@ -93,3 +93,55 @@ export const STATS = [
   { label: "Traces run", value: "184", delta: "+27 this week" },
   { label: "Day streak", value: "6", delta: "Personal best: 11" },
 ];
+
+export type NotificationItem = {
+  id: string;
+  type: "reply" | "comment";
+  author: string;
+  postTitle: string;
+  excerpt: string;
+  time: string;
+};
+
+export const NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: "n1",
+    type: "reply",
+    author: "Priya N.",
+    postTitle: "Debugging cyclic references in a linked list",
+    excerpt: "This finally clicked once I saw the pointer swap step-by-step — thank you!",
+    time: "12m ago",
+  },
+  {
+    id: "n2",
+    type: "comment",
+    author: "Marcus O.",
+    postTitle: "Why does my BST rotation break the invariant?",
+    excerpt: "Have you checked whether the parent pointer gets updated after the rotation?",
+    time: "1h ago",
+  },
+  {
+    id: "n3",
+    type: "reply",
+    author: "Elena V.",
+    postTitle: "Visualizing Dijkstra without a priority queue",
+    excerpt: "Same trace, but with a plain array — helped me understand the O(V^2) case.",
+    time: "3h ago",
+  },
+  {
+    id: "n4",
+    type: "comment",
+    author: "Sam K.",
+    postTitle: "LRU cache eviction, step by step",
+    excerpt: "Could you post the trace for evicting the tail node too?",
+    time: "Yesterday",
+  },
+  {
+    id: "n5",
+    type: "reply",
+    author: "Diego R.",
+    postTitle: "Ring buffer wrap-around explained",
+    excerpt: "This is the clearest explanation of modulo indexing I've seen.",
+    time: "2 days ago",
+  },
+];
