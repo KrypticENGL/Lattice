@@ -56,6 +56,26 @@ body {
   height: 0;
 }
 
+/* Slim styled scrollbar for internally-scrollable panels that should
+   visibly indicate there's more content (e.g. the notifications list). */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
 /* Section-snap scroll container: each child section owns one full screen */
 .snap-container {
   height: 100%;

@@ -12,7 +12,7 @@ export default function Notifications() {
         </span>
       </div>
 
-      <ul className="mt-4 flex flex-col">
+      <ul className="scrollbar-thin mt-4 flex max-h-[440px] flex-col overflow-y-auto pr-1">
         {NOTIFICATIONS.map((n) => (
           <li
             key={n.id}
