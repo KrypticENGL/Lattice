@@ -37,20 +37,26 @@ export default async function YouPage() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[1fr_320px] xl:items-start">
-        <div className="flex flex-col gap-5">
-          <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[1fr_320px]">
+        <div className="flex min-h-0 flex-col gap-5">
+          <div className="grid shrink-0 gap-4 sm:grid-cols-3">
             {STATS.map((stat) => (
               <StatCard key={stat.label} {...stat} />
             ))}
           </div>
 
-          <ActivityHeatmap />
+          <div className="shrink-0">
+            <ActivityHeatmap />
+          </div>
 
-          <RecentTraces />
+          <div className="min-h-0 flex-1">
+            <RecentTraces />
+          </div>
         </div>
 
-        <Notifications />
+        <div className="min-h-0">
+          <Notifications />
+        </div>
       </div>
     </div>
   );

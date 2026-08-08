@@ -130,6 +130,46 @@ export const RECENT_TRACES: TraceRun[] = [
     ranAt: "Yesterday",
     accent: "#34d399",
   },
+  {
+    id: "t5",
+    structure: "HashMap<string, int>",
+    snippet: "counts['a'] = counts.get('a', 0) + 1",
+    steps: 4,
+    ranAt: "Yesterday",
+    accent: "#fbbf24",
+  },
+  {
+    id: "t6",
+    structure: "Stack<int>",
+    snippet: "stack.pop()",
+    steps: 3,
+    ranAt: "2 days ago",
+    accent: "var(--accent-secondary)",
+  },
+  {
+    id: "t7",
+    structure: "BinaryHeap<int>",
+    snippet: "heap.siftDown(0)",
+    steps: 11,
+    ranAt: "3 days ago",
+    accent: "var(--accent-primary)",
+  },
+  {
+    id: "t8",
+    structure: "Trie",
+    snippet: "node.children['e'] = TrieNode()",
+    steps: 8,
+    ranAt: "4 days ago",
+    accent: "#60a5fa",
+  },
+  {
+    id: "t9",
+    structure: "DoublyLinkedList<int>",
+    snippet: "node.prev.next = node.next",
+    steps: 6,
+    ranAt: "5 days ago",
+    accent: "#34d399",
+  },
 ];
 
 export const STATS = [

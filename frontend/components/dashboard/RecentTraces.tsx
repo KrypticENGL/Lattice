@@ -2,8 +2,8 @@ import { RECENT_TRACES } from "@/lib/dashboard-data";
 
 export default function RecentTraces() {
   return (
-    <div className="matte rounded-2xl p-4">
-      <div className="flex items-baseline justify-between">
+    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-4">
+      <div className="flex shrink-0 items-baseline justify-between">
         <h2 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
           Recent traces
         </h2>
@@ -12,7 +12,7 @@ export default function RecentTraces() {
         </span>
       </div>
 
-      <ul className="mt-2 flex flex-col">
+      <ul className="scrollbar-thin mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
         {RECENT_TRACES.map((t) => (
           <li
             key={t.id}
