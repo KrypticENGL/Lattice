@@ -4,6 +4,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import Notifications from "@/components/dashboard/Notifications";
 import CanvasesMenu from "@/components/dashboard/CanvasesMenu";
 import RecentTraces from "@/components/dashboard/RecentTraces";
+import MusicPlayer from "@/components/dashboard/MusicPlayer";
 import { STATS } from "@/lib/dashboard-data";
 
 export default async function YouPage() {
@@ -54,8 +55,14 @@ export default async function YouPage() {
           </div>
         </div>
 
-        <div className="min-h-0">
-          <Notifications />
+        <div className="flex min-h-0 flex-col gap-5">
+          <div className="shrink-0">
+            <Notifications />
+          </div>
+
+          <div className="min-h-0 flex-1">
+            <MusicPlayer />
+          </div>
         </div>
       </div>
     </div>
