@@ -92,9 +92,9 @@ export default function Sidebar() {
       <Link
         href="/"
         aria-label="Lattice home"
-        className="flex h-10 items-center justify-center gap-3 px-3 transition-colors hover:bg-white/5"
+        className="flex h-10 items-center gap-2 transition-colors hover:bg-white/5"
       >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+        <span className="flex h-10 w-[72px] shrink-0 items-center justify-center">
           <LogoMark />
         </span>
         <span className="max-w-0 overflow-hidden whitespace-nowrap font-serif text-[16px] font-semibold text-[var(--text-primary)] opacity-0 transition-all duration-300 group-hover:max-w-[120px] group-hover:opacity-100">
@@ -131,8 +131,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="flex h-10 items-center justify-center gap-3 px-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+      <div className="flex h-10 items-center gap-2">
+        <span className="flex h-10 w-[72px] shrink-0 items-center justify-center">
           <UserButton
             appearance={{
               elements: { avatarBox: { width: "32px", height: "32px" } },
