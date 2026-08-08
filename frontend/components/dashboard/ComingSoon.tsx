@@ -14,7 +14,7 @@ export default function ComingSoon({
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-16 text-center">
       <div
-        className="glass flex h-16 w-16 items-center justify-center rounded-2xl"
+        className="matte flex h-16 w-16 items-center justify-center rounded-2xl"
         style={{ color: "var(--accent-secondary)" }}
       >
         <span className="flex h-7 w-7 items-center justify-center">{icon}</span>
@@ -32,7 +32,7 @@ export default function ComingSoon({
         </p>
       </div>
 
-      <span className="glass rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+      <span className="matte rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
         In active development
       </span>
     </div>

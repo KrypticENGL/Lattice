@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import type { ReactNode } from "react";
 
 const ICON_PROPS = {
@@ -85,18 +85,24 @@ function LogoMark() {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user, isLoaded } = useUser();
 
   return (
-    <aside className="glass flex h-full w-[72px] shrink-0 flex-col items-center justify-between rounded-[28px] py-5 sm:w-20">
+    <aside className="matte group fixed top-4 bottom-4 left-4 z-30 flex w-[72px] flex-col justify-between overflow-hidden rounded-[28px] py-5 transition-[width] duration-300 ease-out hover:w-56 sm:top-6 sm:bottom-6 sm:left-6">
       <Link
         href="/"
         aria-label="Lattice home"
-        className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-white/5"
+        className="flex h-10 items-center gap-3 px-3 transition-colors hover:bg-white/5"
       >
-        <LogoMark />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+          <LogoMark />
+        </span>
+        <span className="max-w-0 overflow-hidden whitespace-nowrap font-serif text-[16px] font-semibold text-[var(--text-primary)] opacity-0 transition-all duration-300 group-hover:max-w-[120px] group-hover:opacity-100">
+          Lattice
+        </span>
       </Link>
 
-      <nav className="flex flex-col items-center gap-2">
+      <nav className="flex flex-col gap-2 px-3">
         {NAV.map((item) => {
           const active =
             item.href === "/dashboard"
@@ -108,32 +114,35 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               aria-label={item.label}
-              className="group relative flex h-11 w-11 items-center justify-center rounded-2xl transition-colors"
+              className="flex h-11 items-center gap-3 rounded-2xl px-3 transition-colors"
               style={{
                 background: active ? "var(--accent-primary)" : "transparent",
                 color: active ? "var(--bg-base)" : "var(--text-secondary)",
-                boxShadow: active ? "0 0 22px var(--accent-glow)" : "none",
               }}
             >
-              <span className="flex h-5 w-5 items-center justify-center transition-colors group-hover:text-[var(--text-primary)]">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                 {item.icon}
               </span>
-
-              <span className="pointer-events-none absolute right-[calc(100%+12px)] top-1/2 -translate-y-1/2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                <span className="glass block whitespace-nowrap rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)]">
-                  {item.label}
-                </span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[12px] uppercase tracking-wider opacity-0 transition-all duration-300 group-hover:max-w-[140px] group-hover:opacity-100">
+                {item.label}
               </span>
             </Link>
           );
         })}
       </nav>
 
-      <UserButton
-        appearance={{
-          elements: { avatarBox: { width: "38px", height: "38px" } },
-        }}
-      />
+      <div className="flex h-10 items-center gap-3 px-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+          <UserButton
+            appearance={{
+              elements: { avatarBox: { width: "32px", height: "32px" } },
+            }}
+          />
+        </span>
+        <span className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[12px] text-[var(--text-secondary)] opacity-0 transition-all duration-300 group-hover:max-w-[140px] group-hover:opacity-100">
+          {isLoaded ? (user?.firstName ?? "Account") : ""}
+        </span>
+      </div>
     </aside>
   );
 }

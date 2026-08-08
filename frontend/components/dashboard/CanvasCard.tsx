@@ -17,7 +17,7 @@ export default function CanvasCard({ canvas }: { canvas: Canvas }) {
   return (
     <button
       type="button"
-      className="glass group flex flex-col overflow-hidden rounded-2xl text-left transition-transform hover:-translate-y-0.5"
+      className="matte group flex flex-col overflow-hidden rounded-2xl text-left transition-transform hover:-translate-y-0.5"
     >
       <div className="relative h-28 border-b border-[var(--hairline)] px-4">
         <svg viewBox="0 0 140 80" className="h-full w-full" aria-hidden="true">

@@ -160,6 +160,13 @@ body {
   pointer-events: none;
 }
 
+/* Matte dashboard surface — flat and solid, no blur or gradient sheen.
+   Deliberate contrast to the public site's Liquid Glass treatment. */
+.matte {
+  background: var(--bg-surface);
+  border: 1px solid var(--hairline);
+}
+
 .text-balance {
   text-wrap: balance;
 }

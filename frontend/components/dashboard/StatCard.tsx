@@ -8,7 +8,7 @@ export default function StatCard({
   delta: string;
 }) {
   return (
-    <div className="glass rounded-2xl p-5">
+    <div className="matte rounded-2xl p-5">
       <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
         {label}
       </p>

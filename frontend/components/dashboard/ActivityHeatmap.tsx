@@ -16,7 +16,7 @@ export default function ActivityHeatmap() {
   const activeDays = weeks.flat().filter((d) => d.count > 0).length;
 
   return (
-    <div className="glass rounded-2xl p-5 sm:p-6">
+    <div className="matte rounded-2xl p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-serif text-[19px] font-bold text-[var(--text-primary)]">
           Activity

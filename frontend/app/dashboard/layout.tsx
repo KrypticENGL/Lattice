@@ -9,11 +9,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   return (
-    <div className="grain-bg relative flex h-full gap-4 p-4 sm:gap-6 sm:p-6">
-      <main className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
+    <div className="relative h-full bg-[var(--bg-base)] p-4 sm:p-6">
+      <Sidebar />
+      <main className="scrollbar-hide h-full min-h-0 overflow-y-auto pl-[92px] sm:pl-[104px]">
         {children}
       </main>
-      <Sidebar />
     </div>
   );
 }
