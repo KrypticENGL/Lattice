@@ -3,6 +3,7 @@ import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
 import StatCard from "@/components/dashboard/StatCard";
 import Notifications from "@/components/dashboard/Notifications";
 import CanvasesMenu from "@/components/dashboard/CanvasesMenu";
+import RecentTraces from "@/components/dashboard/RecentTraces";
 import { STATS } from "@/lib/dashboard-data";
 
 export default async function YouPage() {
@@ -10,7 +11,7 @@ export default async function YouPage() {
   const name = user?.firstName ?? "there";
 
   return (
-    <div className="mx-auto flex h-full max-w-7xl flex-col gap-6">
+    <div className="mx-auto flex h-full max-w-7xl flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
@@ -36,8 +37,8 @@ export default async function YouPage() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 xl:grid-cols-[1fr_320px] xl:items-start">
-        <div className="flex flex-col gap-6">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[1fr_320px] xl:items-start">
+        <div className="flex flex-col gap-5">
           <div className="grid gap-4 sm:grid-cols-3">
             {STATS.map((stat) => (
               <StatCard key={stat.label} {...stat} />
@@ -45,6 +46,8 @@ export default async function YouPage() {
           </div>
 
           <ActivityHeatmap />
+
+          <RecentTraces />
         </div>
 
         <Notifications />

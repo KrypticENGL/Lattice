@@ -88,6 +88,50 @@ export const CANVASES: Canvas[] = [
   },
 ];
 
+export type TraceRun = {
+  id: string;
+  structure: string;
+  snippet: string;
+  steps: number;
+  ranAt: string;
+  accent: string;
+};
+
+export const RECENT_TRACES: TraceRun[] = [
+  {
+    id: "t1",
+    structure: "LinkedList<int>",
+    snippet: "head.next.next = Node(1)",
+    steps: 9,
+    ranAt: "18m ago",
+    accent: "var(--accent-secondary)",
+  },
+  {
+    id: "t2",
+    structure: "TreeNode",
+    snippet: "root.left.right = TreeNode(12)",
+    steps: 13,
+    ranAt: "1h ago",
+    accent: "var(--accent-primary)",
+  },
+  {
+    id: "t3",
+    structure: "Graph<string>",
+    snippet: "graph.addEdge('a', 'c')",
+    steps: 7,
+    ranAt: "4h ago",
+    accent: "#60a5fa",
+  },
+  {
+    id: "t4",
+    structure: "RingBuffer<int>",
+    snippet: "buffer.push(42)",
+    steps: 5,
+    ranAt: "Yesterday",
+    accent: "#34d399",
+  },
+];
+
 export const STATS = [
   { label: "Canvases created", value: "12", delta: "+3 this week" },
   { label: "Traces run", value: "184", delta: "+27 this week" },
