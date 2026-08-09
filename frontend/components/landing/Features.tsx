@@ -20,7 +20,7 @@ const FEATURES = [
   {
     title: "Language-agnostic trace",
     body: "Every tracer emits the same JSON schema. New languages plug into the same visualizer with zero frontend changes.",
-    color: "#60a5fa",
+    color: "#c2703d",
     icon: (
       <path
         d="M3 8h12M3 4h12M3 12h7"
@@ -33,7 +33,7 @@ const FEATURES = [
   {
     title: "Sandboxed & isolated",
     body: "No network, read-only filesystem, capped CPU and memory. Untrusted code never touches your infrastructure.",
-    color: "#fbbf24",
+    color: "#e8993d",
     icon: (
       <path
         d="M8 2l5 2v4c0 4-2.5 5.6-5 6.5C5.5 13.6 3 12 3 8V4l5-2z"

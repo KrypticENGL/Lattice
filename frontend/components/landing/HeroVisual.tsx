@@ -8,18 +8,18 @@ type EdgeDef = { x1: number; y1: number; x2: number; y2: number };
 type ShapeDef = { name: string; nodes: NodeDef[]; edges: EdgeDef[] };
 
 const ACCENT = "var(--accent-primary)";
-const CYAN = "var(--accent-secondary)";
-const PINK = "#f472b6";
-const BLUE = "#60a5fa";
-const GREEN = "#34d399";
-const AMBER = "#fbbf24";
+const GOLD = "var(--accent-secondary)";
+const PEACH = "#f4b183";
+const RUST = "#c2703d";
+const SIENNA = "#b5651d";
+const AMBER = "#e8993d";
 
 const SHAPES: ShapeDef[] = [
   {
     name: "LinkedList<int>",
     nodes: [
-      { cx: 55, cy: 150, label: "3", color: CYAN },
-      { cx: 172, cy: 150, label: "7", color: BLUE },
+      { cx: 55, cy: 150, label: "3", color: GOLD },
+      { cx: 172, cy: 150, label: "7", color: RUST },
       { cx: 289, cy: 150, label: "1", color: AMBER },
       { cx: 400, cy: 150, label: "9", color: ACCENT },
     ],
@@ -33,9 +33,9 @@ const SHAPES: ShapeDef[] = [
     name: "TreeNode",
     nodes: [
       { cx: 220, cy: 48, label: "8", color: AMBER },
-      { cx: 128, cy: 128, label: "4", color: CYAN },
-      { cx: 312, cy: 128, label: "12", color: BLUE },
-      { cx: 260, cy: 218, label: "10", color: GREEN },
+      { cx: 128, cy: 128, label: "4", color: GOLD },
+      { cx: 312, cy: 128, label: "12", color: RUST },
+      { cx: 260, cy: 218, label: "10", color: SIENNA },
       { cx: 364, cy: 218, label: "15", color: ACCENT },
     ],
     edges: [
@@ -48,12 +48,12 @@ const SHAPES: ShapeDef[] = [
   {
     name: "Graph",
     nodes: [
-      { cx: 62, cy: 78, label: "a", color: CYAN },
-      { cx: 196, cy: 46, label: "b", color: BLUE },
+      { cx: 62, cy: 78, label: "a", color: GOLD },
+      { cx: 196, cy: 46, label: "b", color: RUST },
       { cx: 340, cy: 84, label: "c", color: AMBER },
       { cx: 396, cy: 190, label: "d", color: ACCENT },
-      { cx: 250, cy: 232, label: "e", color: GREEN },
-      { cx: 96, cy: 206, label: "f", color: PINK },
+      { cx: 250, cy: 232, label: "e", color: SIENNA },
+      { cx: 96, cy: 206, label: "f", color: PEACH },
     ],
     edges: [
       { x1: 82, y1: 65, x2: 178, y2: 52 },

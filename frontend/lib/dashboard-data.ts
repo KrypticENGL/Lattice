@@ -75,7 +75,7 @@ export const CANVASES: Canvas[] = [
     structure: "Weighted graph",
     nodes: 12,
     editedAt: "3 days ago",
-    accent: "#60a5fa",
+    accent: "#c2703d",
   },
   {
     id: "c4",
@@ -84,7 +84,7 @@ export const CANVASES: Canvas[] = [
     structure: "Circular buffer",
     nodes: 6,
     editedAt: "1 week ago",
-    accent: "#34d399",
+    accent: "#b5651d",
   },
 ];
 
@@ -120,7 +120,7 @@ export const RECENT_TRACES: TraceRun[] = [
     snippet: "graph.addEdge('a', 'c')",
     steps: 7,
     ranAt: "4h ago",
-    accent: "#60a5fa",
+    accent: "#c2703d",
   },
   {
     id: "t4",
@@ -128,7 +128,7 @@ export const RECENT_TRACES: TraceRun[] = [
     snippet: "buffer.push(42)",
     steps: 5,
     ranAt: "Yesterday",
-    accent: "#34d399",
+    accent: "#b5651d",
   },
   {
     id: "t5",
@@ -136,7 +136,7 @@ export const RECENT_TRACES: TraceRun[] = [
     snippet: "counts['a'] = counts.get('a', 0) + 1",
     steps: 4,
     ranAt: "Yesterday",
-    accent: "#fbbf24",
+    accent: "#e8993d",
   },
   {
     id: "t6",
@@ -160,7 +160,7 @@ export const RECENT_TRACES: TraceRun[] = [
     snippet: "node.children['e'] = TrieNode()",
     steps: 8,
     ranAt: "4 days ago",
-    accent: "#60a5fa",
+    accent: "#c2703d",
   },
   {
     id: "t9",
@@ -168,7 +168,7 @@ export const RECENT_TRACES: TraceRun[] = [
     snippet: "node.prev.next = node.next",
     steps: 6,
     ranAt: "5 days ago",
-    accent: "#34d399",
+    accent: "#b5651d",
   },
 ];
 

@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 
 const KEYWORD = "var(--accent-primary)";
 const NAME = "var(--accent-secondary)";
-const SELF = "#60a5fa";
-const NUMBER = "#fbbf24";
+const SELF = "#c2703d";
+const NUMBER = "#e8993d";
 
 const CODE_LINES: ReactNode[] = [
   <>
@@ -48,8 +48,8 @@ const CODE_LINES: ReactNode[] = [
 
 const NODES = [
   { x: 30, y: 60, label: "3", color: "var(--accent-secondary)" },
-  { x: 130, y: 60, label: "7", color: "#60a5fa" },
-  { x: 230, y: 60, label: "1", color: "#fbbf24" },
+  { x: 130, y: 60, label: "7", color: "#c2703d" },
+  { x: 230, y: 60, label: "1", color: "#e8993d" },
   { x: 320, y: 60, label: "9", color: "var(--accent-primary)" },
 ];
 
