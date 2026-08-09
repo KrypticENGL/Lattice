@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.7.0",
+    "@monaco-editor/react": "^4.7.0",
     "animejs": "^4.5.0",
     "framer-motion": "^13.0.0",
+    "monaco-editor": "^0.50.0",
+    "monaco-vim": "^0.4.4",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
