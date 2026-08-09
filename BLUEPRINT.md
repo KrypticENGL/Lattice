@@ -9,6 +9,13 @@ a generic simulation of "how a linked list works"), every snippet produces a
 visualization that is accurate to *that specific code* — its bugs, its edge
 cases, its exact control flow.
 
+That trace engine is now one of five sections inside an authenticated
+product surface — the **Workstation** (`/dashboard`, gated by Clerk) — which
+also gives users a personal home, a visual node-graph code builder, a
+community space for sharing traces and write-ups, and an AI assistant
+grounded in the user's own trace/canvas data. §4 covers the Workstation as a
+whole; §10 covers the database that the community layer (Posts) needs.
+
 This document is both the architecture reference and the build roadmap.
 Read top to bottom the first time; come back to individual sections as you
 implement them.
@@ -39,7 +46,9 @@ This gives three big wins:
    thing that touches untrusted code never touches your rendering stack,
    your database, or the internet.
 
-Everything else in this document exists in service of that one idea.
+Everything else in this document exists in service of that one idea — it's
+the engine behind the Workstation's **Visualizer** section (§4.2) and the
+data other sections (Canvas, Posts) are built around.
 
 ---
 
@@ -48,23 +57,25 @@ Everything else in this document exists in service of that one idea.
 | Layer | Choice | Why |
 |---|---|---|
 | Frontend framework | **Next.js 16 (App Router) + React 19** | already scaffolded in `frontend/`; SSR for fast first paint of the editor shell, client components for the interactive visualizer |
-| Frontend language | **TypeScript** | trace schema is shared/typed end-to-end (see §7) |
+| Frontend language | **TypeScript** | trace schema is shared/typed end-to-end (see §8) |
 | Styling | **Tailwind CSS v4** | already scaffolded |
+| Auth | **Clerk** (`@clerk/nextjs`) | already scaffolded; `auth()` + `redirectToSignIn()` gate every route under `/dashboard` (`app/dashboard/layout.tsx`), `UserButton` handles account/session UI in the sidebar |
 | Code editor | **Monaco Editor** (`@monaco-editor/react`) | same editor VS Code uses; free syntax highlighting, minimap, per-language modes |
-| Diagram rendering | **React Flow** (node-link/graph views) + **d3-hierarchy** (tree layout) + hand-rolled SVG/Canvas components for arrays, stacks, hashmaps | node-link diagrams need real graph layout (React Flow + elkjs/dagre); linear structures don't — a plain flex/SVG row is faster and clearer |
-| Animation | **Framer Motion** | smooth diffed transitions between trace steps (a node moving, a pointer re-targeting) |
-| Backend framework | **Rust + Tokio + Axum 0.8** | already scaffolded in `backend/`; Axum has first-class WebSocket support for streaming trace steps |
-| Serialization | **serde / serde_json** | already scaffolded; canonical trace schema lives here (§7) |
+| Diagram rendering | **React Flow** (node-link/graph views) + **d3-hierarchy** (tree layout) + hand-rolled SVG/Canvas components for arrays, stacks, hashmaps | node-link diagrams need real graph layout (React Flow + elkjs/dagre); linear structures don't — a plain flex/SVG row is faster and clearer; React Flow also underpins the **Canvas** node-graph builder (§4.3) |
+| Animation | **Framer Motion** | smooth diffed transitions between trace steps (a node moving, a pointer re-targeting); already used for the landing page |
+| Backend framework | **Rust + Tokio + Axum 0.8** | already scaffolded in `backend/` (currently just `main.rs` — everything else in this table is planned); Axum has first-class WebSocket support for streaming trace steps |
+| Serialization | **serde / serde_json** | already scaffolded; canonical trace schema lives here (§8) |
 | Container/sandbox orchestration | **bollard** (async Docker Engine API client for Rust) | lets the Tokio backend spawn/kill/stream logs from sandbox containers without shelling out |
-| Sandbox runtime | **Docker + gVisor (`runsc`)**, see §5 | strong syscall-level isolation with a well-trodden ops path; Firecracker microVMs as a later upgrade if isolation requirements grow |
+| Sandbox runtime | **Docker + gVisor (`runsc`)**, see §6 | strong syscall-level isolation with a well-trodden ops path; Firecracker microVMs as a later upgrade if isolation requirements grow |
 | Job queue | **Tokio mpsc channel + bounded worker pool** (in-process) initially; **Redis + a proper queue** (e.g. via `deadpool-redis`) once you need multi-instance scaling | don't build distributed infra before you need it |
 | Observability | **tracing** + **tracing-subscriber** (already scaffolded) → later **OpenTelemetry** export | structured logs from day one, minimal lift to add metrics/traces later |
-| Tracer harnesses (run *inside* the sandbox, not the backend) | **Python: `sys.settrace`**, **JavaScript: Babel/SWC AST instrumentation → V8 inspector later** | see §6 |
-| Persistence (Phase 3+) | **Postgres** via `sqlx`, for saved/shareable traces | not needed for MVP — traces can be fully stateless request→response |
+| Tracer harnesses (run *inside* the sandbox, not the backend) | **Python: `sys.settrace`**, **JavaScript: Babel/SWC AST instrumentation → V8 inspector later** | see §7 |
+| Persistence | **Postgres** via `sqlx` | backs saved canvases and trace runs, *and* the Posts/Comments/Notifications community layer (§10) — not needed for the bare trace pipeline (§9 MVP contract is stateless), but load-bearing the moment Posts, the Canvases quick-switcher, or Recent Traces stop reading mock data |
+| AI assistant | **Hermes-based agent pipeline** (§4.5) | reads the user's current trace + canvas + question together, so answers are grounded in *this* execution, not a generic textbook explanation |
 
 ---
 
-## 3. System architecture
+## 3. System architecture (trace pipeline)
 
 ```mermaid
 flowchart LR
@@ -106,7 +117,7 @@ flowchart LR
    the user's code under instrumentation and writes one JSON object per
    step to stdout (newline-delimited JSON).
 5. The orchestrator streams stdout, parses each line against the trace
-   schema, enforces the step/time/output caps (§5.3), and kills the
+   schema, enforces the step/time/output caps (§6.3), and kills the
    container the instant any cap is hit.
 6. Backend returns the full array of trace steps (or streams it — see
    Phase 2) to the browser.
@@ -114,54 +125,171 @@ flowchart LR
    moving forward/back just changes which step's heap snapshot is shown,
    with Framer Motion animating the diff between consecutive steps.
 
+This diagram covers *one* section of the Workstation (the Visualizer). §4
+below is the map of everything else the product now includes.
+
 ---
 
-## 4. Repository layout
+## 4. Product surface: the Workstation
 
-Building on what already exists:
+Everything under `/dashboard` is gated by Clerk (`app/dashboard/layout.tsx`
+calls `auth()` and redirects anonymous visitors to sign-in). Once inside, a
+collapsible sidebar (`components/dashboard/Sidebar.tsx`) is the only
+navigation — five sections, in the order they appear:
+
+```mermaid
+flowchart TB
+    Sidebar["Sidebar nav\n(collapsed icon rail, expands on hover)"]
+    Sidebar --> You["You\n/dashboard\nBUILT (mock data)"]
+    Sidebar --> Visualizer["Visualizer\n/dashboard/visualizer\nComingSoon placeholder"]
+    Sidebar --> Canvas["Canvas\n/dashboard/canvas\nComingSoon placeholder"]
+    Sidebar --> Posts["Posts\n/dashboard/posts\nComingSoon placeholder"]
+    Sidebar --> AI["Ask Our AI\n/dashboard/ai\nComingSoon placeholder"]
+
+    Visualizer -.->|"trace of a run"| You
+    Canvas -.->|"graph → generated code, then run"| Visualizer
+    Visualizer -.->|"attach a trace"| Posts
+    Canvas -.->|"attach a canvas"| Posts
+    Posts -.->|"replies/comments"| Notif["Notifications\n(You page widget)"]
+    Visualizer -.->|"trace + question"| AI
+    Canvas -.->|"canvas + question"| AI
+```
+
+Status today: only **You** is built against real UI (still backed by mock
+arrays in `lib/dashboard-data.ts`, see §10). The other four routes render
+the shared `ComingSoon` component with section-specific copy — they're
+placeholders that already define the product's scope, not yet its
+implementation.
+
+### 4.1 You — personal home (built)
+
+`app/dashboard/page.tsx`. The landing screen after sign-in:
+
+- **Stat cards** (`StatCard.tsx`) — canvases created, traces run, day streak.
+- **Activity heatmap** (`ActivityHeatmap.tsx`) — GitHub-style 18-week grid,
+  driven by `getActivityWeeks()`.
+- **Recent traces** (`RecentTraces.tsx`) — scrollable list of the user's
+  last trace runs (structure, snippet, step count, when).
+- **Notifications** (`Notifications.tsx`) — replies/comments on the user's
+  Posts (§4.4), the same shape as `NOTIFICATIONS` in §10's data model.
+- **Canvases quick-switcher** (`CanvasesMenu.tsx`) — searchable dropdown
+  over the user's saved canvases; "+ New canvas" sits next to it.
+- **Music widget** (`MusicPlayer.tsx`) — local audio file playback (works
+  today, purely client-side, no persistence) plus a disabled "Connect
+  Spotify" stub pending OAuth credentials. This is a personal-workspace
+  touch, not core to the trace/visualization product — see §13's open
+  question on whether it warrants backend state at all.
+
+All five widgets currently read static arrays from `lib/dashboard-data.ts`.
+That file is the seam to replace with real API calls once §10 and §11 land.
+
+### 4.2 Visualizer — code to diagram
+
+`app/dashboard/visualizer/page.tsx` (currently `ComingSoon`). This is where
+§1–§3's Monaco editor + trace playback UI lands — the same engine that
+powers the landing page's static `CodeShowcase` demo, but interactive and
+built into the authenticated workspace. Phase 1/2 of the roadmap (§12)
+build this.
+
+### 4.3 Canvas — diagram to code
+
+`app/dashboard/canvas/page.tsx` (currently `ComingSoon`). The inverse of
+the Visualizer: a free-form node-graph workspace where the user drags out
+nodes representing data structures and operations, wires up connections,
+and Lattice **generates real, runnable source** from that graph — which can
+then be fed straight into the Visualizer's execute pipeline (§3) to trace
+and animate what the generated code actually does. This is a new
+capability with no analog in the original trace-only design; it needs its
+own scoped node vocabulary (see §13) before implementation, because
+"drag-and-drop general-purpose programming" is an unbounded problem —
+v1 should cover the same structures the Visualizer already understands
+(arrays, linked lists, trees, graphs, hashmaps) and their basic operations,
+not arbitrary control flow.
+
+### 4.4 Posts — community write-ups
+
+`app/dashboard/posts/page.tsx` (currently `ComingSoon`). A space for users
+to publish traces, write-ups, and patterns they've found, with threaded
+comments/replies and notifications back to the author — "so the next
+person debugging the same linked list bug doesn't start from zero." Unlike
+the Visualizer and Canvas, this section is inherently persistent (posts,
+comments, and notifications all outlive a single session), which is why
+§10 designs its database schema now, ahead of implementation.
+
+### 4.5 Ask Our AI — Hermes
+
+`app/dashboard/ai/page.tsx` (currently `ComingSoon`). An agent pipeline,
+built on Hermes, that reads the user's current trace *and* canvas *and*
+question together, so it can explain *why a specific pointer moved in this
+run*, not recite a generic "how a linked list works" explanation. The
+grounding data is exactly the `TraceEvent[]` (§8) and canvas graph (§10)
+the user is already looking at — the assistant should never answer from
+general knowledge about the algorithm when it has the user's actual
+execution available, and should say so explicitly when neither is loaded
+rather than guessing.
+
+---
+
+## 5. Repository layout
+
+Reflecting what's actually built today vs. planned:
 
 ```
 Lattice/
-  frontend/                     # Next.js app (exists)
+  frontend/                       # Next.js app (exists)
     app/
-      editor/                   # code input + language picker
-      visualizer/               # canvas + playback controls
+      layout.tsx                   # ClerkProvider, fonts, global shell
+      page.tsx                     # public landing page
+      dashboard/                   # the Workstation — gated by Clerk (§4)
+        layout.tsx                  # auth() gate + Sidebar
+        page.tsx                    # You — personal home (BUILT, §4.1)
+        visualizer/page.tsx         # code → trace → diagram (ComingSoon, §4.2)
+        canvas/page.tsx             # node-graph → code builder (ComingSoon, §4.3)
+        posts/page.tsx              # community write-ups (ComingSoon, §4.4)
+        ai/page.tsx                 # Ask Our AI / Hermes (ComingSoon, §4.5)
     components/
-      viz/                      # ArrayView, LinkedListView, TreeView,
-                                 # GraphView, HashMapView, StackView, …
+      landing/                     # Hero, Navbar, Features, CodeShowcase, … (public site)
+      dashboard/                   # Sidebar, StatCard, ActivityHeatmap, RecentTraces,
+                                    # Notifications, CanvasesMenu, MusicPlayer, ComingSoon
+      viz/                         # NOT YET BUILT — ArrayView, LinkedListView, TreeView,
+                                    # GraphView, HashMapView, StackView, … (§9)
     lib/
-      trace-schema/              # TS types generated from the Rust schema (§7)
-      shape-detection.ts          # heap → "this looks like a linked list" heuristics
+      dashboard-data.ts             # mock data behind the You page — swap for real API
+                                     # calls once §10/§11 land
+      clerk-appearance.ts           # Clerk theme, matched to the site's design system
+      scroll-to-section.ts
+      trace-schema/                 # NOT YET BUILT — TS types generated from the Rust schema (§8)
+      shape-detection.ts            # NOT YET BUILT — heap → "this looks like a linked list"
 
-  backend/                       # Rust + Axum API (exists)
+  backend/                         # Rust + Axum API (exists — currently just main.rs)
     src/
       main.rs
-      api/                       # route handlers (execute, health, ws)
-      sandbox/                   # container spawn/kill/limit enforcement (bollard)
-      trace/                     # canonical trace-event serde types (source of truth)
-      queue/                     # job queue / worker pool
+      api/                          # NOT YET BUILT — route handlers: execute, health, ws,
+                                     # posts, comments, notifications, ask (§11)
+      sandbox/                      # NOT YET BUILT — container spawn/kill/limit enforcement
+      trace/                        # NOT YET BUILT — canonical trace-event serde types (§8)
+      queue/                        # NOT YET BUILT — job queue / worker pool
+      db/                           # NOT YET BUILT — sqlx models + migrations for §10
 
-  tracers/                       # NEW — instrumentation harnesses that run
-                                  # *inside* the sandbox, one per language
-    python/tracer.py             # sys.settrace-based
-    javascript/tracer.mjs        # Babel/SWC-instrumented
+  tracers/                         # NOT YET BUILT — one per language (§7)
+    python/tracer.py                # sys.settrace-based
+    javascript/tracer.mjs           # Babel/SWC-instrumented
 
-  sandbox-images/                # NEW — one minimal Dockerfile per language
+  sandbox-images/                  # NOT YET BUILT — one minimal Dockerfile per language
     python.Dockerfile
     javascript.Dockerfile
 
-  docs/
-    BLUEPRINT.md                 # this file
+  BLUEPRINT.md                     # this file
 ```
 
 ---
 
-## 5. Sandbox & security design
+## 6. Sandbox & security design
 
 Running arbitrary user-submitted code is the single highest-risk part of
 this system. Treat it as hostile by default.
 
-### 5.1 Isolation layers (defense in depth)
+### 6.1 Isolation layers (defense in depth)
 
 | Layer | Setting |
 |---|---|
@@ -175,7 +303,7 @@ this system. Treat it as hostile by default.
 | PIDs | `--pids-limit=64` — blocks fork bombs |
 | Lifetime | container is created fresh per execution and destroyed immediately after — never reused, never holds state between requests |
 
-### 5.2 Why gVisor over plain Docker or bare Firecracker (for now)
+### 6.2 Why gVisor over plain Docker or bare Firecracker (for now)
 
 - Plain `runc` containers share the host kernel directly — a kernel exploit
   in the sandboxed process is a host compromise. Not acceptable for
@@ -191,7 +319,7 @@ this system. Treat it as hostile by default.
   gVisor; revisit Firecracker only if you need multi-tenant isolation at
   serious scale (Phase 4+).**
 
-### 5.3 Runaway-execution protection (infinite loops, huge allocations)
+### 6.3 Runaway-execution protection (infinite loops, huge allocations)
 
 A resource-limited container is not enough by itself — a tight infinite
 loop can still burn its full timeout before you notice, and a
@@ -208,7 +336,7 @@ to report. Enforce limits at **every** layer:
 3. **Output byte cap** — stop reading stdout and kill the container once
    trace output exceeds a size limit (protects against a step emitting a
    huge object every iteration).
-4. **cgroup memory limit** (5.1) as the final backstop — if all else fails,
+4. **cgroup memory limit** (6.1) as the final backstop — if all else fails,
    the kernel OOM-kills the container, and the orchestrator reports a clean
    "memory limit exceeded" error instead of hanging.
 
@@ -219,13 +347,13 @@ exception.
 
 ---
 
-## 6. Language tracers
+## 7. Language tracers
 
 Each tracer is a small, language-native program that runs *inside* the
 sandbox alongside the user's code, single-steps or hooks execution, and
-emits one canonical trace event (§7) per step to stdout.
+emits one canonical trace event (§8) per step to stdout.
 
-### 6.1 Python — first language, `sys.settrace`
+### 7.1 Python — first language, `sys.settrace`
 
 CPython exposes a native line-level trace hook. The tracer:
 
@@ -243,7 +371,7 @@ Python is the first target because its reflection is native, its debug
 hooks are stable across versions, and it's the language most learners
 write data-structure code in.
 
-### 6.2 JavaScript/TypeScript — second language
+### 7.2 JavaScript/TypeScript — second language
 
 Two viable approaches, in order of implementation cost:
 
@@ -258,7 +386,7 @@ Two viable approaches, in order of implementation cost:
   engineering effort. Worth it once AST instrumentation's edge cases start
   showing up (e.g. generators, `async`/`await` ordering).
 
-### 6.3 Future languages (Phase 3+)
+### 7.3 Future languages (Phase 3+)
 
 - **Java**: JDI (Java Debug Interface) — mature, purpose-built for exactly
   this.
@@ -274,18 +402,21 @@ Two viable approaches, in order of implementation cost:
   milestone.
 
 Every tracer, regardless of language, must obey the same contract: emit
-newline-delimited JSON conforming to §7, respect the step cap from §5.3,
+newline-delimited JSON conforming to §8, respect the step cap from §6.3,
 and never require network or filesystem access beyond its own scratch
 space.
 
 ---
 
-## 7. The trace event schema (the contract that makes this all work)
+## 8. The trace event schema (the contract that makes this all work)
 
 This schema is the seam between "language-specific tracer" and
 "language-agnostic everything else." Define it once in Rust (`backend/src/trace/`)
 as the source of truth, and generate the matching TypeScript types (via
 `ts-rs` or `specta`) so frontend and backend can never drift apart silently.
+It also doubles as the persisted shape of a `trace_runs.trace_data` row
+(§10) — a saved/shared trace is literally this same array, not a separate
+export format.
 
 ```jsonc
 {
@@ -325,14 +456,14 @@ Key design choices:
   animate) — this keeps the tracer simple and each event self-contained,
   which matters a lot if you add step-streaming or seeking later.
 - **`type` field drives shape detection.** The frontend's shape-detection
-  layer (§8) uses `type` plus field names as hints ("has `next`, and
+  layer (§9) uses `type` plus field names as hints ("has `next`, and
   exactly one such field per node → linked list candidate") but always
   falls back to a generic node-link view, so *nothing* in the heap can ever
   fail to render, even a structure the shape-detector doesn't recognize.
 
 ---
 
-## 8. Visualization design
+## 9. Visualization design
 
 Two layers on the frontend:
 
@@ -370,9 +501,140 @@ fade in/out on alloc/dealloc).
 
 ---
 
-## 9. API contract
+## 10. Data model: Users, Canvases, Traces & Posts
 
-**MVP (synchronous):**
+Everything in this section backs the parts of the Workstation that are
+inherently persistent — the You page's Recent Traces / Canvases
+quick-switcher / Notifications widgets (currently mock arrays in
+`lib/dashboard-data.ts`), and, primarily, **Posts** (§4.4), which cannot
+exist without a database: a post, its comments, and the notifications it
+generates all have to outlive the browser tab that created them.
+
+### 10.1 Entity-relationship diagram
+
+```mermaid
+erDiagram
+    USERS ||--o{ CANVASES : owns
+    USERS ||--o{ TRACE_RUNS : owns
+    USERS ||--o{ POSTS : authors
+    USERS ||--o{ COMMENTS : authors
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ NOTIFICATIONS : triggers
+    CANVASES |o--o{ TRACE_RUNS : "produced by running"
+    TRACE_RUNS |o--o{ POSTS : "attached to"
+    CANVASES |o--o{ POSTS : "attached to"
+    POSTS ||--o{ COMMENTS : has
+    COMMENTS |o--o{ COMMENTS : "replied to by"
+    POSTS ||--o{ NOTIFICATIONS : concerns
+    COMMENTS |o--o{ NOTIFICATIONS : concerns
+
+    USERS {
+        uuid id PK
+        text clerk_user_id UK "synced from Clerk via webhook"
+        text username UK
+        text display_name
+        text avatar_url
+        timestamptz created_at
+    }
+
+    CANVASES {
+        uuid id PK
+        uuid owner_id FK
+        text name
+        text language "python | javascript"
+        text structure "e.g. Doubly linked list + hash map"
+        jsonb graph_data "node/edge definition, §4.3"
+        int node_count
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    TRACE_RUNS {
+        uuid id PK
+        uuid owner_id FK
+        uuid canvas_id FK "nullable — trace may come from ad-hoc code, not a saved canvas"
+        text language
+        text source_code
+        text structure "detected shape label, e.g. LinkedList<int>"
+        text snippet "display snippet, e.g. head.next.next = Node(1)"
+        int step_count
+        jsonb trace_data "TraceEvent[] — same shape as §8, no separate export format"
+        timestamptz ran_at
+    }
+
+    POSTS {
+        uuid id PK
+        uuid author_id FK
+        uuid trace_run_id FK "nullable"
+        uuid canvas_id FK "nullable"
+        text title
+        text body "markdown"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    COMMENTS {
+        uuid id PK
+        uuid post_id FK
+        uuid author_id FK
+        uuid parent_comment_id FK "nullable — null = top-level comment, set = reply"
+        text body
+        timestamptz created_at
+    }
+
+    NOTIFICATIONS {
+        uuid id PK
+        uuid recipient_id FK
+        uuid actor_id FK
+        text type "reply | comment"
+        uuid post_id FK
+        uuid comment_id FK "nullable"
+        timestamptz read_at "nullable"
+        timestamptz created_at
+    }
+```
+
+### 10.2 Design choices
+
+- **`users` denormalizes Clerk identity** (`clerk_user_id`) instead of
+  treating Clerk as the runtime source of truth for every query. Sync it
+  via a Clerk webhook (`user.created` / `user.updated`) so Postgres foreign
+  keys never depend on a live Clerk API call. This row is what every other
+  table's `owner_id` / `author_id` / `recipient_id` / `actor_id` points at.
+- **Comments self-reference for replies.** `parent_comment_id` is nullable
+  on the same table rather than a separate `replies` table — a null parent
+  is a top-level comment on a post, a non-null parent is a reply to another
+  comment. This directly matches the two `NotificationItem.type` values
+  already defined in `lib/dashboard-data.ts` today: `"comment"` (new
+  top-level comment on your post) vs. `"reply"` (someone replied to your
+  comment).
+- **Posts optionally attach a trace or a canvas, not both required.** The
+  Posts placeholder copy is "share traces, write-ups, and patterns" — a
+  post can be pure text, or have a `trace_run_id` / `canvas_id` pointing at
+  a specific execution or diagram the write-up is about. Both FKs are
+  nullable and independent (a post could in principle reference both — e.g.
+  "here's the canvas I built, and the trace of running it").
+- **`trace_runs.trace_data` reuses the §8 schema verbatim.** A "shareable
+  trace" is not a new serialization format — it's the exact `TraceEvent[]`
+  array the frontend already knows how to replay, stored as `jsonb`. This
+  keeps the save/share feature (Phase 3, §12) from inventing a second
+  contract to keep in sync with §8.
+- **`notifications` has two FKs into `users`** (`recipient_id`, `actor_id`)
+  by design — every row already has to answer "who should see this" and
+  "who caused this," which is exactly the `author` field the
+  `Notifications.tsx` component renders today, just normalized instead of
+  denormalized into a display string.
+- **Indexes to add on day one** (they back the queries the You page's
+  widgets already assume are cheap): `comments(post_id)`,
+  `notifications(recipient_id, read_at)` for the unread-count badge,
+  `trace_runs(owner_id, ran_at DESC)` for Recent Traces, and
+  `canvases(owner_id, updated_at DESC)` for the Canvases quick-switcher.
+
+---
+
+## 11. API contract
+
+**Trace execution — MVP (synchronous):**
 
 ```
 POST /api/execute
@@ -383,7 +645,7 @@ POST /api/execute
                                           // this is a normal outcome, not an HTTP error
 ```
 
-**Phase 2 (streaming):**
+**Trace execution — Phase 2 (streaming):**
 
 ```
 POST /api/execute        → { "job_id": "..." }
@@ -396,35 +658,64 @@ see everything," the user watches their program run near-live, and the
 backend can cut a runaway loop off after N steps while the user has
 already seen useful output — much better UX than an opaque timeout error.
 
+**Community layer — Phase 3 (§10's tables, all require Clerk auth):**
+
+```
+GET    /api/posts              → paginated feed of posts (title, author, excerpt, attached trace/canvas summary)
+POST   /api/posts              { title, body, trace_run_id?, canvas_id? } → created post
+GET    /api/posts/:id          → post + its comment tree
+POST   /api/posts/:id/comments { body, parent_comment_id? } → created comment, fans out a notification to the post/parent author
+GET    /api/notifications       → current user's notifications, newest first
+POST   /api/notifications/:id/read → marks one read (drives the unread badge in Notifications.tsx)
+GET    /api/canvases            → current user's saved canvases (backs CanvasesMenu.tsx)
+POST   /api/canvases            { name, language, graph_data } → saved canvas
+GET    /api/traces              → current user's recent trace runs (backs RecentTraces.tsx and the Activity heatmap)
+```
+
+**Ask Our AI — Phase 3.5:**
+
+```
+POST /api/ask
+  { "trace_run_id"?: "...", "canvas_id"?: "...", "question": "<text>" }
+  → 200 { "answer": "...", "grounded_in": ["trace_run_id" | "canvas_id"] }
+  → 4xx if neither id is provided — the assistant should refuse to answer
+        ungrounded rather than fall back to generic algorithm explanations
+```
+
 ---
 
-## 10. Roadmap
+## 12. Roadmap
 
 Sized (S / M / L) rather than dated — attach real dates once you know your
 own pace. Each phase should end with something you can actually click
 through, not just code that compiles.
 
 ### Phase 0 — Foundations (S)
-- [x] Next.js frontend scaffold, Rust/Axum backend scaffold (already done)
+- [x] Next.js frontend scaffold, Rust/Axum backend scaffold
+- [x] Clerk auth wired: `/dashboard/*` gated via `auth()` / `redirectToSignIn()`, `UserButton` in the sidebar
+- [x] Workstation shell built: collapsible `Sidebar` nav across all five sections (§4), shared `ComingSoon` placeholder component, matte design system
+- [x] "You" page (§4.1) built end-to-end against mock data (`lib/dashboard-data.ts`): stat cards, activity heatmap, recent traces, notifications, canvases quick-switcher, local-file music player
 - [ ] Wire `frontend` → `backend` `/api/health` end-to-end in dev (proxy already
       referenced in backend's `main.rs` doc comment — confirm `next.config.ts`
       actually proxies `/api/*`)
 - [ ] Pick and pin toolchain versions; add `rustfmt`/`clippy` and
       `eslint`/`prettier` CI checks
 - [ ] Write the canonical `TraceEvent` serde types in `backend/src/trace/`
-      (§7) — do this before any tracer or UI code, everything else depends
+      (§8) — do this before any tracer or UI code, everything else depends
       on it
 
 ### Phase 1 — MVP: Python only, synchronous, ugly UI (M)
-- [ ] `tracers/python/tracer.py` using `sys.settrace`, emitting NDJSON per §7
+- [ ] `tracers/python/tracer.py` using `sys.settrace`, emitting NDJSON per §8
 - [ ] `sandbox-images/python.Dockerfile` — minimal Python image, non-root user
 - [ ] Backend: `sandbox/` module spawns a Docker container via `bollard`
-      with the 5.1 flags, feeds in source, collects NDJSON stdout, enforces
-      the 5.3 caps
+      with the 6.1 flags, feeds in source, collects NDJSON stdout, enforces
+      the 6.3 caps
 - [ ] `POST /api/execute` — synchronous, returns full trace JSON
-- [ ] Frontend: Monaco editor + "Run" button + a plain step viewer that
-      just pretty-prints the JSON for the current step (no diagrams yet —
-      prove the trace pipeline works end-to-end first)
+- [ ] Frontend: build out `app/dashboard/visualizer/page.tsx` (§4.2),
+      replacing its `ComingSoon` placeholder — Monaco editor + "Run" button
+      + a plain step viewer that just pretty-prints the JSON for the
+      current step (no diagrams yet — prove the trace pipeline works
+      end-to-end first)
 - [ ] Golden-trace tests: a handful of known Python snippets (append to
       list, build a linked list, BFS on a small graph) with hand-verified
       expected trace output, run in CI — this is your regression suite for
@@ -436,12 +727,12 @@ pictures yet — this phase is entirely about proving the trace is *correct*.
 
 ### Phase 2 — Real visualization + hardened sandbox (L)
 - [ ] Switch Docker runtime to `--runtime=runsc` (gVisor)
-- [ ] Implement `lib/shape-detection.ts` and the renderer components (§8):
+- [ ] Implement `lib/shape-detection.ts` and the renderer components (§9):
       Array, LinkedList, Tree, Graph (React Flow), HashMap, and the generic
       fallback
 - [ ] Playback controls: step, scrub, autoplay/speed
 - [ ] Framer Motion diff-animation between steps
-- [ ] Move `/api/execute` to the async job + WebSocket streaming model (§9)
+- [ ] Move `/api/execute` to the async job + WebSocket streaming model (§11)
 - [ ] Backend job queue (bounded Tokio worker pool) so concurrent
       executions don't starve each other
 - [ ] Security test suite: attempted fork bomb, attempted network egress,
@@ -451,15 +742,36 @@ pictures yet — this phase is entirely about proving the trace is *correct*.
 **Exit criteria:** the linked-list example from Phase 1 now renders as an
 actual animated node/pointer diagram you can step through.
 
-### Phase 3 — Second language + persistence (M)
-- [ ] `tracers/javascript/tracer.mjs` via Babel/SWC AST instrumentation
-- [ ] `sandbox-images/javascript.Dockerfile`
-- [ ] Language picker in the UI; confirm shape-detection and all renderers
-      work unchanged against JS traces (this is the test of whether §7's
+### Phase 3 — Canvas, community & persistence (L)
+- [ ] Stand up Postgres + `sqlx` migrations for the §10 schema (`users`,
+      `canvases`, `trace_runs`, `posts`, `comments`, `notifications`)
+- [ ] Canvas builder (§4.3): scoped node/edge vocabulary (array, linked
+      list, tree, graph, hashmap + their basic operations only — not
+      general control flow, see §13), React Flow-based editor, and a
+      codegen step that turns the graph into real Python/JS source runnable
+      through the same `/api/execute` pipeline from Phase 1
+- [ ] Posts backend (§11): `POST/GET /api/posts`, comment threads with
+      reply support, notification fan-out on comment/reply create
+- [ ] Replace `lib/dashboard-data.ts` mock reads with real API calls across
+      the You page (stat cards, activity heatmap, recent traces, canvases
+      menu, notifications all currently read static arrays)
+- [ ] `tracers/javascript/tracer.mjs` via Babel/SWC AST instrumentation,
+      `sandbox-images/javascript.Dockerfile`, language picker in the
+      Visualizer UI — confirms §9's shape-detection and renderers work
+      unchanged against JS traces (the test of whether §8's
       language-agnostic design actually held up)
-- [ ] Save/share: persist a trace + source to Postgres, generate a shareable
-      URL (`/v/:id`)
+- [ ] Save/share: `/v/:id` shareable URL for a `trace_runs` row
 - [ ] Preset snippet library (common DS&A examples) for one-click demos
+
+### Phase 3.5 — Ask Our AI / Hermes (M)
+- [ ] Design the agent pipeline (§4.5): retrieval over the current
+      `trace_runs.trace_data` and/or `canvases.graph_data` plus the user's
+      question, single call or small tool-use loop, answer must cite real
+      step/line numbers or node ids from that specific record
+- [ ] `POST /api/ask` (§11), streamed response
+- [ ] Guardrail: refuse to answer when no trace/canvas is attached, rather
+      than silently falling back to a generic textbook explanation — this
+      is the entire value proposition over asking a general-purpose chatbot
 
 ### Phase 4 — Scale & polish (M/L, ongoing)
 - [ ] Redis-backed job queue if running multiple backend instances
@@ -469,13 +781,14 @@ actual animated node/pointer diagram you can step through.
       queue depth, timeout/OOM rates
 - [ ] Revisit Firecracker microVMs if isolation requirements or scale
       outgrow gVisor
-- [ ] Additional languages (Java via JDI; C/C++ via DWARF+lldb) per §6.3
+- [ ] Additional languages (Java via JDI; C/C++ via DWARF+lldb) per §7.3
 - [ ] Export a trace as a GIF/shareable video
 - [ ] Embeddable widget (`<iframe>`) for blog posts/course material
+- [ ] Spotify OAuth for the Music widget (§4.1), if still worth it by then
 
 ---
 
-## 11. Testing strategy
+## 13. Testing strategy
 
 - **Tracer correctness (highest priority — this is the product):**
   golden-trace tests per language, comparing tracer output against
@@ -488,21 +801,47 @@ actual animated node/pointer diagram you can step through.
 - **Schema contract:** since Rust is the source of truth and TS types are
   generated from it, add a CI check that fails if generated types are
   stale relative to the Rust definitions.
+- **Database migrations (§10):** run `sqlx` migrations against a throwaway
+  Postgres in CI on every PR that touches `backend/src/db/`; a migration
+  that doesn't apply cleanly to a fresh database should fail the build, not
+  surface in staging.
 - **Frontend:** component tests for each shape renderer against fixed
   trace fixtures (not live execution — keep these fast and deterministic);
-  Playwright e2e for the full "paste code → run → step through" flow.
+  Playwright e2e for the full "paste code → run → step through" flow, and
+  for the Posts flow once §11 lands ("publish a post → reply → author gets
+  a notification").
 
 ---
 
-## 12. Open questions to resolve early
+## 14. Open questions to resolve early
 
 These aren't blockers for Phase 0/1, but decide them before they're load-bearing:
 
 - **Concurrency limits**: how many simultaneous sandbox executions does one
   backend instance allow before queuing? (Drives Phase 2 queue sizing.)
-- **Step cap value**: 5,000 was used as an example in §5.3/§6 — pick a real
+- **Step cap value**: 5,000 was used as an example in §6.3/§7 — pick a real
   number based on what "long but legitimate" data-structure demos need
   (e.g. sorting 100 elements) without leaving room for abuse.
-- **Anonymous vs. authenticated usage**: Phase 3 persistence needs to
-  decide if shared traces are anonymous-by-link or tied to accounts —
-  affects whether you need auth infrastructure at all.
+- **Anonymous vs. authenticated usage**: the trace pipeline itself doesn't
+  need auth, but the Workstation already gates everything behind Clerk —
+  decide whether the public landing page ever gets its own "try it
+  live" execute endpoint (rate-limited, unauthenticated) or whether trying
+  Lattice always requires signing in first.
+- **Canvas node vocabulary scope**: §4.3/§12 Phase 3 needs a hard line on
+  what the graph editor can express in v1 — the risk is scope-creeping into
+  "a worse visual programming language." Recommend starting with
+  construction + basic mutation of the same five structures §9 already
+  renders, and treating arbitrary control flow (loops, conditionals as
+  graph nodes) as an explicit non-goal until there's evidence people want it.
+- **Hermes grounding boundary**: does the AI ever see raw source code, or
+  only the trace JSON / canvas graph? Seeing source risks it explaining
+  "what the code is supposed to do" instead of "what actually happened" —
+  decide this before §12 Phase 3.5, since it changes the retrieval design.
+- **Notification delivery**: §11's `/api/notifications` is poll-based by
+  default — decide whether Posts needs WebSocket push or email digest
+  before or after the initial Phase 3 ship, since it changes the backend
+  shape (a fan-out worker vs. a simple insert-on-comment).
+- **Music widget scope**: the local-file player and disabled Spotify stub
+  (§4.1) work without any backend today. Before giving it persistence
+  (e.g. a "recently played" table), confirm it's worth product investment
+  at all — it's adjacent to Lattice's core value, not part of it.
