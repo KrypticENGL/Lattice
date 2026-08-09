@@ -14,7 +14,8 @@ const LANGUAGES: { id: Language; label: string }[] = [
   { id: "rust", label: "Rust" },
 ];
 
-const DEFAULT_SNIPPET = `function reverseList(head) {
+const DEFAULT_SNIPPETS: Record<Language, string> = {
+  javascript: `function reverseList(head) {
   let prev = null;
   while (head) {
     const next = head.next;
@@ -23,9 +24,40 @@ const DEFAULT_SNIPPET = `function reverseList(head) {
     head = next;
   }
   return prev;
-}`;
+}`,
+  typescript: `function reverseList(head: ListNode | null): ListNode | null {
+  let prev: ListNode | null = null;
+  while (head) {
+    const next = head.next;
+    head.next = prev;
+    prev = head;
+    head = next;
+  }
+  return prev;
+}`,
+  python: `def reverse_list(head):
+    prev = None
+    while head:
+        nxt = head.next
+        head.next = prev
+        prev = head
+        head = nxt
+    return prev`,
+  rust: `fn reverse_list(head: Option<Box<Node>>) -> Option<Box<Node>> {
+    let mut prev = None;
+    let mut curr = head;
+    while let Some(mut node) = curr {
+        curr = node.next.take();
+        node.next = prev;
+        prev = Some(node);
+    }
+    prev
+}`,
+};
 
-const STORAGE_KEY = "lattice:visualizer:code:javascript";
+function storageKey(language: Language) {
+  return `lattice:visualizer:code:${language}`;
+}
 
 const MIN_WIDTH = 380;
 const MIN_HEIGHT = 260;
@@ -33,6 +65,10 @@ const DEFAULT_WIDTH = 560;
 const DEFAULT_HEIGHT = 400;
 const DEFAULT_X = 64;
 const DEFAULT_Y = 88;
+// Approximate footprint of the minimized pill, used to keep it fully
+// on-screen too (it's much smaller than the expanded panel).
+const PILL_WIDTH = 140;
+const PILL_HEIGHT = 44;
 
 type Status = "idle" | "running" | "saved";
 
@@ -42,8 +78,17 @@ function clamp(value: number, min: number, max: number) {
 
 export default function FloatingEditor({
   boundsRef,
+  topInset = DEFAULT_Y,
+  initialX,
 }: {
   boundsRef: RefObject<HTMLDivElement | null>;
+  /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
+   * floating header bar — that the panel and pill must stay clear of. */
+  topInset?: number;
+  /** Left edge (px, relative to `boundsRef`) to align the panel's initial
+   * position to — e.g. the "Visualizer" label — applied once on arrival,
+   * not re-applied once the user has dragged the panel. */
+  initialX?: number;
 }) {
   const [language, setLanguage] = useState<Language>("javascript");
   const [minimized, setMinimized] = useState(false);
@@ -68,15 +113,55 @@ export default function FloatingEditor({
     sizeRef.current = size;
   }, [size]);
 
+  // Clamps so the panel's full footprint — not just a corner of it — stays
+  // within `boundsRef`, per the "editor must never go out of the screen"
+  // requirement. Uses the pill's smaller footprint while minimized.
   const clampPosition = useCallback(
     (x: number, y: number) => {
       const bounds = boundsRef.current?.getBoundingClientRect();
-      const maxX = (bounds?.width ?? window.innerWidth) - 140;
-      const maxY = (bounds?.height ?? window.innerHeight) - 48;
-      return { x: clamp(x, 8, Math.max(8, maxX)), y: clamp(y, 8, Math.max(8, maxY)) };
+      const containerWidth = bounds?.width ?? window.innerWidth;
+      const containerHeight = bounds?.height ?? window.innerHeight;
+      const panelWidth = minimized ? PILL_WIDTH : sizeRef.current.width;
+      const panelHeight = minimized ? PILL_HEIGHT : sizeRef.current.height;
+      const maxX = Math.max(8, containerWidth - panelWidth);
+      const maxY = Math.max(8, containerHeight - panelHeight);
+      const minY = Math.max(8, topInset);
+      return { x: clamp(x, 8, maxX), y: clamp(y, minY, Math.max(minY, maxY)) };
     },
-    [boundsRef],
+    [boundsRef, topInset, minimized],
   );
+
+  // Re-clamp whenever the reserved top space changes (e.g. the header bar
+  // wraps to a second line on a narrower viewport) so the panel/pill never
+  // end up stranded under it.
+  useEffect(() => {
+    const next = clampPosition(positionRef.current.x, positionRef.current.y);
+    if (next.x === positionRef.current.x && next.y === positionRef.current.y) return;
+    positionRef.current = next;
+    setPosition(next);
+    if (panelRef.current) {
+      panelRef.current.style.left = `${next.x}px`;
+      panelRef.current.style.top = `${next.y}px`;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topInset]);
+
+  // Align to `initialX` the first time it arrives (the parent measures it
+  // post-mount, so it's undefined on the very first render). Only fires
+  // once — later changes (e.g. a window resize reflowing the label) don't
+  // yank the panel out from under the user once they've moved it.
+  const alignedRef = useRef(false);
+  useEffect(() => {
+    if (alignedRef.current || initialX == null) return;
+    alignedRef.current = true;
+    const next = clampPosition(initialX, positionRef.current.y);
+    positionRef.current = next;
+    setPosition(next);
+    if (panelRef.current) {
+      panelRef.current.style.left = `${next.x}px`;
+      panelRef.current.style.top = `${next.y}px`;
+    }
+  }, [initialX, clampPosition]);
 
   const flashStatus = useCallback((next: Status, ms = 1100) => {
     setStatus(next);
@@ -91,7 +176,7 @@ export default function FloatingEditor({
   const handleSave = useCallback(() => {
     const code = editorRef.current?.getValue() ?? "";
     try {
-      window.localStorage.setItem(`lattice:visualizer:code:${language}`, code);
+      window.localStorage.setItem(storageKey(language), code);
     } catch {
       // localStorage unavailable (private mode, etc.) — save is best-effort
     }
@@ -100,6 +185,28 @@ export default function FloatingEditor({
 
   const handleToggleMinimize = useCallback(() => setMinimized((v) => !v), []);
   const handleToggleVim = useCallback(() => setVimEnabled((v) => !v), []);
+
+  const handleLanguageChange = useCallback(
+    (next: Language) => {
+      const editor = editorRef.current;
+      if (editor) {
+        try {
+          window.localStorage.setItem(storageKey(language), editor.getValue());
+        } catch {
+          // localStorage unavailable — outgoing snapshot is best-effort
+        }
+        let restored: string | null = null;
+        try {
+          restored = window.localStorage.getItem(storageKey(next));
+        } catch {
+          // localStorage unavailable — fall through to the starter snippet
+        }
+        editor.setValue(restored ?? DEFAULT_SNIPPETS[next]);
+      }
+      setLanguage(next);
+    },
+    [language],
+  );
 
   const handlersRef = useRef({
     run: handleRun,
@@ -247,21 +354,28 @@ export default function FloatingEditor({
 
   return (
     <>
-      {minimized && (
-        <button
-          type="button"
-          onClick={() => setMinimized(false)}
-          aria-label="Expand editor"
-          style={{ position: "absolute", left: position.x, top: position.y }}
-          className="glass z-20 flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-shadow hover:shadow-[0_0_20px_var(--accent-glow)]"
-        >
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
-          Editor
-          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6l5 5 5-5" />
-          </svg>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setMinimized(false)}
+        aria-label="Expand editor"
+        style={{
+          position: "absolute",
+          left: position.x,
+          top: position.y,
+          opacity: minimized ? 1 : 0,
+          transform: minimized ? "scale(1)" : "scale(0.92)",
+          transformOrigin: "top left",
+          visibility: minimized ? "visible" : "hidden",
+          transition: `opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear ${minimized ? "0s" : "200ms"}`,
+        }}
+        className="glass z-20 flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-shadow hover:shadow-[0_0_20px_var(--accent-glow)]"
+      >
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
+        Editor
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6l5 5 5-5" />
+        </svg>
+      </button>
 
       <div
         ref={panelRef}
@@ -271,9 +385,13 @@ export default function FloatingEditor({
           top: position.y,
           width: size.width,
           height: size.height,
-          display: minimized ? "none" : "flex",
+          opacity: minimized ? 0 : 1,
+          transform: minimized ? "scale(0.92)" : "scale(1)",
+          transformOrigin: "top left",
+          visibility: minimized ? "hidden" : "visible",
+          transition: `opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear ${minimized ? "200ms" : "0s"}`,
         }}
-        className="glass z-20 flex-col overflow-hidden rounded-2xl"
+        className="glass z-20 flex flex-col overflow-hidden rounded-2xl"
       >
         <div
           onPointerDown={handleHeaderPointerDown}
@@ -293,7 +411,7 @@ export default function FloatingEditor({
           <div className="flex shrink-0 items-center gap-2" data-no-drag>
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
+              onChange={(e) => handleLanguageChange(e.target.value as Language)}
               aria-label="Language"
               className="rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
             >
@@ -365,7 +483,8 @@ export default function FloatingEditor({
             height="100%"
             language={language}
             defaultValue={
-              (typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY)) || DEFAULT_SNIPPET
+              (typeof window !== "undefined" && window.localStorage.getItem(storageKey(language))) ||
+              DEFAULT_SNIPPETS[language]
             }
             onMount={handleEditorMount}
             options={{
