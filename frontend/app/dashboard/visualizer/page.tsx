@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboard/visualizer/InfiniteCanvas";
-import FloatingEditor from "@/components/dashboard/visualizer/FloatingEditor";
+import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
+import TraceViewer, { type RunStatus } from "@/components/dashboard/visualizer/TraceViewer";
+import { runTrace, ExecuteRequestError } from "@/lib/trace-schema/execute";
+import type { TraceEvent } from "@/lib/trace-schema/types";
 
 const HEADER_GAP = 16;
 
@@ -15,8 +18,30 @@ export default function VisualizerPage() {
   const [topInset, setTopInset] = useState(96);
   const [labelX, setLabelX] = useState<number | undefined>(undefined);
 
+  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
+  const [runError, setRunError] = useState<string | null>(null);
+  const [trace, setTrace] = useState<TraceEvent[] | null>(null);
+  const [stdout, setStdout] = useState<string | undefined>(undefined);
+  const [truncated, setTruncated] = useState(false);
+
   const handleReset = useCallback(() => {
     canvasRef.current?.resetView();
+  }, []);
+
+  const handleRun = useCallback(async (language: Language, source: string) => {
+    setRunStatus("running");
+    setRunError(null);
+    try {
+      const result = await runTrace(language, source);
+      setTrace(result.trace);
+      setStdout(result.stdout);
+      setTruncated(result.truncated);
+      setRunStatus("done");
+    } catch (err) {
+      setTrace(null);
+      setRunError(err instanceof ExecuteRequestError ? err.message : "trace request failed");
+      setRunStatus("error");
+    }
   }, []);
 
   useEffect(() => {
@@ -79,7 +104,15 @@ export default function VisualizerPage() {
         </div>
       </div>
 
-      <FloatingEditor boundsRef={boundsRef} topInset={topInset} initialX={labelX} />
+      <FloatingEditor
+        boundsRef={boundsRef}
+        topInset={topInset}
+        initialX={labelX}
+        onRun={handleRun}
+        running={runStatus === "running"}
+      />
+
+      <TraceViewer status={runStatus} error={runError} trace={trace} stdout={stdout} truncated={truncated} />
 
       <span className="matte pointer-events-none absolute bottom-4 left-4 z-10 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
         Scroll to zoom · Drag to pan

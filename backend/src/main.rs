@@ -4,9 +4,16 @@
 //! During development the Next.js frontend proxies `/api/*` requests here
 //! (see `frontend/next.config.ts`), so browser code can use relative URLs.
 
-use axum::{routing::get, Json, Router};
+mod api;
+mod sandbox;
+mod trace;
+
+use api::AppState;
+use axum::{routing::{get, post}, Json, Router};
+use bollard::Docker;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 /// Liveness check — proves the frontend ↔ backend wiring works.
 async fn health() -> Json<Value> {
@@ -14,8 +21,11 @@ async fn health() -> Json<Value> {
 }
 
 /// Build the application router. Add your own routes here.
-fn router() -> Router {
-    Router::new().route("/api/health", get(health))
+fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/api/health", get(health))
+        .route("/api/execute", post(api::execute))
+        .with_state(state)
 }
 
 #[tokio::main]
@@ -27,6 +37,20 @@ async fn main() {
         )
         .init();
 
+    // Connected once at startup and reused for every sandbox run — a
+    // failure here doesn't take the whole process down (see AppState's
+    // docs), it just disables /api/execute until Docker is reachable.
+    let docker = match Docker::connect_with_socket_defaults() {
+        Ok(docker) => {
+            tracing::info!("connected to Docker daemon");
+            Some(Arc::new(docker))
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "no Docker connection — /api/execute will report 503");
+            None
+        }
+    };
+
     let port = std::env::var("BACKEND_PORT")
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
@@ -37,5 +61,7 @@ async fn main() {
         .expect("failed to bind socket");
     tracing::info!("lattice-backend listening on http://{addr}");
 
-    axum::serve(listener, router()).await.expect("server error");
+    axum::serve(listener, router(AppState { docker }))
+        .await
+        .expect("server error");
 }

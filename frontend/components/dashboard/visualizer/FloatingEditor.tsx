@@ -5,16 +5,39 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import { initVimMode, type VimAdapterInstance } from "monaco-vim";
 import type * as Monaco from "monaco-editor";
 
-type Language = "javascript" | "typescript" | "python" | "rust";
+export type Language = "cpp" | "javascript" | "typescript" | "python" | "rust";
 
-const LANGUAGES: { id: Language; label: string }[] = [
-  { id: "javascript", label: "JavaScript" },
-  { id: "typescript", label: "TypeScript" },
-  { id: "python", label: "Python" },
-  { id: "rust", label: "Rust" },
+// Only "cpp" actually runs (tracers/cpp/, wired to POST /api/execute) —
+// the rest are placeholders until their tracers exist (BLUEPRINT.md §7).
+const LANGUAGES: { id: Language; label: string; available: boolean }[] = [
+  { id: "cpp", label: "C++", available: true },
+  { id: "javascript", label: "JavaScript", available: false },
+  { id: "typescript", label: "TypeScript", available: false },
+  { id: "python", label: "Python", available: false },
+  { id: "rust", label: "Rust", available: false },
 ];
 
 const DEFAULT_SNIPPETS: Record<Language, string> = {
+  cpp: `#include <cstdio>
+
+struct Node {
+    int val;
+    Node* next;
+    Node(int v) : val(v), next(nullptr) {}
+};
+
+int main() {
+    Node* head = new Node(3);
+    head->next = new Node(7);
+    head->next->next = new Node(1);
+    head->next->next->next = new Node(9);
+    int sum = 0;
+    for (Node* cur = head; cur != nullptr; cur = cur->next) {
+        sum += cur->val;
+    }
+    printf("sum=%d\\n", sum);
+    return 0;
+}`,
   javascript: `function reverseList(head) {
   let prev = null;
   while (head) {
@@ -80,6 +103,8 @@ export default function FloatingEditor({
   boundsRef,
   topInset = DEFAULT_Y,
   initialX,
+  onRun,
+  running = false,
 }: {
   boundsRef: RefObject<HTMLDivElement | null>;
   /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
@@ -89,8 +114,16 @@ export default function FloatingEditor({
    * position to — e.g. the "Visualizer" label — applied once on arrival,
    * not re-applied once the user has dragged the panel. */
   initialX?: number;
+  /** Called with the current language + editor contents when the user hits
+   * Run. The editor doesn't know how to execute anything itself — that's
+   * the parent's job (POST /api/execute, §11). */
+  onRun?: (language: Language, source: string) => void;
+  /** Reflects the *real* run state (backend round-trip in flight), not a
+   * locally-guessed timer — the actual request can take much longer than
+   * the fixed flash used for the "saved" status. */
+  running?: boolean;
 }) {
-  const [language, setLanguage] = useState<Language>("javascript");
+  const [language, setLanguage] = useState<Language>("cpp");
   const [minimized, setMinimized] = useState(false);
   const [vimEnabled, setVimEnabled] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -170,8 +203,9 @@ export default function FloatingEditor({
   }, []);
 
   const handleRun = useCallback(() => {
-    flashStatus("running", 900);
-  }, [flashStatus]);
+    const code = editorRef.current?.getValue() ?? "";
+    onRun?.(language, code);
+  }, [onRun, language]);
 
   const handleSave = useCallback(() => {
     const code = editorRef.current?.getValue() ?? "";
@@ -348,9 +382,10 @@ export default function FloatingEditor({
     setEditorReady(true);
   }, []);
 
+  const effectiveStatus: Status = running ? "running" : status;
   const statusColor =
-    status === "running" ? "var(--accent-primary)" : status === "saved" ? "var(--accent-secondary)" : "var(--hairline-strong)";
-  const statusLabel = status === "running" ? "Tracing…" : status === "saved" ? "Saved" : "Idle";
+    effectiveStatus === "running" ? "var(--accent-primary)" : effectiveStatus === "saved" ? "var(--accent-secondary)" : "var(--hairline-strong)";
+  const statusLabel = effectiveStatus === "running" ? "Tracing…" : effectiveStatus === "saved" ? "Saved" : "Idle";
 
   return (
     <>
@@ -399,7 +434,7 @@ export default function FloatingEditor({
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
-              className={`h-2 w-2 shrink-0 rounded-full ${status === "running" ? "animate-pulse" : ""}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${effectiveStatus === "running" ? "animate-pulse" : ""}`}
               style={{ background: statusColor }}
             />
             <span className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">Editor</span>
@@ -416,8 +451,9 @@ export default function FloatingEditor({
               className="rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
             >
               {LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id}>
+                <option key={l.id} value={l.id} disabled={!l.available}>
                   {l.label}
+                  {l.available ? "" : " (soon)"}
                 </option>
               ))}
             </select>
@@ -453,7 +489,7 @@ export default function FloatingEditor({
             <button
               type="button"
               onClick={handleRun}
-              disabled={!editorReady}
+              disabled={!editorReady || running}
               title="Run trace (Ctrl/Cmd+Enter)"
               aria-label="Run trace"
               className="flex h-7 w-7 items-center justify-center rounded-full transition-shadow hover:shadow-[0_0_16px_var(--accent-glow)] disabled:opacity-40"
