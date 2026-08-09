@@ -43,16 +43,11 @@ export default function CodeFlowSimulator() {
   }
 
   return (
-    <div className="matte rounded-2xl p-5">
+    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-serif text-[18px] font-bold text-[var(--text-primary)]">
-            Code-flow simulator
-          </h2>
-          <p className="mt-1 font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
-            Step through your code&rsquo;s execution
-          </p>
-        </div>
+        <span className="font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
+          Step through your code&rsquo;s execution
+        </span>
 
         <div className="flex gap-1 rounded-full border border-[var(--hairline)] p-0.5">
           {LANGS.map((l) => (
@@ -73,7 +68,7 @@ export default function CodeFlowSimulator() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
         <div className="glass flex flex-col overflow-hidden rounded-xl">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--hairline)] px-4 py-3">
             <div className="flex items-center gap-2">

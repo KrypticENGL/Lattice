@@ -48,6 +48,16 @@ const NAV: { href: string; label: string; icon: ReactNode }[] = [
     ),
   },
   {
+    href: "/dashboard/simulator",
+    label: "Simulator",
+    icon: (
+      <svg {...ICON_PROPS}>
+        <path d="M8 4L3 12l5 8M16 4l5 8-5 8" />
+        <path d="M10.5 9.3l4 2.7-4 2.7V9.3z" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
     href: "/dashboard/posts",
     label: "Posts",
     icon: (
@@ -55,6 +65,15 @@ const NAV: { href: string; label: string; icon: ReactNode }[] = [
         <path d="M5 3.5h11l3.5 3.5V20a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z" />
         <path d="M16 3.5V7h3.5" />
         <path d="M8 12h8M8 15.5h8M8 8.5h4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/saved",
+    label: "Saved",
+    icon: (
+      <svg {...ICON_PROPS}>
+        <path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.3-6 4.3V4.5a1 1 0 0 1 1-1z" />
       </svg>
     ),
   },
