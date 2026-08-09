@@ -7,7 +7,7 @@ export default function Notifications() {
         <h2 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
           Notifications
         </h2>
-        <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--accent-secondary)]">
+        <span className="font-mono text-[13px] uppercase tracking-wider text-[var(--accent-secondary)]">
           {NOTIFICATIONS.length} new
         </span>
       </div>
@@ -20,7 +20,7 @@ export default function Notifications() {
           >
             <div className="flex items-center gap-2.5">
               <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-semibold"
                 style={{ background: "var(--bg-elevated)", color: "var(--accent-secondary)" }}
               >
                 {n.author.charAt(0)}
@@ -36,7 +36,7 @@ export default function Notifications() {
             <p className="mt-2 pl-[38px] font-serif text-[13px] leading-5 text-[var(--text-secondary)]">
               &ldquo;{n.excerpt}&rdquo;
             </p>
-            <p className="mt-1.5 pl-[38px] font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+            <p className="mt-1.5 pl-[38px] font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
               {n.time}
             </p>
           </li>

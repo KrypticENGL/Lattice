@@ -7,7 +7,7 @@ export default function RecentTraces() {
         <h2 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
           Recent traces
         </h2>
-        <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+        <span className="font-mono text-[13px] uppercase tracking-wider text-[var(--text-secondary)]">
           {RECENT_TRACES.length} runs
         </span>
       </div>
@@ -27,17 +27,17 @@ export default function RecentTraces() {
                 <p className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
                   {t.structure}
                 </p>
-                <p className="truncate font-mono text-[11px] text-[var(--text-secondary)]">
+                <p className="truncate font-mono text-[13px] text-[var(--text-secondary)]">
                   {t.snippet}
                 </p>
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-3">
-              <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-secondary)]">
+              <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[12px] text-[var(--text-secondary)]">
                 {t.steps} steps
               </span>
-              <span className="w-16 shrink-0 text-right font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+              <span className="w-16 shrink-0 text-right font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
                 {t.ranAt}
               </span>
             </div>

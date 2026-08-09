@@ -187,6 +187,45 @@ export type NotificationItem = {
   time: string;
 };
 
+export type SavedPost = {
+  id: string;
+  title: string;
+  author: string;
+  readTime: string;
+  savedAt: string;
+};
+
+export const SAVED_POSTS: SavedPost[] = [
+  {
+    id: "sp1",
+    title: "Debugging cyclic references in a linked list",
+    author: "Priya N.",
+    readTime: "6 min read",
+    savedAt: "2 days ago",
+  },
+  {
+    id: "sp2",
+    title: "Why does my BST rotation break the invariant?",
+    author: "Marcus O.",
+    readTime: "4 min read",
+    savedAt: "4 days ago",
+  },
+  {
+    id: "sp3",
+    title: "Visualizing Dijkstra without a priority queue",
+    author: "Elena V.",
+    readTime: "8 min read",
+    savedAt: "1 week ago",
+  },
+  {
+    id: "sp4",
+    title: "Ring buffer wrap-around explained",
+    author: "Diego R.",
+    readTime: "5 min read",
+    savedAt: "2 weeks ago",
+  },
+];
+
 export const NOTIFICATIONS: NotificationItem[] = [
   {
     id: "n1",

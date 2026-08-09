@@ -60,11 +60,11 @@ export default function CanvasesMenu() {
                       <span className="block truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
                         {c.name}
                       </span>
-                      <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+                      <span className="mt-0.5 block font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
                         {c.language} · {c.nodes} nodes
                       </span>
                     </span>
-                    <span className="shrink-0 font-mono text-[10px] text-[var(--text-secondary)]">
+                    <span className="shrink-0 font-mono text-[12px] text-[var(--text-secondary)]">
                       {c.editedAt}
                     </span>
                   </button>

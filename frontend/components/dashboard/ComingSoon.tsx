@@ -21,7 +21,7 @@ export default function ComingSoon({
       </div>
 
       <div className="max-w-md">
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+        <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
           {eyebrow}
         </span>
         <h1 className="text-balance mt-3 font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
@@ -32,7 +32,7 @@ export default function ComingSoon({
         </p>
       </div>
 
-      <span className="matte rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+      <span className="matte rounded-full px-4 py-1.5 font-mono text-[13px] uppercase tracking-wider text-[var(--text-secondary)]">
         In active development
       </span>
     </div>

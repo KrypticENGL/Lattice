@@ -61,7 +61,7 @@ export default function MusicPlayer() {
               key={s}
               type="button"
               onClick={() => setSource(s)}
-              className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors"
+              className="rounded-full px-2.5 py-1 font-mono text-[12px] uppercase tracking-wider transition-colors"
               style={{
                 background: source === s ? "var(--accent-primary)" : "transparent",
                 color: source === s ? "var(--bg-base)" : "var(--text-secondary)",
@@ -121,7 +121,7 @@ export default function MusicPlayer() {
                 />
               </div>
 
-              <div className="flex justify-between font-mono text-[10px] text-[var(--text-secondary)]">
+              <div className="flex justify-between font-mono text-[12px] text-[var(--text-secondary)]">
                 <span>{formatTime(current)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
@@ -129,7 +129,7 @@ export default function MusicPlayer() {
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="self-start font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent-secondary)]"
+                className="self-start font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent-secondary)]"
               >
                 Choose a different file
               </button>
@@ -155,7 +155,7 @@ export default function MusicPlayer() {
                 <circle cx="6" cy="18" r="3" />
                 <circle cx="18" cy="16" r="3" />
               </svg>
-              <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+              <span className="font-mono text-[13px] uppercase tracking-wider text-[var(--text-secondary)]">
                 Choose an audio file
               </span>
             </button>
@@ -170,17 +170,17 @@ export default function MusicPlayer() {
                 <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.6.6 0 01-.83.2c-2.3-1.4-5.2-1.7-8.6-.9a.6.6 0 11-.27-1.17c3.7-.85 6.9-.5 9.5 1.05.3.18.4.55.2.82zm1.2-2.7a.75.75 0 01-1.04.25c-2.6-1.6-6.6-2.07-9.7-1.14a.75.75 0 11-.44-1.44c3.53-1.07 7.93-.55 10.9 1.27a.75.75 0 01.28 1.06zm.1-2.8C14.9 9 8.8 8.8 5.9 9.7a.9.9 0 11-.53-1.72c3.36-1.02 10-.78 13.6 1.36a.9.9 0 11-.92 1.55h-.15z" />
               </svg>
             </span>
-            <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+            <p className="font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
               Not connected
             </p>
-            <p className="max-w-[220px] font-serif text-[11px] leading-4 text-[var(--text-secondary)]">
+            <p className="max-w-[220px] font-serif text-[13px] leading-5 text-[var(--text-secondary)]">
               Needs a Spotify Developer app. Share a client ID and I&rsquo;ll
               wire up OAuth.
             </p>
             <button
               type="button"
               disabled
-              className="cursor-not-allowed rounded-full px-3.5 py-1 font-mono text-[10px] uppercase tracking-wider opacity-50"
+              className="cursor-not-allowed rounded-full px-3.5 py-1 font-mono text-[12px] uppercase tracking-wider opacity-50"
               style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}
             >
               Connect Spotify

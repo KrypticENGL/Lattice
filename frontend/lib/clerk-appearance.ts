@@ -92,18 +92,37 @@ export const clerkAppearance = {
       borderColor: "var(--hairline-strong)",
       backgroundColor: "var(--bg-surface)",
       boxShadow: "0 24px 60px -20px rgba(0, 0, 0, 0.6)",
+      minWidth: "280px",
     },
     userButtonPopoverActionButton: {
       color: "var(--text-primary)",
+      fontSize: "15px",
+      padding: "10px 12px",
       "&:hover": {
         backgroundColor: "var(--bg-elevated)",
       },
     },
+    userButtonPopoverActionButtonText: {
+      fontSize: "15px",
+    },
     userButtonPopoverActionButtonIcon: {
       color: "var(--text-secondary)",
+      width: "18px",
+      height: "18px",
     },
     userButtonPopoverFooter: {
       borderColor: "var(--hairline-strong)",
+      fontSize: "13px",
+    },
+    userPreviewMainIdentifier: {
+      fontSize: "16px",
+      fontWeight: 600,
+    },
+    userPreviewSecondaryIdentifier: {
+      fontSize: "14px",
+    },
+    userPreviewTextContainer: {
+      fontSize: "15px",
     },
     avatarBox: {
       borderRadius: "0.5rem",

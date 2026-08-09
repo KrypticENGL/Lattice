@@ -21,13 +21,13 @@ export default function ActivityHeatmap() {
         <h2 className="font-serif text-[19px] font-bold text-[var(--text-primary)]">
           Activity
         </h2>
-        <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+        <p className="font-mono text-[13px] uppercase tracking-wider text-[var(--text-secondary)]">
           {totalTraces} traces · {activeDays} active days
         </p>
       </div>
 
       <div className="mt-5 flex gap-3 overflow-x-auto pb-1">
-        <div className="flex shrink-0 flex-col justify-between py-[3px] font-mono text-[10px] text-[var(--text-secondary)]">
+        <div className="flex shrink-0 flex-col justify-between py-[3px] font-mono text-[12px] text-[var(--text-secondary)]">
           {DAY_LABELS.map((label, i) => (
             <span key={i} className="h-[13px] leading-[13px]">
               {label}
@@ -51,7 +51,7 @@ export default function ActivityHeatmap() {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-1.5 font-mono text-[10px] text-[var(--text-secondary)]">
+      <div className="mt-4 flex items-center justify-end gap-1.5 font-mono text-[12px] text-[var(--text-secondary)]">
         <span>Less</span>
         {[0, 1, 2, 3, 4].map((level) => (
           <span
