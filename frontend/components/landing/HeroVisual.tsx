@@ -7,7 +7,7 @@ type NodeDef = { cx: number; cy: number; label: string; color: string };
 type EdgeDef = { x1: number; y1: number; x2: number; y2: number };
 type ShapeDef = { name: string; nodes: NodeDef[]; edges: EdgeDef[] };
 
-const PURPLE = "var(--accent-primary)";
+const ACCENT = "var(--accent-primary)";
 const CYAN = "var(--accent-secondary)";
 const PINK = "#f472b6";
 const BLUE = "#60a5fa";
@@ -21,7 +21,7 @@ const SHAPES: ShapeDef[] = [
       { cx: 55, cy: 150, label: "3", color: CYAN },
       { cx: 172, cy: 150, label: "7", color: BLUE },
       { cx: 289, cy: 150, label: "1", color: AMBER },
-      { cx: 400, cy: 150, label: "9", color: PURPLE },
+      { cx: 400, cy: 150, label: "9", color: ACCENT },
     ],
     edges: [
       { x1: 77, y1: 150, x2: 150, y2: 150 },
@@ -36,7 +36,7 @@ const SHAPES: ShapeDef[] = [
       { cx: 128, cy: 128, label: "4", color: CYAN },
       { cx: 312, cy: 128, label: "12", color: BLUE },
       { cx: 260, cy: 218, label: "10", color: GREEN },
-      { cx: 364, cy: 218, label: "15", color: PURPLE },
+      { cx: 364, cy: 218, label: "15", color: ACCENT },
     ],
     edges: [
       { x1: 205, y1: 66, x2: 143, y2: 111 },
@@ -51,7 +51,7 @@ const SHAPES: ShapeDef[] = [
       { cx: 62, cy: 78, label: "a", color: CYAN },
       { cx: 196, cy: 46, label: "b", color: BLUE },
       { cx: 340, cy: 84, label: "c", color: AMBER },
-      { cx: 396, cy: 190, label: "d", color: PURPLE },
+      { cx: 396, cy: 190, label: "d", color: ACCENT },
       { cx: 250, cy: 232, label: "e", color: GREEN },
       { cx: 96, cy: 206, label: "f", color: PINK },
     ],
