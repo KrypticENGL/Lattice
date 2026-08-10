@@ -1,7 +1,7 @@
 //! HTTP route handlers (BLUEPRINT.md §11 API contract).
 
 use crate::sandbox::{self, SandboxConfig, SandboxOutcome};
-use crate::trace::{ExecuteRequest, ExecuteResponse};
+use crate::trace::{ExecuteRequest, ExecuteResponse, TraceEvent};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -55,8 +55,20 @@ pub async fn execute(State(state): State<AppState>, Json(req): Json<ExecuteReque
     };
 
     match sandbox::run_cpp_trace(docker, &req.source, &config).await {
-        Ok(SandboxOutcome::Trace(events)) => {
-            (StatusCode::OK, Json(ExecuteResponse::from_events(events))).into_response()
+        Ok(SandboxOutcome::Trace { events, compile_command, compiler_output }) => {
+            // The sandbox and pipeline worked fine here — this is the
+            // user's *own* code crashing (segfault, etc.), a normal
+            // outcome (§11), not an error. Worth a lower-severity log
+            // line for crash-rate visibility, distinct from the
+            // `tracing::error!` below for actual infra failures.
+            if events.iter().any(TraceEvent::is_exception) {
+                tracing::debug!("trace completed with an exception in the user's code");
+            }
+            (
+                StatusCode::OK,
+                Json(ExecuteResponse::from_events(events, compile_command, compiler_output)),
+            )
+                .into_response()
         }
         // A snippet that fails to compile never ran at all — closer to
         // "bad input" (§11) than a normal execution outcome, so 4xx

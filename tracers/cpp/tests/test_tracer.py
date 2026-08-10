@@ -20,12 +20,19 @@ FIXTURE = pathlib.Path(__file__).resolve().parent / "fixtures" / "linked_list.cp
 
 
 def run_tracer(source_path, **kwargs):
+    """Returns (result, trace_events, preamble). `preamble` is the
+    {"compile_command": ..., "compiler_output": ...} line a *successful*
+    compile emits before any trace events (None on a compile failure,
+    where the single line is a {"error": "compile_error", ...} object
+    instead — left in `trace_events` as-is for that test to inspect)."""
     args = [sys.executable, str(TRACER), str(source_path)]
     for key, value in kwargs.items():
         args += [f"--{key.replace('_', '-')}", str(value)]
     result = subprocess.run(args, capture_output=True, text=True, timeout=30)
-    events = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
-    return result, events
+    lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    if lines and "compile_command" in lines[0]:
+        return result, lines[1:], lines[0]
+    return result, lines, None
 
 
 def walk_linked_list(step_event, head_var="head"):
@@ -49,11 +56,18 @@ def walk_linked_list(step_event, head_var="head"):
 class TestLinkedListGoldenTrace(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.result, cls.events = run_tracer(FIXTURE)
+        cls.result, cls.events, cls.preamble = run_tracer(FIXTURE)
 
     def test_exits_cleanly(self):
         self.assertEqual(self.result.returncode, 0, self.result.stderr)
         self.assertTrue(self.events, "expected at least one trace event")
+
+    def test_compile_preamble_present_and_clean(self):
+        self.assertIsNotNone(self.preamble)
+        self.assertIn("g++", self.preamble["compile_command"])
+        self.assertIn("source.cpp", self.preamble["compile_command"])
+        # This fixture is warning-free under -Wall.
+        self.assertEqual(self.preamble["compiler_output"], "")
 
     def test_no_exception_or_truncation(self):
         for event in self.events:
@@ -103,8 +117,9 @@ class TestCompileError(unittest.TestCase):
         with tempfile.NamedTemporaryFile(suffix=".cpp", mode="w", delete=False) as fh:
             fh.write("int main() { this is not cpp; }")
             path = fh.name
-        result, events = run_tracer(path)
+        result, events, preamble = run_tracer(path)
         self.assertEqual(result.returncode, 1)
+        self.assertIsNone(preamble)
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["error"], "compile_error")
 

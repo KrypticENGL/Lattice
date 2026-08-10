@@ -60,6 +60,8 @@ export type ExecuteResponse = {
   trace: TraceEvent[];
   stdout: string;
   truncated: boolean;
+  compile_command: string;
+  compiler_output: string;
 };
 
 export type ExecuteErrorResponse = {

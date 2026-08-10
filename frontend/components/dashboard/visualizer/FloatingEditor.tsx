@@ -1,9 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
-import { initVimMode, type VimAdapterInstance } from "monaco-vim";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import dynamic from "next/dynamic";
+import type { OnMount } from "@monaco-editor/react";
+import type { VimAdapterInstance } from "monaco-vim";
 import type * as Monaco from "monaco-editor";
+
+// monaco-editor touches `window` while it's being imported, which crashes
+// SSR ("ReferenceError: window is not defined") if it's pulled in
+// statically — load it client-only. The `Editor` component's own
+// `loading` prop (below) covers Monaco's internal script-load phase; this
+// `loading` covers the brief moment before that, while the dynamic chunk
+// itself is being fetched.
+const Editor = dynamic(() => import("@monaco-editor/react"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-[var(--bg-surface)] font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+      Loading editor…
+    </div>
+  ),
+});
 
 export type Language = "cpp" | "javascript" | "typescript" | "python" | "rust";
 
@@ -88,10 +104,19 @@ const DEFAULT_WIDTH = 560;
 const DEFAULT_HEIGHT = 400;
 const DEFAULT_X = 64;
 const DEFAULT_Y = 88;
+// Gap kept between the panel and the container's right/bottom edges when
+// it's auto-laid-out (right-aligned, full height) — matches the 16px
+// (`-4` Tailwind spacing) used by the other floating chrome on this page.
+const PANEL_MARGIN = 16;
 // Approximate footprint of the minimized pill, used to keep it fully
 // on-screen too (it's much smaller than the expanded panel).
 const PILL_WIDTH = 140;
 const PILL_HEIGHT = 44;
+// Matches the sidebar's collapse/expand feel (components/dashboard/Sidebar.tsx:
+// `transition-[width] duration-300 ease-out`) — every animated property below
+// uses this same duration/easing so they move in lockstep.
+const MINIMIZE_TRANSITION_MS = 300;
+const MINIMIZE_EASING = "ease-out";
 
 type Status = "idle" | "running" | "saved";
 
@@ -102,7 +127,6 @@ function clamp(value: number, min: number, max: number) {
 export default function FloatingEditor({
   boundsRef,
   topInset = DEFAULT_Y,
-  initialX,
   onRun,
   running = false,
 }: {
@@ -110,10 +134,6 @@ export default function FloatingEditor({
   /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
    * floating header bar — that the panel and pill must stay clear of. */
   topInset?: number;
-  /** Left edge (px, relative to `boundsRef`) to align the panel's initial
-   * position to — e.g. the "Visualizer" label — applied once on arrival,
-   * not re-applied once the user has dragged the panel. */
-  initialX?: number;
   /** Called with the current language + editor contents when the user hits
    * Run. The editor doesn't know how to execute anything itself — that's
    * the parent's job (POST /api/execute, §11). */
@@ -132,13 +152,22 @@ export default function FloatingEditor({
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
 
   const panelRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const vimModeRef = useRef<VimAdapterInstance | null>(null);
   const statusBarRef = useRef<HTMLDivElement>(null);
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const positionRef = useRef(position);
   const sizeRef = useRef(size);
+  // handleEditorMount registers its content-change listener once (empty
+  // dep array) — this keeps it reading the *current* language instead of
+  // whatever language was selected at mount time.
+  const languageRef = useRef(language);
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
   useEffect(() => {
     positionRef.current = position;
   }, [position]);
@@ -146,55 +175,75 @@ export default function FloatingEditor({
     sizeRef.current = size;
   }, [size]);
 
-  // Clamps so the panel's full footprint — not just a corner of it — stays
-  // within `boundsRef`, per the "editor must never go out of the screen"
-  // requirement. Uses the pill's smaller footprint while minimized.
-  const clampPosition = useCallback(
-    (x: number, y: number) => {
+  // Clamps so a box of the given footprint stays fully within `boundsRef`,
+  // per the "editor must never go out of the screen" requirement.
+  const clampFor = useCallback(
+    (x: number, y: number, width: number, height: number) => {
       const bounds = boundsRef.current?.getBoundingClientRect();
       const containerWidth = bounds?.width ?? window.innerWidth;
       const containerHeight = bounds?.height ?? window.innerHeight;
-      const panelWidth = minimized ? PILL_WIDTH : sizeRef.current.width;
-      const panelHeight = minimized ? PILL_HEIGHT : sizeRef.current.height;
-      const maxX = Math.max(8, containerWidth - panelWidth);
-      const maxY = Math.max(8, containerHeight - panelHeight);
+      const maxX = Math.max(8, containerWidth - width);
+      const maxY = Math.max(8, containerHeight - height);
       const minY = Math.max(8, topInset);
       return { x: clamp(x, 8, maxX), y: clamp(y, minY, Math.max(minY, maxY)) };
     },
-    [boundsRef, topInset, minimized],
+    [boundsRef, topInset],
   );
 
-  // Re-clamp whenever the reserved top space changes (e.g. the header bar
-  // wraps to a second line on a narrower viewport) so the panel/pill never
-  // end up stranded under it.
-  useEffect(() => {
-    const next = clampPosition(positionRef.current.x, positionRef.current.y);
-    if (next.x === positionRef.current.x && next.y === positionRef.current.y) return;
-    positionRef.current = next;
-    setPosition(next);
-    if (panelRef.current) {
-      panelRef.current.style.left = `${next.x}px`;
-      panelRef.current.style.top = `${next.y}px`;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topInset]);
+  // Same, but picks the pill's or the full panel's footprint based on
+  // the *current* minimized state — what drag handlers want, since
+  // they're always moving whichever one is presently visible.
+  const clampPosition = useCallback(
+    (x: number, y: number) => {
+      const width = minimized ? PILL_WIDTH : sizeRef.current.width;
+      const height = minimized ? PILL_HEIGHT : sizeRef.current.height;
+      return clampFor(x, y, width, height);
+    },
+    [clampFor, minimized],
+  );
 
-  // Align to `initialX` the first time it arrives (the parent measures it
-  // post-mount, so it's undefined on the very first render). Only fires
-  // once — later changes (e.g. a window resize reflowing the label) don't
-  // yank the panel out from under the user once they've moved it.
-  const alignedRef = useRef(false);
-  useEffect(() => {
-    if (alignedRef.current || initialX == null) return;
-    alignedRef.current = true;
-    const next = clampPosition(initialX, positionRef.current.y);
+  // Default layout: right-aligned, full height from the header down to the
+  // bottom margin. Recomputed whenever the container or reserved header
+  // space changes (mount, header wrapping to a second line, window
+  // resize) — but only until the user drags or resizes the panel
+  // themselves, at which point `userAdjustedRef` flips and their layout
+  // sticks.
+  const userAdjustedRef = useRef(false);
+  const applyDefaultLayout = useCallback(() => {
+    if (userAdjustedRef.current) return;
+    const bounds = boundsRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+
+    const height = clamp(bounds.height - topInset - PANEL_MARGIN, MIN_HEIGHT, bounds.height);
+    const nextSize = { width: sizeRef.current.width, height };
+    sizeRef.current = nextSize;
+    setSize(nextSize);
+
+    const x = Math.max(PANEL_MARGIN, bounds.width - nextSize.width - PANEL_MARGIN);
+    const next = { x, y: topInset };
     positionRef.current = next;
     setPosition(next);
-    if (panelRef.current) {
-      panelRef.current.style.left = `${next.x}px`;
-      panelRef.current.style.top = `${next.y}px`;
+
+    const panel = panelRef.current;
+    if (panel) {
+      panel.style.left = `${next.x}px`;
+      panel.style.top = `${next.y}px`;
+      panel.style.width = `${nextSize.width}px`;
+      panel.style.height = `${nextSize.height}px`;
     }
-  }, [initialX, clampPosition]);
+  }, [boundsRef, topInset]);
+
+  useLayoutEffect(() => {
+    applyDefaultLayout();
+  }, [applyDefaultLayout]);
+
+  useEffect(() => {
+    const el = boundsRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(applyDefaultLayout);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [boundsRef, applyDefaultLayout]);
 
   const flashStatus = useCallback((next: Status, ms = 1100) => {
     setStatus(next);
@@ -217,7 +266,155 @@ export default function FloatingEditor({
     flashStatus("saved", 1200);
   }, [flashStatus, language]);
 
-  const handleToggleMinimize = useCallback(() => setMinimized((v) => !v), []);
+  // Minimizing/maximizing keeps the *right* edge fixed (the panel is
+  // right-docked, per applyDefaultLayout above), so it visually collapses
+  // into and expands back out of its own top-right corner instead of
+  // drifting toward the top-left as the box shrinks. flipRef captures the
+  // on-screen box before *and* the target box after this toggle, so the
+  // layout effect below can play a FLIP (First-Last-Invert-Play) once
+  // React commits the new position/size — computed purely from these
+  // numbers, no DOM measurement needed.
+  const flipRef = useRef<{
+    from: { x: number; y: number; w: number; h: number };
+    to: { x: number; y: number; w: number; h: number };
+  } | null>(null);
+
+  const handleToggleMinimize = useCallback(() => {
+    const current = positionRef.current;
+    const wasMinimized = minimized;
+    const willMinimize = !minimized;
+    const rightEdge = current.x + (minimized ? PILL_WIDTH : sizeRef.current.width);
+    const nextWidth = willMinimize ? PILL_WIDTH : sizeRef.current.width;
+    const nextHeight = willMinimize ? PILL_HEIGHT : sizeRef.current.height;
+    const next = clampFor(rightEdge - nextWidth, current.y, nextWidth, nextHeight);
+
+    flipRef.current = {
+      from: {
+        x: current.x,
+        y: current.y,
+        w: wasMinimized ? PILL_WIDTH : sizeRef.current.width,
+        h: wasMinimized ? PILL_HEIGHT : sizeRef.current.height,
+      },
+      to: { x: next.x, y: next.y, w: nextWidth, h: nextHeight },
+    };
+
+    positionRef.current = next;
+    setPosition(next);
+    setMinimized(willMinimize);
+  }, [minimized, clampFor]);
+
+  // Plays the FLIP captured above, once React has committed the new
+  // position/size. Runs after every position/size/minimized change but is
+  // a no-op unless handleToggleMinimize just set flipRef — drags and
+  // resizes leave it null.
+  //
+  // Only the *panel* ever gets a shape-changing (scale) transform — it's
+  // the only element that visibly resizes; the pill, when it's the one
+  // fading out, only gets a plain translate (no scale) back to where it
+  // actually was, and needs nothing at all when it's fading in (its
+  // resting spot already matches `position`). Two reasons the panel is
+  // the one doing the visible work, not the pill: the pill's rounded-full
+  // shape has corner arcs spanning its *entire* height, so scaling it
+  // through the same ~4x/~17x ratio the panel↔pill size difference
+  // requires warps those into a huge, heavily distorted ellipse every
+  // frame — expensive to rasterize and the actual source of the
+  // direction-specific jitter (pill arrives via FLIP on minimize, panel
+  // arrives via FLIP on maximize) — where the panel's much smaller
+  // rounded-2xl corners don't have that problem at the same scale.
+  useLayoutEffect(() => {
+    const flip = flipRef.current;
+    flipRef.current = null;
+    if (!flip) return;
+    const { from, to } = flip;
+
+    const panel = panelRef.current;
+    const pill = pillRef.current;
+    const cleanups: Array<() => void> = [];
+
+    if (panel) {
+      const base = { x: position.x, y: position.y, w: size.width, h: size.height };
+      const scaleX0 = from.w / base.w;
+      const scaleY0 = from.h / base.h;
+      const translateX0 = from.x - base.x;
+      const translateY0 = from.y - base.y;
+      const scaleX1 = to.w / base.w;
+      const scaleY1 = to.h / base.h;
+      const translateX1 = to.x - base.x;
+      const translateY1 = to.y - base.y;
+
+      // will-change + the 3d transform functions promote this to its own
+      // GPU compositing layer up front — without it the browser only
+      // decides to promote a layer once the transform starts changing,
+      // which costs a dropped frame or two right as the animation begins
+      // and reads as jitter. Matters a lot here since the panel contains
+      // a live Monaco editor — expensive to repaint every frame if it's
+      // rasterizing on the main thread instead of compositing a
+      // pre-rasterized layer.
+      panel.style.willChange = "transform";
+      panel.style.transformOrigin = "top left";
+      panel.style.transform = `translate3d(${translateX0}px, ${translateY0}px, 0) scale3d(${scaleX0}, ${scaleY0}, 1)`;
+      // Force a style flush so the "from" pose above actually paints
+      // before `transform` joins the transition list below — otherwise
+      // both writes are batched into the same frame and the shrink/grow
+      // never renders. Deliberately NOT disabling transitions first
+      // (no `transitionProperty = "none"` step): panel's transition-
+      // property doesn't include `transform` yet at this point (only the
+      // opacity/visibility React's declarative style already put there),
+      // so this write is already un-animated on its own — and briefly
+      // setting `transitionProperty` to "none" here, as an earlier
+      // version of this code did, flushed opacity/visibility's own
+      // already-in-flight fade instantly instead of letting it run its
+      // course, which is what made the fade disappear entirely.
+      void panel.offsetHeight;
+      // Longhand properties (not the `transition` shorthand string) from
+      // here on, on purpose — building a shorthand string by hand is
+      // error-prone (the browser re-serializes it, and a dropped/
+      // misplaced token can silently turn a delay into a duration or
+      // vice versa), and that exact bug is what caused the flush above
+      // this comment used to guard against in the first place.
+      panel.style.transitionProperty = "transform, opacity, visibility";
+      panel.style.transitionDuration = `${MINIMIZE_TRANSITION_MS}ms, ${MINIMIZE_TRANSITION_MS}ms, 0s`;
+      panel.style.transitionTimingFunction = `${MINIMIZE_EASING}, ${MINIMIZE_EASING}, linear`;
+      panel.style.transitionDelay = `0s, 0s, ${minimized ? `${MINIMIZE_TRANSITION_MS}ms` : "0s"}`;
+      panel.style.transform = `translate3d(${translateX1}px, ${translateY1}px, 0) scale3d(${scaleX1}, ${scaleY1}, 1)`;
+
+      const timeoutId = setTimeout(() => {
+        panel.style.transitionProperty = "";
+        panel.style.transitionDuration = "";
+        panel.style.transitionTimingFunction = "";
+        panel.style.transitionDelay = "";
+        panel.style.transform = "";
+        panel.style.transformOrigin = "";
+        panel.style.willChange = "";
+      }, MINIMIZE_TRANSITION_MS);
+      cleanups.push(() => clearTimeout(timeoutId));
+    }
+
+    if (pill) {
+      if (minimized) {
+        // Arriving (or already showing): `position` already equals the
+        // pill's own correct resting spot — clear any leftover transform
+        // from a previous toggle and leave it alone.
+        pill.style.transform = "";
+      } else {
+        // Departing: pill's left/top share `position` state with the
+        // panel's new resting spot, so without this it would silently
+        // teleport there for the duration of its fade. A static
+        // (untransitioned — transform isn't part of its own declarative
+        // transition list) translate keeps it exactly where it was; no
+        // scale needed since the pill's own size never changes.
+        const translateX = from.x - position.x;
+        const translateY = from.y - position.y;
+        pill.style.transform = `translate3d(${translateX}px, ${translateY}px, 0)`;
+        const timeoutId = setTimeout(() => {
+          pill.style.transform = "";
+        }, MINIMIZE_TRANSITION_MS);
+        cleanups.push(() => clearTimeout(timeoutId));
+      }
+    }
+
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [minimized, position, size]);
   const handleToggleVim = useCallback(() => setVimEnabled((v) => !v), []);
 
   const handleLanguageChange = useCallback(
@@ -260,15 +457,54 @@ export default function FloatingEditor({
   useEffect(() => {
     return () => {
       if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+      if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
+    };
+  }, []);
+
+  // Safety net for the autosave debounce window: a reload/close within
+  // 500ms of the last keystroke would otherwise miss that final edit.
+  useEffect(() => {
+    const flush = () => {
+      if (!editorRef.current) return;
+      try {
+        window.localStorage.setItem(storageKey(languageRef.current), editorRef.current.getValue());
+      } catch {
+        // localStorage unavailable — best-effort
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("pagehide", flush);
     };
   }, []);
 
   useEffect(() => {
-    if (!editorReady || !editorRef.current) return;
-    if (vimEnabled) {
+    if (!editorReady || !editorRef.current || !vimEnabled) return;
+    // monaco-vim touches `window` at module-evaluation time, same as
+    // monaco-editor itself — importing it dynamically here (rather than
+    // statically at the top of the file) keeps it out of the SSR bundle.
+    let cancelled = false;
+    import("monaco-vim").then(({ initVimMode, VimMode }) => {
+      if (cancelled || !editorRef.current) return;
+      // `:w`/`:write` normally no-op — there's no real file underneath
+      // this editor. Point it at the same save path as the Save button
+      // and Ctrl/Cmd+S. `defineEx` is registered on monaco-vim's shared
+      // global Vim object, not per-instance, so re-registering here on
+      // every mount just overwrites the same handler — harmless.
+      // `VimMode.Vim` exists at runtime (monaco-vim's CMAdapter.Vim =
+      // Vim()) but isn't in the package's shipped .d.mts — cast around
+      // the incomplete types rather than the missing API.
+      (VimMode as unknown as { Vim: { defineEx: (name: string, prefix: string, fn: () => void) => void } }).Vim.defineEx(
+        "write",
+        "w",
+        () => handlersRef.current.save(),
+      );
       vimModeRef.current = initVimMode(editorRef.current, statusBarRef.current ?? undefined);
-    }
+    });
     return () => {
+      cancelled = true;
       vimModeRef.current?.dispose();
       vimModeRef.current = null;
     };
@@ -295,6 +531,7 @@ export default function FloatingEditor({
       function onUp() {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        userAdjustedRef.current = true;
         setPosition(positionRef.current);
       }
       window.addEventListener("pointermove", onMove);
@@ -302,6 +539,51 @@ export default function FloatingEditor({
     },
     [clampPosition],
   );
+
+  // The minimized pill drags the same way the full panel's header does,
+  // but it's also a click target (expand) — a plain onClick would fire
+  // even after a drag, so track whether the pointer actually moved past a
+  // small threshold and suppress the expand in that case.
+  const pillDraggedRef = useRef(false);
+  const handlePillPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const origin = positionRef.current;
+      const pill = pillRef.current;
+      pillDraggedRef.current = false;
+
+      function onMove(ev: PointerEvent) {
+        if (!pillDraggedRef.current) {
+          if (Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) return;
+          pillDraggedRef.current = true;
+          userAdjustedRef.current = true;
+        }
+        const next = clampPosition(origin.x + (ev.clientX - startX), origin.y + (ev.clientY - startY));
+        positionRef.current = next;
+        if (pill) {
+          pill.style.left = `${next.x}px`;
+          pill.style.top = `${next.y}px`;
+        }
+      }
+      function onUp() {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        if (pillDraggedRef.current) {
+          setPosition(positionRef.current);
+        }
+      }
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [clampPosition],
+  );
+
+  const handlePillClick = useCallback(() => {
+    if (pillDraggedRef.current) return;
+    handleToggleMinimize();
+  }, [handleToggleMinimize]);
 
   const handleResizePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -329,6 +611,7 @@ export default function FloatingEditor({
       function onUp() {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
+        userAdjustedRef.current = true;
         setSize(sizeRef.current);
         editorRef.current?.layout();
       }
@@ -340,6 +623,21 @@ export default function FloatingEditor({
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
+
+    // Autosave: persists on every edit (debounced), independent of the
+    // explicit Save action — so a reload never loses work just because
+    // the user never hit Ctrl+S. Silent (no "Saved" status flash); that
+    // flash is reserved for the explicit save actions below.
+    editor.onDidChangeModelContent(() => {
+      if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
+      autosaveTimeoutRef.current = setTimeout(() => {
+        try {
+          window.localStorage.setItem(storageKey(languageRef.current), editor.getValue());
+        } catch {
+          // localStorage unavailable (private mode, etc.) — best-effort
+        }
+      }, 500);
+    });
 
     monaco.editor.defineTheme("lattice-dark", {
       base: "vs-dark",
@@ -390,20 +688,27 @@ export default function FloatingEditor({
   return (
     <>
       <button
+        ref={pillRef}
         type="button"
-        onClick={() => setMinimized(false)}
+        onPointerDown={handlePillPointerDown}
+        onClick={handlePillClick}
         aria-label="Expand editor"
         style={{
           position: "absolute",
           left: position.x,
           top: position.y,
+          touchAction: "none",
           opacity: minimized ? 1 : 0,
-          transform: minimized ? "scale(1)" : "scale(0.92)",
-          transformOrigin: "top left",
           visibility: minimized ? "visible" : "hidden",
-          transition: `opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear ${minimized ? "0s" : "200ms"}`,
+          // left/top/transform are intentionally NOT set declaratively
+          // here — left/top go straight to their final (already right-
+          // edge-anchored, see handleToggleMinimize) value instantly, and
+          // transform is owned by the FLIP effect above for the duration
+          // of a toggle (cleared back to nothing once it finishes). Only
+          // opacity/visibility animate declaratively.
+          transition: `opacity ${MINIMIZE_TRANSITION_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? "0s" : `${MINIMIZE_TRANSITION_MS}ms`}`,
         }}
-        className="glass z-20 flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-shadow hover:shadow-[0_0_20px_var(--accent-glow)]"
+        className="glass z-20 flex cursor-grab items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-shadow active:cursor-grabbing hover:shadow-[0_0_20px_var(--accent-glow)]"
       >
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
         Editor
@@ -421,10 +726,10 @@ export default function FloatingEditor({
           width: size.width,
           height: size.height,
           opacity: minimized ? 0 : 1,
-          transform: minimized ? "scale(0.92)" : "scale(1)",
-          transformOrigin: "top left",
           visibility: minimized ? "hidden" : "visible",
-          transition: `opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear ${minimized ? "200ms" : "0s"}`,
+          // See the pill's style above — left/top/transform deliberately
+          // excluded from this declarative transition.
+          transition: `opacity ${MINIMIZE_TRANSITION_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? `${MINIMIZE_TRANSITION_MS}ms` : "0s"}`,
         }}
         className="glass z-20 flex flex-col overflow-hidden rounded-2xl"
       >

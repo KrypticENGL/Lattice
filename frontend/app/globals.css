@@ -191,6 +191,22 @@ body {
   text-wrap: balance;
 }
 
+/* Sidebar (components/dashboard/Sidebar.tsx) is a fixed overlay that
+   expands on hover without reflowing layout, so page chrome near the
+   left edge can end up hidden underneath it. `.shifts-with-sidebar`
+   opts an element in to sliding clear, kept in sync with the sidebar's
+   own 300ms hover transition. 152px = the sidebar's expanded width
+   (224px) minus its collapsed width (72px) — the extra clearance needed
+   on top of whatever base padding already accounts for the collapsed
+   state. */
+.shifts-with-sidebar {
+  transition: margin-left 300ms ease-out;
+}
+
+aside:hover ~ main .shifts-with-sidebar {
+  margin-left: 152px;
+}
+
 /* Freeform gradient + grain — the page backdrop inside the framed box.
    Strictly grayscale, scaling from true black to near-white: color is
    reserved for interactive/accent elements. */

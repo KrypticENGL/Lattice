@@ -6,6 +6,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  type ReactNode,
 } from "react";
 
 export type InfiniteCanvasHandle = {
@@ -17,13 +18,19 @@ type View = { x: number; y: number; scale: number };
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 2.5;
 const BASE_STEP = 28;
+// FloatingEditor's default width (560, see FloatingEditor.tsx) plus its
+// right-edge margin — approximate, since the panel is user-resizable and
+// this component has no direct reference to it, but good enough to bias
+// the default/reset camera position toward the actual free space.
+const EDITOR_RESERVE = 580;
 
 export default forwardRef<
   InfiniteCanvasHandle,
-  { onZoomChange?: (scale: number) => void; className?: string }
->(function InfiniteCanvas({ onZoomChange, className }, ref) {
+  { onZoomChange?: (scale: number) => void; className?: string; children?: ReactNode }
+>(function InfiniteCanvas({ onZoomChange, className, children }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
   const view = useRef<View>({ x: 0, y: 0, scale: 1 });
   const pointer = useRef({ panning: false, id: -1, lastX: 0, lastY: 0 });
   const rafRef = useRef<number | null>(null);
@@ -51,6 +58,14 @@ export default forwardRef<
     ctx.fillRect(0, 0, width, height);
 
     const { x: ox, y: oy, scale } = view.current;
+
+    // World-space content (e.g. trace diagrams) lives in `layerRef`, a
+    // zero-size div anchored at the container's top-left whose transform
+    // is kept in lockstep with the background grid's own pan/zoom — same
+    // `view.current` read on the same frame, so they can never drift.
+    if (layerRef.current) {
+      layerRef.current.style.transform = `translate(${ox}px, ${oy}px) scale(${scale})`;
+    }
 
     let step = BASE_STEP;
     while (step * scale < 10) step *= 5;
@@ -103,7 +118,13 @@ export default forwardRef<
     const container = containerRef.current;
     if (!container) return;
     const { width, height } = container.getBoundingClientRect();
-    view.current = { x: width / 2, y: height / 2, scale: 1 };
+    // Center on the free space to the left of FloatingEditor, not the
+    // raw container width — the editor is right-aligned and eats a
+    // real chunk of the right side (~560px default width + margin), so
+    // centering on the full width visually skews everything rightward,
+    // toward the editor rather than the middle of the sidebar↔editor gap.
+    const x = Math.max(width / 2 - EDITOR_RESERVE / 2, width * 0.15);
+    view.current = { x, y: height / 2, scale: 1 };
     onZoomChange?.(1);
     scheduleDraw();
   }, [onZoomChange, scheduleDraw]);
@@ -188,6 +209,13 @@ export default forwardRef<
         onPointerUp={endPan}
         onPointerCancel={endPan}
       />
+      <div
+        ref={layerRef}
+        className="pointer-events-none absolute left-0 top-0"
+        style={{ transformOrigin: "0 0", willChange: "transform" }}
+      >
+        {children}
+      </div>
     </div>
   );
 });

@@ -11,6 +11,7 @@
 //! failing to parse here is a signal worth surfacing, not just quietly
 //! passing through as opaque JSON.
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -77,14 +78,25 @@ pub struct TruncatedEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Frame {
     pub function: String,
-    pub locals: HashMap<String, TraceValue>,
+    /// `IndexMap`, not `HashMap`: field/local order here is meaningful —
+    /// it's what the frontend's tree layout (lib/shape-detection.ts) uses
+    /// to decide which child renders on which side. `HashMap`'s iteration
+    /// order is randomized per instance (a DoS-hardening default, seeded
+    /// per map), which silently scrambled `left`/`right` field order on
+    /// serialization — the exact cause of a real bug where a tree's
+    /// children rendered on inconsistent sides across runs. The tracer
+    /// itself always emits fields in true declaration order (Python dict
+    /// preserves insertion order); `IndexMap` is what preserves that
+    /// through deserialize → reserialize instead of discarding it.
+    pub locals: IndexMap<String, TraceValue>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeapObject {
     #[serde(rename = "type")]
     pub type_name: String,
-    pub fields: HashMap<String, TraceValue>,
+    /// See `Frame::locals` — same reasoning, same fix.
+    pub fields: IndexMap<String, TraceValue>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,7 +124,7 @@ pub enum TraceValue {
     Struct {
         #[serde(rename = "type")]
         type_name: String,
-        fields: HashMap<String, TraceValue>,
+        fields: IndexMap<String, TraceValue>,
     },
     Array(Vec<TraceValue>),
 }
@@ -130,16 +142,24 @@ pub struct ExecuteResponse {
     pub trace: Vec<TraceEvent>,
     pub stdout: String,
     pub truncated: bool,
+    /// The `g++ ...` invocation tracer.py ran, and any stderr it produced
+    /// (empty string when there were no warnings) — lets the frontend show
+    /// a real compile-then-run terminal transcript instead of just the
+    /// program's own stdout.
+    pub compile_command: String,
+    pub compiler_output: String,
 }
 
 impl ExecuteResponse {
-    pub fn from_events(events: Vec<TraceEvent>) -> Self {
+    pub fn from_events(events: Vec<TraceEvent>, compile_command: String, compiler_output: String) -> Self {
         let stdout = events.iter().map(TraceEvent::stdout_delta).collect();
         let truncated = events.iter().any(TraceEvent::is_truncated);
         Self {
             trace: events,
             stdout,
             truncated,
+            compile_command,
+            compiler_output,
         }
     }
 }
@@ -207,7 +227,7 @@ mod tests {
                 reason: "timeout".into(),
             }),
         ];
-        let resp = ExecuteResponse::from_events(events);
+        let resp = ExecuteResponse::from_events(events, "g++ -g -O0 -o a.out source.cpp".into(), "".into());
         assert_eq!(resp.stdout, "hello\n");
         assert!(resp.truncated);
     }

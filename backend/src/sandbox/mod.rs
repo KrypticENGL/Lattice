@@ -60,7 +60,16 @@ impl SandboxConfig {
 
 #[derive(Debug)]
 pub enum SandboxOutcome {
-    Trace(Vec<TraceEvent>),
+    Trace {
+        events: Vec<TraceEvent>,
+        /// From tracer.py's preamble line (emitted before any TraceEvents
+        /// on a successful compile) — the `g++ ...` invocation and any
+        /// stderr it produced (empty string, not `None`, when there were
+        /// no warnings), so a caller can render a real compile-then-run
+        /// transcript instead of just the program's own stdout.
+        compile_command: String,
+        compiler_output: String,
+    },
     /// tracer.py's single-object `{"error": "compile_error", ...}` contract
     /// — not a TraceEvent, source never ran at all.
     CompileError(String),
@@ -273,6 +282,8 @@ fn parse_tracer_output(
     }
 
     let mut events = Vec::with_capacity(lines.len());
+    let mut compile_command = String::new();
+    let mut compiler_output = String::new();
     for line in lines {
         let line = line.trim();
         if line.is_empty() {
@@ -290,6 +301,20 @@ fn parse_tracer_output(
                     .unwrap_or("compilation failed")
                     .to_string();
                 return Ok(SandboxOutcome::CompileError(message));
+            }
+            // The one-time preamble a successful compile emits before any
+            // TraceEvents (tracer.py's contract) — also not a TraceEvent,
+            // so it must be pulled out here rather than falling through to
+            // schema parsing below, where it would fail to match either
+            // untagged variant.
+            if let Some(cmd) = raw.get("compile_command").and_then(|v| v.as_str()) {
+                compile_command = cmd.to_string();
+                compiler_output = raw
+                    .get("compiler_output")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                continue;
             }
         }
 
@@ -320,5 +345,9 @@ fn parse_tracer_output(
         }
     }
 
-    Ok(SandboxOutcome::Trace(events))
+    Ok(SandboxOutcome::Trace {
+        events,
+        compile_command,
+        compiler_output,
+    })
 }

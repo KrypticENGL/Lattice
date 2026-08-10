@@ -17,6 +17,11 @@ Output contract:
     - One JSON object per line (NDJSON) on stdout for each trace event.
     - A compile failure prints a single JSON object
       {"error": "compile_error", "message": "..."} and exits 1.
+    - A successful compile first prints one preamble line
+      {"compile_command": "...", "compiler_output": "..."} (compiler_output
+      is "" when there were no warnings) before any trace events, so a
+      caller can show a real compile-then-run transcript instead of just
+      the program's own stdout.
     - Hitting the wall-clock timeout or output cap prints a final line
       {"step": -1, "event": "truncated", "reason": "..."} and exits 0 —
       this is a normal outcome (§6.3), not a crash.
@@ -44,15 +49,23 @@ def emit(obj):
 
 def compile_source(source_path, workdir, std):
     binary_path = os.path.join(workdir, "a.out")
-    result = subprocess.run(
-        ["g++", "-g", "-O0", f"-std={std}", "-o", binary_path, source_path],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+    # -Wall (diagnostics only, not -Werror — a warning must never turn a
+    # snippet that actually runs into a hard failure) so the compiler
+    # preamble has real, common warnings to show, not just the errors
+    # g++ already flags without any -W flags at all.
+    flags = ["-g", "-O0", "-Wall", f"-std={std}"]
+    command = ["g++", *flags, "-o", binary_path, source_path]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+    display_command = " ".join(["g++", *flags, "-o", "a.out", "source.cpp"])
+    # g++ reports diagnostics against the real (temp-dir) path — replace
+    # it with the plain filename so output reads like it would in a
+    # normal working directory, not our ephemeral sandbox tmpdir.
+    stderr = result.stderr.replace(source_path, "source.cpp")
     if result.returncode != 0:
-        return None, result.stderr
-    return binary_path, None
+        return None, stderr, display_command
+    # Even a successful compile can write warnings to stderr — surfaced
+    # via the caller's preamble line rather than silently discarded.
+    return binary_path, stderr, display_command
 
 
 def run_gdb(binary_path, workdir, step_cap, max_heap_objects, timeout_seconds, output_byte_cap):
@@ -131,10 +144,12 @@ def main():
         with open(source_path, "w", encoding="utf-8") as fh:
             fh.write(source_text)
 
-        binary_path, compile_error = compile_source(source_path, workdir, args.std)
-        if compile_error is not None:
-            emit({"error": "compile_error", "message": compile_error})
+        binary_path, compiler_stderr, display_command = compile_source(source_path, workdir, args.std)
+        if binary_path is None:
+            emit({"error": "compile_error", "message": compiler_stderr})
             sys.exit(1)
+
+        emit({"compile_command": display_command, "compiler_output": compiler_stderr})
 
         run_gdb(
             binary_path,

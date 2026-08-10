@@ -40,11 +40,29 @@ async fn main() {
     // Connected once at startup and reused for every sandbox run — a
     // failure here doesn't take the whole process down (see AppState's
     // docs), it just disables /api/execute until Docker is reachable.
+    //
+    // `connect_with_socket_defaults()` alone only checks that the socket
+    // *file* exists, not that we can actually use it — a process started
+    // in a shell before `usermod -aG docker` takes effect "connects" fine
+    // here and then fails on every real request with a confusing 500.
+    // `ping()` forces a real round-trip so that failure mode surfaces now,
+    // as the intended clean 503, instead of mid-request.
     let docker = match Docker::connect_with_socket_defaults() {
-        Ok(docker) => {
-            tracing::info!("connected to Docker daemon");
-            Some(Arc::new(docker))
-        }
+        Ok(docker) => match docker.ping().await {
+            Ok(_) => {
+                tracing::info!("connected to Docker daemon");
+                Some(Arc::new(docker))
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Docker socket exists but ping failed (often: this shell predates \
+                     `usermod -aG docker` taking effect — restart from a fresh shell) — \
+                     /api/execute will report 503"
+                );
+                None
+            }
+        },
         Err(e) => {
             tracing::warn!(error = %e, "no Docker connection — /api/execute will report 503");
             None

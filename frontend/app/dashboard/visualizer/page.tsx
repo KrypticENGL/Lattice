@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboard/visualizer/InfiniteCanvas";
 import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
-import TraceViewer, { type RunStatus } from "@/components/dashboard/visualizer/TraceViewer";
+import TraceControls, { type RunStatus } from "@/components/dashboard/visualizer/TraceControls";
+import DiagramView from "@/components/dashboard/visualizer/DiagramView";
 import { runTrace, ExecuteRequestError } from "@/lib/trace-schema/execute";
-import type { TraceEvent } from "@/lib/trace-schema/types";
+import { isTruncated, type StepEvent, type TraceEvent } from "@/lib/trace-schema/types";
+import { buildDiagram } from "@/lib/shape-detection";
 
 const HEADER_GAP = 16;
 
@@ -13,16 +15,39 @@ export default function VisualizerPage() {
   const canvasRef = useRef<InfiniteCanvasHandle>(null);
   const boundsRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLSpanElement>(null);
   const [zoom, setZoom] = useState(1);
   const [topInset, setTopInset] = useState(96);
-  const [labelX, setLabelX] = useState<number | undefined>(undefined);
 
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
   const [runError, setRunError] = useState<string | null>(null);
   const [trace, setTrace] = useState<TraceEvent[] | null>(null);
   const [stdout, setStdout] = useState<string | undefined>(undefined);
   const [truncated, setTruncated] = useState(false);
+  const [compileCommand, setCompileCommand] = useState<string | undefined>(undefined);
+  const [compilerOutput, setCompilerOutput] = useState<string | undefined>(undefined);
+  const [stepIndex, setStepIndex] = useState(0);
+
+  // Reset to step 0 whenever a new trace arrives — "adjust state during
+  // render" pattern, not an effect. See https://react.dev/learn/you-might-not-need-an-effect
+  const [prevTrace, setPrevTrace] = useState(trace);
+  if (trace !== prevTrace) {
+    setPrevTrace(trace);
+    setStepIndex(0);
+  }
+
+  // The final "truncated" sentinel (if any) isn't a real step to view —
+  // the `truncated` flag above already surfaces that in TraceControls.
+  // Memoized on `trace` specifically: `.filter()` builds a new array
+  // every call, and without this, TraceControls' autoplay effect (which
+  // resets on a "new" `steps` reference) would see a fresh array on
+  // every stepIndex-driven re-render and kill itself after one tick.
+  const stepEvents = useMemo(
+    () => trace?.filter((e): e is StepEvent => !isTruncated(e)) ?? null,
+    [trace],
+  );
+  const stepCount = stepEvents?.length ?? 0;
+  const currentStep = stepEvents && stepCount > 0 ? stepEvents[stepIndex] : null;
+  const diagram = currentStep ? buildDiagram(currentStep) : null;
 
   const handleReset = useCallback(() => {
     canvasRef.current?.resetView();
@@ -36,9 +61,13 @@ export default function VisualizerPage() {
       setTrace(result.trace);
       setStdout(result.stdout);
       setTruncated(result.truncated);
+      setCompileCommand(result.compile_command);
+      setCompilerOutput(result.compiler_output);
       setRunStatus("done");
     } catch (err) {
       setTrace(null);
+      setCompileCommand(undefined);
+      setCompilerOutput(undefined);
       setRunError(err instanceof ExecuteRequestError ? err.message : "trace request failed");
       setRunStatus("error");
     }
@@ -54,38 +83,47 @@ export default function VisualizerPage() {
     return () => observer.disconnect();
   }, []);
 
-  // Measure the "Visualizer" label's left edge (relative to the bounds
-  // container) once, so the editor's initial position lines up under it
-  // when the page is first opened.
-  useEffect(() => {
-    const label = labelRef.current;
-    const bounds = boundsRef.current;
-    if (!label || !bounds) return;
-    setLabelX(label.getBoundingClientRect().left - bounds.getBoundingClientRect().left);
-  }, []);
-
   return (
     <div ref={boundsRef} className="relative h-full w-full overflow-hidden">
-      <InfiniteCanvas ref={canvasRef} onZoomChange={setZoom} />
+      <InfiniteCanvas ref={canvasRef} onZoomChange={setZoom}>
+        {diagram && <DiagramView diagram={diagram} zoom={zoom} />}
+      </InfiniteCanvas>
 
       <div
         ref={headerRef}
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-start justify-between gap-4 p-1"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-end justify-between gap-4 p-1"
       >
-        <div className="pointer-events-none pl-36">
+        <div className="shifts-with-sidebar pointer-events-none pl-8">
           <span aria-hidden="true" className="invisible block font-mono text-[13px] uppercase tracking-[0.2em]">
             Visualizer
           </span>
-          <span
-            ref={labelRef}
-            className="mt-2 block font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl"
-            style={{ filter: "drop-shadow(0 2px 16px rgba(0,0,0,0.55))" }}
-          >
-            Visualizer
-          </span>
+          <div className="mt-2 flex flex-wrap items-end gap-8">
+            <span
+              className="block font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl"
+              style={{ filter: "drop-shadow(0 2px 16px rgba(0,0,0,0.55))" }}
+            >
+              Visualizer
+            </span>
+            <div className="pointer-events-auto pb-1">
+              <TraceControls
+                status={runStatus}
+                error={runError}
+                stepIndex={stepIndex}
+                steps={stepEvents ?? []}
+                onStepChange={setStepIndex}
+                stdout={stdout}
+                truncated={truncated}
+                compileCommand={compileCommand}
+                compilerOutput={compilerOutput}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-3">
+        <div className="pointer-events-auto mb-2 flex items-center gap-3">
+          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] lg:inline-block">
+            Scroll to zoom · Drag to pan
+          </span>
           <div className="matte flex items-center gap-3 rounded-full px-4 py-2.5">
             <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
               Zoom
@@ -107,16 +145,9 @@ export default function VisualizerPage() {
       <FloatingEditor
         boundsRef={boundsRef}
         topInset={topInset}
-        initialX={labelX}
         onRun={handleRun}
         running={runStatus === "running"}
       />
-
-      <TraceViewer status={runStatus} error={runError} trace={trace} stdout={stdout} truncated={truncated} />
-
-      <span className="matte pointer-events-none absolute bottom-4 left-4 z-10 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
-        Scroll to zoom · Drag to pan
-      </span>
     </div>
   );
 }
