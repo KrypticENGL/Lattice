@@ -30,6 +30,12 @@ STEP_CAP = int(os.environ.get("LATTICE_STEP_CAP", "5000"))
 MAX_HEAP_OBJECTS = int(os.environ.get("LATTICE_MAX_HEAP_OBJECTS", "2000"))
 MAX_FINISH_HOPS = 200
 MAX_ARRAY_ELEMENTS = 256
+# By default only steps that actually change the heap become trace events
+# (see run()) — a line-by-line trace is mostly steps where the diagram is
+# identical to the one before it, which makes stepping through a run tedious
+# and bloats the payload. Set to "1" to get every source line back, which is
+# useful when debugging the tracer itself.
+EMIT_ALL_STEPS = os.environ.get("LATTICE_EMIT_ALL_STEPS", "0") == "1"
 
 # `gdb.execute(cmd, to_string=True)` does NOT reliably capture asynchronous
 # stop notifications ("Program received signal ...") in its return value —
@@ -42,6 +48,16 @@ NOT_RUNNING_RE = re.compile(r"not being run")
 
 def emit(event):
     print(json.dumps(event), flush=True)
+
+
+def heap_signature(heap):
+    """Canonical form of a heap snapshot, for deciding whether a step
+    changed anything worth showing. `sort_keys` matters: the walker drains
+    its worklist depth-first, so the same set of objects routinely
+    serializes in a different key order from one step to the next and a
+    plain `==` on the dicts would still be true, but a raw json.dumps
+    comparison would not."""
+    return json.dumps(heap, sort_keys=True)
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +105,88 @@ def serialize_scalar(val, code):
         return f"<error: {e}>"
 
 
+# ---------------------------------------------------------------------------
+# Freed-memory tracking: a `delete`d/`free`d chunk stays mapped (glibc
+# doesn't unmap it), so dereferencing it after the fact doesn't reliably
+# fail — it silently returns whatever the allocator's freelist bookkeeping
+# (or a stale prior occupant) left in those bytes, which can itself look
+# like a plausible pointer into other still-live objects and corrupt the
+# diagram far downstream of the actual freed node. Common in exactly the
+# code this tool is for: a linked-list/tree destructor loop holds a
+# pointer to an already-`delete`d node for the rest of that iteration,
+# until it's reassigned.
+#
+# Tracked via breakpoints on `free`/`malloc` (which every `delete`/`new` in
+# a libstdc++ binary routes through) rather than static source analysis,
+# per this file's "never interpret the source" rule — and cleared on reuse
+# via the `malloc` side, since glibc's tcache commonly hands a just-freed
+# chunk straight back to the next same-size allocation (very likely here:
+# nodes in a list are typically all the same size), and a fresh allocation
+# reusing that address is live again, not still freed.
+#
+# x86-64 System V calling convention only (`$rdi` = first arg, `$rax` =
+# return value) — the sandbox this runs in is x86-64 Linux.
+# ---------------------------------------------------------------------------
+
+freed_addresses = set()
+
+
+class _FreeBreakpoint(gdb.Breakpoint):
+    """Fires on every call to `free`. stop() always returns False — this
+    never actually halts the debuggee, it just records the argument and
+    lets execution continue, transparently to run()'s step loop."""
+
+    def stop(self):
+        try:
+            ptr = int(gdb.parse_and_eval("$rdi")) & 0xFFFFFFFFFFFFFFFF
+            if ptr:
+                freed_addresses.add(ptr)
+        except gdb.error:
+            pass
+        return False
+
+
+class _MallocReturnBreakpoint(gdb.FinishBreakpoint):
+    """One-shot, armed by _MallocEntryBreakpoint for a specific `malloc`
+    call: fires when that call returns, to un-mark the address it hands
+    back. Reads `$rax` directly rather than `.return_value` — `malloc`
+    has no debug info in a typical build, so the latter isn't populated."""
+
+    def stop(self):
+        try:
+            addr = int(gdb.parse_and_eval("$rax")) & 0xFFFFFFFFFFFFFFFF
+            freed_addresses.discard(addr)
+        except gdb.error:
+            pass
+        return False
+
+
+class _MallocEntryBreakpoint(gdb.Breakpoint):
+    """Fires on every call to `malloc`; arms a _MallocReturnBreakpoint on
+    it so the address it's about to hand back gets un-marked once known.
+    stop() always returns False, same reasoning as _FreeBreakpoint."""
+
+    def stop(self):
+        try:
+            _MallocReturnBreakpoint(internal=True)
+        except (gdb.error, ValueError):
+            pass
+        return False
+
+
+def install_allocator_tracking():
+    """Best-effort: called once libc is loaded (after the initial `run`
+    reaches `main`). A binary missing `malloc`/`free` symbols (fully
+    static, fully inlined) just means this tracking is a no-op — the rest
+    of the tracer works the same either way, only as exposed to the
+    freed-memory issue above as it was before this function existed."""
+    for name, cls in (("free", _FreeBreakpoint), ("malloc", _MallocEntryBreakpoint)):
+        try:
+            cls(name, internal=True)
+        except (gdb.error, ValueError):
+            pass
+
+
 class HeapWalker:
     """Serializes a value graph into flat `{obj_id: {...}}` heap entries.
 
@@ -110,6 +208,11 @@ class HeapWalker:
             return obj_id
         if len(self.heap) >= MAX_HEAP_OBJECTS:
             return None
+        if addr in freed_addresses:
+            # Known-freed — do not dereference. No worklist entry, so
+            # drain() never touches this memory at all.
+            self.heap[obj_id] = {"type": "<freed>", "fields": {}}
+            return obj_id
         self.heap[obj_id] = {"type": "<budget exceeded>", "fields": {}}
         self.worklist.append((obj_id, ptr_val))
         return obj_id
@@ -246,8 +349,24 @@ def frame_line(frame):
 def collect_locals(frame):
     """All variables/arguments visible at this frame's current PC, from the
     innermost lexical block outward to the function's top block, filtered to
-    those already declared by the current line (later same-block decls are
-    still uninitialized garbage and would be misleading to show)."""
+    those already fully initialized by an earlier line (arguments excepted —
+    see below).
+
+    A local variable declared on the *current* line is excluded too, not
+    just later ones: we're paused before this line runs (§8's per-step
+    model —
+    see run()'s loop), so a decl on this exact line hasn't been assigned
+    yet regardless of how many steps it takes to get there. That gap can
+    span several trace events when the initializer itself steps into user
+    code (e.g. `Node* newNode = new Node(v);` — `newNode` isn't bound until
+    Node's constructor returns), during which this frame keeps reporting
+    the same current line while nested calls run. Reading the variable in
+    that window doesn't just show a blank/garbage value — it reads
+    whatever this stack slot last held, which can alias a real, unrelated
+    live object left over from a prior call using the same frame address
+    (observed: `newNode` pointing at an already-linked node one step
+    before `new Node(v)` even runs), corrupting the diagram rather than
+    just looking incomplete."""
     line = frame_line(frame)
     names_seen = set()
     result = {}
@@ -265,7 +384,16 @@ def collect_locals(frame):
                 continue
             names_seen.add(sym.name)
             decl_line = getattr(sym, "line", 0) or 0
-            if decl_line and decl_line > line:
+            # Arguments are bound by the call itself before the callee's
+            # first line runs, so they're valid immediately regardless of
+            # which line they're declared on (a one-line constructor's
+            # parameter shares its line with the whole body) — only a
+            # local's *own initializing statement* can still be pending,
+            # so the same-line exclusion below applies to those only.
+            if sym.is_argument:
+                if decl_line and decl_line > line:
+                    continue
+            elif decl_line and decl_line >= line:
                 continue
             try:
                 val = sym.value(frame)
@@ -389,10 +517,22 @@ def run():
         })
         return
 
-    step = 0
-    prev_depth = 0
+    install_allocator_tracking()
 
-    while step < STEP_CAP:
+    # `executed` counts real source lines stepped (what STEP_CAP is about);
+    # `emitted` numbers the events actually written out. With heap-change
+    # filtering these diverge sharply — the cap must keep counting work
+    # done, or a long-running loop that never touches the heap would spin
+    # past it and only the wall-clock backstop would stop it.
+    executed = 0
+    emitted = 0
+    prev_depth = 0
+    prev_signature = None
+    pending_stdout = ""
+    deferred = None
+    last_event = None
+
+    while executed < STEP_CAP:
         outcome = skip_to_user_frame()
         if outcome != "ok":
             break
@@ -402,28 +542,49 @@ def run():
         line = frame_line(frame)
         func = frame.name() or "?"
 
+        # Classified against the last *emitted* depth, not the last executed
+        # one — with most steps filtered out, "call"/"return" is only
+        # meaningful as a description of the jump from the previous event
+        # the viewer actually sees.
         if depth > prev_depth:
             event_type = "call"
         elif depth < prev_depth:
             event_type = "return"
         else:
             event_type = "line"
-        prev_depth = depth
 
         frame_locals_walker = HeapWalker()
         frames = collect_user_frames()
         frame_locals_walker.drain()
+        heap = frame_locals_walker.heap
 
-        emit({
-            "step": step,
+        # stdout produced during skipped steps has to ride along to the next
+        # emitted event, or it would be dropped from the transcript entirely.
+        pending_stdout += stdout_delta()
+        last_event = {
+            "step": emitted,
             "line": line,
             "event": event_type,
             "function": func,
-            "stdout_delta": stdout_delta(),
+            "stdout_delta": pending_stdout,
             "frames": frames,
-            "heap": frame_locals_walker.heap,
-        })
-        step += 1
+            "heap": heap,
+        }
+
+        signature = heap_signature(heap)
+        if EMIT_ALL_STEPS or prev_signature is None or signature != prev_signature:
+            emit(last_event)
+            emitted += 1
+            prev_signature = signature
+            prev_depth = depth
+            pending_stdout = ""
+            deferred = None
+        else:
+            # Nothing the diagram draws changed — hold this one back, but
+            # keep it as the candidate "final state" event (see below).
+            deferred = last_event
+
+        executed += 1
 
         _, outcome = step_and_flush("step")
         if outcome == "exited":
@@ -432,7 +593,6 @@ def run():
             _, sig_name, sig_desc = outcome.split(":", 2)
             try:
                 frame = gdb.selected_frame()
-                depth = frame_depth()
                 line = frame_line(frame)
                 func = frame.name() or "?"
                 frame_locals_walker = HeapWalker()
@@ -440,15 +600,27 @@ def run():
                 frame_locals_walker.drain()
                 heap = frame_locals_walker.heap
             except gdb.error:
-                func, line, frames, heap = None, line, [], {}
+                func, frames, heap = None, [], {}
             emit({
-                "step": step, "line": line, "event": "exception", "function": func,
-                "stdout_delta": stdout_delta(), "frames": frames, "heap": heap,
+                "step": emitted, "line": line, "event": "exception", "function": func,
+                "stdout_delta": pending_stdout + stdout_delta(), "frames": frames, "heap": heap,
                 "error": {"signal": sig_name, "description": sig_desc},
             })
             return
 
-    if step >= STEP_CAP:
+    # Always land on a final event, even when its heap matches the previous
+    # one: it carries the last line reached (so the viewer ends on where
+    # execution actually stopped rather than the last mutation) plus any
+    # output flushed after that last emitted step — including a program
+    # whose closing statement prints and then immediately exits.
+    pending_stdout += stdout_delta()
+    final = deferred if deferred is not None else (last_event if pending_stdout else None)
+    if final is not None:
+        final["step"] = emitted
+        final["stdout_delta"] = pending_stdout
+        emit(final)
+
+    if executed >= STEP_CAP:
         emit({"step": -1, "event": "truncated", "reason": "step_cap"})
 
 

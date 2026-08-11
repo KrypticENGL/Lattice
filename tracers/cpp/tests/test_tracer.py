@@ -10,6 +10,7 @@ Run with: python3 -m unittest tracers/cpp/tests/test_tracer.py -v
 """
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -19,16 +20,25 @@ TRACER = pathlib.Path(__file__).resolve().parent.parent / "tracer.py"
 FIXTURE = pathlib.Path(__file__).resolve().parent / "fixtures" / "linked_list.cpp"
 
 
-def run_tracer(source_path, **kwargs):
+def run_tracer(source_path, env=None, **kwargs):
     """Returns (result, trace_events, preamble). `preamble` is the
     {"compile_command": ..., "compiler_output": ...} line a *successful*
     compile emits before any trace events (None on a compile failure,
     where the single line is a {"error": "compile_error", ...} object
-    instead — left in `trace_events` as-is for that test to inspect)."""
+    instead — left in `trace_events` as-is for that test to inspect).
+
+    `env` overlays extra environment variables onto the tracer's process
+    (tracer.py forwards its own environment through to gdb_hook.py)."""
     args = [sys.executable, str(TRACER), str(source_path)]
     for key, value in kwargs.items():
         args += [f"--{key.replace('_', '-')}", str(value)]
-    result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    child_env = None
+    if env:
+        child_env = dict(os.environ)
+        child_env.update(env)
+    result = subprocess.run(
+        args, capture_output=True, text=True, timeout=30, env=child_env
+    )
     lines = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
     if lines and "compile_command" in lines[0]:
         return result, lines[1:], lines[0]
@@ -104,10 +114,43 @@ class TestLinkedListGoldenTrace(unittest.TestCase):
                         self.assertIn(value["ref"], heap, event)
 
     def test_step_count_is_bounded_and_reasonable(self):
-        # Building 4 nodes + a 4-iteration traversal loop + a couple of
-        # bookkeeping lines shouldn't take anywhere near the 5000 step cap.
-        self.assertLess(len(self.events), 100)
-        self.assertGreater(len(self.events), 10)
+        # Only heap-changing steps become events, so this is roughly "one
+        # event per node allocated, plus one per `next` link written, plus
+        # a final end-of-program event" — nowhere near the 5000 step cap,
+        # and well under the line-by-line count (the 4-iteration summing
+        # loop touches no heap at all and collapses away entirely).
+        self.assertLess(len(self.events), 30)
+        self.assertGreaterEqual(len(self.events), 8)
+
+    def test_only_heap_changing_steps_are_emitted(self):
+        # The filtering contract: no two *consecutive* events may carry the
+        # same heap. The single exception is the last event, which is always
+        # emitted so the trace ends on the line execution actually reached
+        # (and carries any output flushed after the final mutation).
+        sigs = [json.dumps(e["heap"], sort_keys=True) for e in self.events]
+        for i in range(1, len(sigs) - 1):
+            self.assertNotEqual(
+                sigs[i], sigs[i - 1],
+                f"event {i} (line {self.events[i]['line']}) duplicates the previous heap",
+            )
+
+    def test_emit_all_steps_escape_hatch_restores_line_granularity(self):
+        _, all_events, _ = run_tracer(FIXTURE, env={"LATTICE_EMIT_ALL_STEPS": "1"})
+        self.assertGreater(len(all_events), len(self.events))
+
+    def test_no_stdout_is_lost_to_filtering(self):
+        # Skipped steps must hand their stdout to the next emitted event
+        # rather than dropping it, so the filtered transcript still matches
+        # the unfiltered one byte for byte.
+        _, all_events, _ = run_tracer(FIXTURE, env={"LATTICE_EMIT_ALL_STEPS": "1"})
+        self.assertEqual(
+            "".join(e.get("stdout_delta", "") for e in self.events),
+            "".join(e.get("stdout_delta", "") for e in all_events),
+        )
+
+    def test_step_field_matches_event_order(self):
+        for i, event in enumerate(self.events):
+            self.assertEqual(event["step"], i, event)
 
 
 class TestCompileError(unittest.TestCase):

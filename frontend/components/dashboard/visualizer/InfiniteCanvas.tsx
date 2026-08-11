@@ -9,11 +9,25 @@ import {
   type ReactNode,
 } from "react";
 
+/** World-space extent of whatever is being framed (node centres are enough —
+ * padding would shift both edges equally and so never moves the midpoint). */
+export type WorldBounds = { minX: number; minY: number; maxX: number; maxY: number };
+
+/** Screen-space edges of `boundsRef` that are covered by floating chrome and
+ * so must not be counted as usable space when centring — the editor panel on
+ * the right, the header overlay on top. */
+export type ViewportInsets = { left?: number; right?: number; top?: number; bottom?: number };
+
 export type InfiniteCanvasHandle = {
   resetView: () => void;
+  centerOn: (bounds: WorldBounds, insets?: ViewportInsets) => void;
 };
 
 type View = { x: number; y: number; scale: number };
+
+// Matches DiagramView's own node/edge transitions, so a recentre and the
+// layout shift that triggered it read as one motion instead of two.
+const RECENTER_MS = 300;
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 2.5;
@@ -114,7 +128,64 @@ export default forwardRef<
     });
   }, [draw]);
 
+  // A recentre is a tween rather than a jump, and any direct manipulation
+  // (wheel, drag, Reset view) cancels it mid-flight — the user's own input
+  // must always win over an animation they didn't ask for.
+  const animRef = useRef<number | null>(null);
+  const cancelViewAnimation = useCallback(() => {
+    if (animRef.current != null) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+  }, []);
+
+  const centerOn = useCallback(
+    (bounds: WorldBounds, insets: ViewportInsets = {}) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const { width, height } = container.getBoundingClientRect();
+      const { left = 0, right = 0, top = 0, bottom = 0 } = insets;
+
+      // The free rectangle between the sidebar (already excluded by the
+      // dashboard layout's own left padding) and the editor's left edge.
+      // Clamped so a wide editor over a narrow window can't invert it.
+      const usableWidth = Math.max(1, width - left - right);
+      const usableHeight = Math.max(1, height - top - bottom);
+      const targetX = left + usableWidth / 2;
+      const targetY = top + usableHeight / 2;
+
+      // Zoom is deliberately preserved: the user's chosen scale is theirs to
+      // keep, so this only ever pans.
+      const { scale } = view.current;
+      const worldX = (bounds.minX + bounds.maxX) / 2;
+      const worldY = (bounds.minY + bounds.maxY) / 2;
+      const to = { x: targetX - worldX * scale, y: targetY - worldY * scale };
+
+      cancelViewAnimation();
+      const from = { x: view.current.x, y: view.current.y };
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+        view.current = { ...view.current, ...to };
+        scheduleDraw();
+        return;
+      }
+
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / RECENTER_MS);
+        const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+        view.current = { ...view.current, x: from.x + dx * eased, y: from.y + dy * eased };
+        draw();
+        animRef.current = t < 1 ? requestAnimationFrame(tick) : null;
+      };
+      animRef.current = requestAnimationFrame(tick);
+    },
+    [cancelViewAnimation, draw, scheduleDraw],
+  );
+
   const centerView = useCallback(() => {
+    cancelViewAnimation();
     const container = containerRef.current;
     if (!container) return;
     const { width, height } = container.getBoundingClientRect();
@@ -127,9 +198,9 @@ export default forwardRef<
     view.current = { x, y: height / 2, scale: 1 };
     onZoomChange?.(1);
     scheduleDraw();
-  }, [onZoomChange, scheduleDraw]);
+  }, [onZoomChange, scheduleDraw, cancelViewAnimation]);
 
-  useImperativeHandle(ref, () => ({ resetView: centerView }), [centerView]);
+  useImperativeHandle(ref, () => ({ resetView: centerView, centerOn }), [centerView, centerOn]);
 
   useEffect(() => {
     centerView();
@@ -142,12 +213,15 @@ export default forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => cancelViewAnimation, [cancelViewAnimation]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
+      cancelViewAnimation();
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -170,10 +244,11 @@ export default forwardRef<
 
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", handleWheel);
-  }, [onZoomChange, scheduleDraw]);
+  }, [onZoomChange, scheduleDraw, cancelViewAnimation]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
+    cancelViewAnimation();
     canvasRef.current?.setPointerCapture(e.pointerId);
     pointer.current = { panning: true, id: e.pointerId, lastX: e.clientX, lastY: e.clientY };
     if (canvasRef.current) canvasRef.current.style.cursor = "grabbing";

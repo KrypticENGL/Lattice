@@ -47,11 +47,62 @@ export default function VisualizerPage() {
   );
   const stepCount = stepEvents?.length ?? 0;
   const currentStep = stepEvents && stepCount > 0 ? stepEvents[stepIndex] : null;
-  const diagram = currentStep ? buildDiagram(currentStep) : null;
+  // Memoized on the step: the layout is pure, and without this it would be
+  // recomputed on every unrelated re-render (a zoom tick, an editor drag),
+  // and hand the recentring effect below a new object each time.
+  const diagram = useMemo(() => (currentStep ? buildDiagram(currentStep) : null), [currentStep]);
 
+  // Left edge of the editor panel, or null while it's minimized (a collapsed
+  // pill sits in the top-right corner and shouldn't reserve a column).
+  const [editorLeft, setEditorLeft] = useState<number | null>(null);
+  const handleEditorGeometry = useCallback(
+    ({ left, minimized }: { left: number; minimized: boolean }) =>
+      setEditorLeft(minimized ? null : left),
+    [],
+  );
+
+  /** Frames the current drawing in the gap between the sidebar and the
+   * editor. No-op when there's nothing drawn yet. */
+  const centerOnDiagram = useCallback(() => {
+    const nodes = diagram?.nodes;
+    if (!nodes || nodes.length === 0) return false;
+    const xs = nodes.map((n) => n.x);
+    const ys = nodes.map((n) => n.y);
+    const containerWidth = boundsRef.current?.getBoundingClientRect().width ?? 0;
+    canvasRef.current?.centerOn(
+      { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) },
+      {
+        // The dashboard layout already pads `main` clear of the collapsed
+        // sidebar, so the container's own left edge is the usable boundary.
+        right: editorLeft === null ? 0 : Math.max(0, containerWidth - editorLeft),
+        top: topInset,
+      },
+    );
+    return true;
+  }, [diagram, editorLeft, topInset]);
+
+  // Reset view restores 1:1 zoom, then frames the drawing using the editor's
+  // real edge — so it lands in the same place the automatic recentring does,
+  // rather than on InfiniteCanvas's own width approximation.
   const handleReset = useCallback(() => {
     canvasRef.current?.resetView();
-  }, []);
+    centerOnDiagram();
+  }, [centerOnDiagram]);
+
+  // Recentre whenever a node appears that wasn't on screen the step before.
+  // Keyed on node identity rather than count so a step that simultaneously
+  // frees one node and allocates another still counts as new.
+  const drawnIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!diagram || diagram.nodes.length === 0) {
+      drawnIdsRef.current = new Set();
+      return;
+    }
+    const previous = drawnIdsRef.current;
+    const hasNewNode = diagram.nodes.some((n) => !previous.has(n.id));
+    drawnIdsRef.current = new Set(diagram.nodes.map((n) => n.id));
+    if (hasNewNode) centerOnDiagram();
+  }, [diagram, centerOnDiagram]);
 
   const handleRun = useCallback(async (language: Language, source: string) => {
     setRunStatus("running");
@@ -147,6 +198,11 @@ export default function VisualizerPage() {
         topInset={topInset}
         onRun={handleRun}
         running={runStatus === "running"}
+        onGeometryChange={handleEditorGeometry}
+        // Suppressed while a run is in flight: the previous trace's lines
+        // still describe the previous source, so holding the old highlight
+        // over freshly-edited code would point at the wrong statement.
+        activeLine={runStatus === "running" ? null : (currentStep?.line ?? null)}
       />
     </div>
   );

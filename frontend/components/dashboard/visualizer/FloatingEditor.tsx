@@ -118,7 +118,7 @@ const PILL_HEIGHT = 44;
 const MINIMIZE_TRANSITION_MS = 300;
 const MINIMIZE_EASING = "ease-out";
 
-type Status = "idle" | "running" | "saved";
+type Status = "idle" | "running" | "saved" | "copied";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max));
@@ -129,6 +129,8 @@ export default function FloatingEditor({
   topInset = DEFAULT_Y,
   onRun,
   running = false,
+  onGeometryChange,
+  activeLine = null,
 }: {
   boundsRef: RefObject<HTMLDivElement | null>;
   /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
@@ -142,18 +144,35 @@ export default function FloatingEditor({
    * locally-guessed timer — the actual request can take much longer than
    * the fixed flash used for the "saved" status. */
   running?: boolean;
+  /** Reports the panel's left edge (in `boundsRef` coordinates) whenever it
+   * settles, so the canvas can treat the space to its left as the usable
+   * area. `minimized` is passed through rather than folded into a single
+   * number because a collapsed pill occupies a small top-right corner and
+   * shouldn't reserve a whole column of the canvas. */
+  onGeometryChange?: (geometry: { left: number; minimized: boolean }) => void;
+  /** 1-based source line the trace is currently stopped on, highlighted in
+   * the gutter and scrolled into view. Null clears the highlight. It is
+   * suppressed automatically once the buffer no longer matches what was
+   * actually executed — see `staleRef` below. */
+  activeLine?: number | null;
 }) {
   const [language, setLanguage] = useState<Language>("cpp");
   const [minimized, setMinimized] = useState(false);
   const [vimEnabled, setVimEnabled] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [editorReady, setEditorReady] = useState(false);
+  // Set on the first edit after a run: the trace's line numbers describe the
+  // source that was *executed*, so once the buffer diverges from it the
+  // highlight would point at the wrong line. Cleared on the next run.
+  const [sourceStale, setSourceStale] = useState(false);
   const [position, setPosition] = useState({ x: DEFAULT_X, y: DEFAULT_Y });
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
 
   const panelRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof Monaco | null>(null);
+  const lineDecorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
   const vimModeRef = useRef<VimAdapterInstance | null>(null);
   const statusBarRef = useRef<HTMLDivElement>(null);
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,6 +193,14 @@ export default function FloatingEditor({
   useEffect(() => {
     sizeRef.current = size;
   }, [size]);
+
+  // Drags/resizes write straight to the DOM and only commit to state on
+  // pointerup, so this fires when the panel settles rather than on every
+  // pointer move — which is what a listener repositioning other content
+  // wants anyway.
+  useEffect(() => {
+    onGeometryChange?.({ left: position.x, minimized });
+  }, [position.x, minimized, onGeometryChange]);
 
   // Clamps so a box of the given footprint stays fully within `boundsRef`,
   // per the "editor must never go out of the screen" requirement.
@@ -253,6 +280,7 @@ export default function FloatingEditor({
 
   const handleRun = useCallback(() => {
     const code = editorRef.current?.getValue() ?? "";
+    setSourceStale(false);
     onRun?.(language, code);
   }, [onRun, language]);
 
@@ -265,6 +293,11 @@ export default function FloatingEditor({
     }
     flashStatus("saved", 1200);
   }, [flashStatus, language]);
+
+  const handleCopy = useCallback(() => {
+    const code = editorRef.current?.getValue() ?? "";
+    navigator.clipboard.writeText(code).then(() => flashStatus("copied", 1200));
+  }, [flashStatus]);
 
   // Minimizing/maximizing keeps the *right* edge fixed (the panel is
   // right-docked, per applyDefaultLayout above), so it visually collapses
@@ -510,6 +543,41 @@ export default function FloatingEditor({
     };
   }, [vimEnabled, editorReady]);
 
+  // Paints the line the trace is stopped on and keeps it in view. Uses a
+  // decorations *collection* (Monaco's own handle-tracking) rather than the
+  // deprecated deltaDecorations, so edits above the line move the highlight
+  // with the text instead of stranding it on a fixed line number.
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editorReady || !editor || !monaco) return;
+
+    const collection =
+      lineDecorationsRef.current ?? (lineDecorationsRef.current = editor.createDecorationsCollection());
+
+    const model = editor.getModel();
+    const lineCount = model?.getLineCount() ?? 0;
+    // Guard the line number: a stale trace, or one from a `#include` the
+    // user can't see, can name a line past the end of this buffer, and
+    // Monaco throws rather than clamping.
+    if (sourceStale || activeLine === null || activeLine < 1 || activeLine > lineCount) {
+      collection.clear();
+      return;
+    }
+
+    collection.set([
+      {
+        range: new monaco.Range(activeLine, 1, activeLine, 1),
+        options: {
+          isWholeLine: true,
+          className: "lattice-active-line",
+          linesDecorationsClassName: "lattice-active-line-gutter",
+        },
+      },
+    ]);
+    editor.revealLineInCenterIfOutsideViewport(activeLine, monaco.editor.ScrollType.Smooth);
+  }, [activeLine, editorReady, sourceStale]);
+
   const handleHeaderPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
@@ -623,12 +691,16 @@ export default function FloatingEditor({
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
     // Autosave: persists on every edit (debounced), independent of the
     // explicit Save action — so a reload never loses work just because
     // the user never hit Ctrl+S. Silent (no "Saved" status flash); that
     // flash is reserved for the explicit save actions below.
     editor.onDidChangeModelContent(() => {
+      // Idempotent: React bails out when the value is unchanged, so this
+      // doesn't re-render on every keystroke, only on the first edit.
+      setSourceStale(true);
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = setTimeout(() => {
         try {
@@ -682,8 +754,19 @@ export default function FloatingEditor({
 
   const effectiveStatus: Status = running ? "running" : status;
   const statusColor =
-    effectiveStatus === "running" ? "var(--accent-primary)" : effectiveStatus === "saved" ? "var(--accent-secondary)" : "var(--hairline-strong)";
-  const statusLabel = effectiveStatus === "running" ? "Tracing…" : effectiveStatus === "saved" ? "Saved" : "Idle";
+    effectiveStatus === "running"
+      ? "var(--accent-primary)"
+      : effectiveStatus === "saved" || effectiveStatus === "copied"
+        ? "var(--accent-secondary)"
+        : "var(--hairline-strong)";
+  const statusLabel =
+    effectiveStatus === "running"
+      ? "Tracing…"
+      : effectiveStatus === "saved"
+        ? "Saved"
+        : effectiveStatus === "copied"
+          ? "Copied"
+          : "Idle";
 
   return (
     <>
@@ -735,7 +818,7 @@ export default function FloatingEditor({
       >
         <div
           onPointerDown={handleHeaderPointerDown}
-          className="flex shrink-0 cursor-grab items-center justify-between gap-3 border-b border-[var(--hairline)] px-4 py-3 active:cursor-grabbing"
+          className="glass-bar flex shrink-0 cursor-grab items-center justify-between gap-3 border-b border-[var(--hairline)] px-4 py-3 active:cursor-grabbing"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -775,6 +858,20 @@ export default function FloatingEditor({
               }}
             >
               Vim
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={!editorReady}
+              title="Copy code"
+              aria-label="Copy code"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="8" y="8" width="12" height="12" rx="1.5" />
+                <path d="M16 8V5.5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1V15a1 1 0 0 0 1 1H8" />
+              </svg>
             </button>
 
             <button
@@ -840,6 +937,10 @@ export default function FloatingEditor({
               padding: { top: 12, bottom: 12 },
               overviewRulerBorder: false,
               lineNumbersMinChars: 3,
+              // Widened from Monaco's 10px default so the execution arrow
+              // (.lattice-active-line-gutter) has room to sit between the
+              // line numbers and the first character without crowding either.
+              lineDecorationsWidth: 18,
             }}
             loading={
               <div className="flex h-full w-full items-center justify-center bg-[var(--bg-surface)] font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">

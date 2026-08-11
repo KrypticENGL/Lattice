@@ -9,6 +9,22 @@
  * Array/hashmap-specific renderers aren't implemented yet — arrays
  * already display inline as JSON arrays (not heap objects) and our C++
  * tracer doesn't special-case std::map today.
+ *
+ * Real OOP code rarely exposes a raw pointer chain to `main` — it's
+ * usually reached through a manager/wrapper instance (`LinkedList list;`
+ * holding a `head`, `Graph g;` holding an adjacency structure). Two
+ * things fall out of that which this module handles explicitly:
+ *
+ * 1. That wrapper is frequently a stack local, not a heap ref — gdb_hook.py
+ *    (§8) serializes those inline as `{ type, fields }` rather than
+ *    `{ ref }`, so a root-collector that only looks at top-level
+ *    `{ ref }` locals finds nothing to draw at all. `forEachRef` walks
+ *    into embedded struct/array values (at any depth) to find refs
+ *    wherever they actually are.
+ * 2. Once found, the wrapper itself isn't part of the structure a reader
+ *    means to see — `backtraceToDataRoots` walks *through* it to the
+ *    real data-structure root(s) it manages, so the diagram shows the
+ *    list/tree/graph the class manages, not a node for the class.
  */
 
 import type { Frame, HeapObject, StepEvent, TraceValue } from "./trace-schema/types";
@@ -47,15 +63,38 @@ function isScalar(value: TraceValue): value is string | number | boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
 
+/** Visits every `{ ref }` reachable from `value` without crossing a heap
+ * boundary — i.e. it follows embedded structs (`{ type, fields }`, gdb_hook.py's
+ * encoding for a stack-local class/struct value) and arrays (a `vector<Node*>`
+ * field) at any nesting depth, but does not dereference a ref itself. That's
+ * what lets a manager class sitting directly on the stack, or a collection
+ * field holding several pointers, still surface the refs it holds. */
+function forEachRef(value: TraceValue, visit: (ref: string) => void): void {
+  if (value === null) return;
+  if (isRef(value)) {
+    visit(value.ref);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) forEachRef(v, visit);
+    return;
+  }
+  if (typeof value === "object") {
+    for (const v of Object.values(value.fields)) forEachRef(v, visit);
+  }
+}
+
 function collectRootRefs(frames: Frame[]): string[] {
   const roots: string[] = [];
   const seen = new Set<string>();
   for (const frame of frames) {
     for (const value of Object.values(frame.locals)) {
-      if (isRef(value) && !seen.has(value.ref)) {
-        seen.add(value.ref);
-        roots.push(value.ref);
-      }
+      forEachRef(value, (ref) => {
+        if (!seen.has(ref)) {
+          seen.add(ref);
+          roots.push(ref);
+        }
+      });
     }
   }
   return roots;
@@ -64,9 +103,75 @@ function collectRootRefs(frames: Frame[]): string[] {
 function outRefs(obj: HeapObject): Array<{ field: string; to: string }> {
   const refs: Array<{ field: string; to: string }> = [];
   for (const [field, value] of Object.entries(obj.fields)) {
-    if (isRef(value)) refs.push({ field, to: value.ref });
+    forEachRef(value, (to) => refs.push({ field, to }));
   }
   return refs;
+}
+
+/** Type name -> occurrence count among everything forward-reachable from
+ * `frontier` (refs only followed outward, no backward closure). Used to
+ * tell a data-structure node (a type that recurs — one `ListNode` per
+ * element, one `TreeNode` per branch) from a one-off management/wrapper
+ * class (a single `LinkedList` or `Graph` instance holding the real
+ * root). */
+function forwardReachableTypeCounts(heap: Record<string, HeapObject>, frontier: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  const visited = new Set<string>();
+  const queue = [...frontier];
+  while (queue.length > 0) {
+    const id = queue.shift() as string;
+    if (visited.has(id) || !heap[id]) continue;
+    visited.add(id);
+    const obj = heap[id];
+    counts.set(obj.type, (counts.get(obj.type) ?? 0) + 1);
+    for (const { to } of outRefs(obj)) queue.push(to);
+  }
+  return counts;
+}
+
+/** Walks each raw root past management/wrapper objects to the real
+ * data-structure root(s) they hold, so the diagram renders the list/tree/
+ * graph a class manages rather than a node for the class itself.
+ *
+ * A wrapper is recognized structurally, not by name: its type occurs
+ * exactly once among everything reachable from the original roots (the
+ * nodes it manages recur — one per element/branch — while the manager
+ * itself doesn't), and it has at least one outgoing ref to unwrap into.
+ * Wrappers nested inside wrappers (a `Graph` holding an `AdjacencyList`
+ * holding the actual nodes) are peeled off one layer at a time until a
+ * recurring, or childless, type is reached. */
+function backtraceToDataRoots(
+  heap: Record<string, HeapObject>,
+  rawRoots: string[],
+): { roots: string[]; wrappers: Set<string> } {
+  const typeCounts = forwardReachableTypeCounts(heap, rawRoots);
+  const wrappers = new Set<string>();
+  const roots: string[] = [];
+  const rootsSeen = new Set<string>();
+
+  function unwrap(id: string, path: Set<string>) {
+    const obj = heap[id];
+    if (!obj || path.has(id)) return; // cycle guard: a wrapper loop has nothing to draw
+    const refs = outRefs(obj);
+    const isWrapper = (typeCounts.get(obj.type) ?? 0) === 1 && refs.length > 0;
+    if (!isWrapper) {
+      if (!rootsSeen.has(id)) {
+        rootsSeen.add(id);
+        roots.push(id);
+      }
+      return;
+    }
+    wrappers.add(id);
+    const nextPath = new Set(path).add(id);
+    for (const { to } of refs) {
+      if (heap[to]) unwrap(to, nextPath);
+    }
+  }
+
+  for (const r of rawRoots) {
+    if (heap[r]) unwrap(r, new Set());
+  }
+  return { roots, wrappers };
 }
 
 /** Every heap object the roots touch, directly or indirectly — refs
@@ -111,10 +216,17 @@ function pickLabel(obj: HeapObject): string {
 
 export function buildDiagram(step: StepEvent): Diagram | null {
   const { heap, frames } = step;
-  const roots = collectRootRefs(frames);
+  const rawRoots = collectRootRefs(frames);
+  if (rawRoots.length === 0) return null;
+
+  const { roots, wrappers } = backtraceToDataRoots(heap, rawRoots);
   if (roots.length === 0) return null;
 
   const componentIds = connectedComponent(heap, roots);
+  // connectedComponent's backward-closure step would otherwise pull a
+  // wrapper back in (it points at a now-visited data node), so drop it
+  // after the closure rather than trying to keep it out of the BFS.
+  for (const id of wrappers) componentIds.delete(id);
   if (componentIds.size === 0) return null;
 
   const edges: DiagramEdge[] = [];
@@ -143,6 +255,23 @@ export function buildDiagram(step: StepEvent): Diagram | null {
   return layoutGraph(componentIds, edges, heap, roots[0]);
 }
 
+/** A "chain" component isn't always *one* chain — every node having at
+ * most one in- and one out-edge is equally true of several disjoint
+ * chains sitting side by side, which is the normal mid-mutation state of
+ * real list code:
+ *
+ *   - mid-`insertAtHead`, the freshly allocated node is its own one-node
+ *     chain until `newNode->next = head` splices it on;
+ *   - mid-`append`, likewise, until `cur->next = newNode`;
+ *   - mid-destructor, the just-`delete`d head is detached from the
+ *     still-live remainder of the list.
+ *
+ * Walking a single chain from one chosen start therefore silently drops
+ * every other node in the component — and which chain survives is decided
+ * by `roots` ordering, i.e. by which frame happened to be serialized
+ * first, so the *live* list can be the part that disappears (observed: a
+ * destructor step rendering only the freed head while `10 -> 20 -> 30`
+ * was still reachable). Lay out all of them, end to end along one row. */
 function layoutLinkedList(
   ids: Set<string>,
   edges: DiagramEdge[],
@@ -151,27 +280,78 @@ function layoutLinkedList(
 ): Diagram {
   const nextOf = new Map(edges.map((e) => [e.from, e.to]));
   const hasIncoming = new Set(edges.map((e) => e.to));
-  const start =
-    roots.find((r) => ids.has(r) && !hasIncoming.has(r)) ??
-    [...ids].find((id) => !hasIncoming.has(id)) ??
-    roots[0];
 
-  const order: string[] = [];
+  // Candidate chain heads, best first: a genuine head (nothing points at
+  // it) preferred in `roots` order so the structure the user's own locals
+  // name leads, then any remaining head, then — for a pure cycle, where
+  // every node has an incoming edge and there is no head at all — whatever
+  // is still unvisited. The last group guarantees full coverage of `ids`.
+  const startCandidates = [
+    ...roots.filter((r) => ids.has(r) && !hasIncoming.has(r)),
+    ...[...ids].filter((id) => !hasIncoming.has(id)),
+    ...roots.filter((r) => ids.has(r)),
+    ...ids,
+  ];
+
+  const chains: string[][] = [];
   const seen = new Set<string>();
-  let cur: string | undefined = start;
-  while (cur !== undefined && ids.has(cur) && !seen.has(cur)) {
-    order.push(cur);
-    seen.add(cur);
-    cur = nextOf.get(cur);
+  for (const start of startCandidates) {
+    if (seen.has(start)) continue;
+    const chain: string[] = [];
+    let cur: string | undefined = start;
+    while (cur !== undefined && ids.has(cur) && !seen.has(cur)) {
+      chain.push(cur);
+      seen.add(cur);
+      cur = nextOf.get(cur);
+    }
+    if (chain.length > 0) chains.push(chain);
   }
 
-  const nodes: DiagramNode[] = order.map((id, i) => ({
-    id,
-    x: i * NODE_SPACING_X,
-    y: LIST_Y,
-    label: pickLabel(heap[id]),
-    type: heap[id].type,
-  }));
+  // Longest chain first — it's the structure proper, and anchoring it keeps
+  // the canvas origin meaningful. `sort` is stable, so equal-length chains
+  // keep their discovery order above.
+  chains.sort((a, b) => b.length - a.length);
+
+  // Which side of the list does an unlinked fragment belong on? A node that
+  // was just `new`ed has no edges yet, so nothing structural says where it
+  // goes — but the pointers the frame is *already holding* do. `roots` are
+  // the data nodes the live locals reach, so the right-most main-chain node
+  // any of them names is the end of the list this frame is working on:
+  //
+  //   - `append` walks a `cur` to the tail before `cur->next = newNode`,
+  //     so a root lands on the last node and the fragment belongs after it;
+  //   - `insertAtHead` only ever names `head`, so the only root in the
+  //     chain is its first node and the fragment belongs before it.
+  //
+  // Getting this right means the node is already sitting in its final slot
+  // when the link is made, so splicing it in changes nothing but the arrow
+  // — instead of the node jumping the width of the whole list.
+  const main = chains[0] ?? [];
+  const named = new Set(roots);
+  let anchorIdx = -1;
+  for (let i = 0; i < main.length; i++) {
+    if (named.has(main[i])) anchorIdx = i;
+  }
+  const fragments = chains.slice(1);
+  const ordered =
+    main.length > 1 && anchorIdx === 0 ? [...fragments, main] : [main, ...fragments];
+
+  // One row, chains laid end to end at the regular node pitch: a node is
+  // always beside its neighbours, never stacked above or below one, and a
+  // fragment predicted into its slot lines up exactly with the chain it is
+  // about to join. The absence of an arrow is what marks it as unlinked.
+  let cursor = 0;
+  const nodes: DiagramNode[] = ordered.flatMap((chain) => {
+    const placed = chain.map((id, i) => ({
+      id,
+      x: cursor + i * NODE_SPACING_X,
+      y: LIST_Y,
+      label: pickLabel(heap[id]),
+      type: heap[id].type,
+    }));
+    cursor += chain.length * NODE_SPACING_X;
+    return placed;
+  });
   return {
     kind: "linked-list",
     nodes,

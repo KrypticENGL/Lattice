@@ -141,6 +141,38 @@ body {
   pointer-events: none;
 }
 
+/* Glass header strip for a surface that is *already* a `.glass` panel — the
+   visualizer editor's title/toolbar bar. Deliberately lighter than `.glass`
+   itself so the bar reads as chrome sitting on top of the panel rather than
+   as a second panel: a thinner tint, a brighter top highlight to catch the
+   edge, and a short sheen falling off over the bar's own height.
+
+   The blur is kept even though a `.glass` ancestor establishes a backdrop
+   root (so this mostly resamples the panel's own sheen and noise rather than
+   the page behind it) — it softens those layers under the toolbar, and it
+   still frosts properly for any future use on a non-glass parent. */
+.glass-bar {
+  position: relative;
+  isolation: isolate;
+  background: color-mix(in srgb, var(--bg-elevated) 46%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.glass-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--text-primary) 9%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
 /* Liquid-glass floating navbar */
 .glass-nav {
   position: relative;
@@ -253,4 +285,38 @@ aside:hover ~ main .shifts-with-sidebar {
   opacity: 0.07;
   mix-blend-mode: overlay;
   pointer-events: none;
+}
+
+/* Currently-executing line in the visualizer's editor (FloatingEditor's
+   `activeLine`). Monaco renders decorations inside its own DOM, outside any
+   React tree and outside Tailwind's scope, so these have to be plain global
+   classes rather than utilities. Kept to a background tint so it never
+   fights the syntax colours underneath it; the arrow below carries the
+   actual "you are here" signal. */
+.lattice-active-line {
+  background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
+}
+
+/* Execution arrow, in the lineDecorations column — the strip Monaco puts
+   between the line numbers and the first character (its width is set by
+   `lineDecorationsWidth` in FloatingEditor). Monaco positions this element
+   itself via inline top/left/width/height, but leaves `display` alone, so
+   flex-centring the marker inside it is safe.
+
+   Drawn as a border triangle rather than a glyph like "▶" on purpose: that
+   codepoint has an emoji presentation form and renders as a colour emoji on
+   some platforms, which ignores `color` and breaks the theme. */
+.lattice-active-line-gutter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lattice-active-line-gutter::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--accent-primary);
 }
