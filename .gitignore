@@ -35,5 +35,3 @@ Thumbs.db
 # Python
 __pycache__/
 *.py[cod]
-.venv/
-backend/ytmusic/token.json

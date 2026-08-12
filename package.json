@@ -4,10 +4,9 @@
   "private": true,
   "description": "Runtime-Trace Based Data-Structure Visualizer with Dynamic Input",
   "scripts": {
-    "dev": "concurrently --names backend,frontend,ytmusic --prefix-colors cyan,green,magenta \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:ytmusic\"",
+    "dev": "concurrently --names backend,frontend --prefix-colors cyan,green \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && cargo run",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:ytmusic": "cd backend/ytmusic && .venv/bin/uvicorn service:app --port 8001 --reload",
     "build": "npm --prefix frontend run build",
     "start": "npm --prefix frontend run start",
     "lint": "npm --prefix frontend run lint",

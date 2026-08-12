@@ -76,47 +76,6 @@ body {
   background: var(--text-secondary);
 }
 
-/* Panel swap for segmented toggles: the outgoing panel is replaced (via a
-   changing React key) and the incoming one slides in from the side the new
-   tab sits on. --panel-from carries the direction. */
-@keyframes panel-in {
-  from {
-    opacity: 0;
-    transform: translateX(var(--panel-from, 10px));
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-panel-in {
-  animation: panel-in 320ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-
-/* Icon swap inside a control that changes state in place (play <-> pause). */
-@keyframes icon-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-icon-pop {
-  animation: icon-pop 220ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-panel-in,
-  .animate-icon-pop {
-    animation: none;
-  }
-}
-
 /* Section-snap scroll container: each child section owns one full screen */
 .snap-container {
   height: 100%;
