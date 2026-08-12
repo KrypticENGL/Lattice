@@ -12,6 +12,7 @@ use bollard::container::LogOutput;
 use bollard::models::{ContainerCreateBody, HostConfig};
 use bollard::query_parameters::{
     AttachContainerOptionsBuilder, CreateContainerOptionsBuilder, RemoveContainerOptionsBuilder,
+    StatsOptionsBuilder,
 };
 use bollard::Docker;
 use futures_util::{Stream, StreamExt};
@@ -36,6 +37,14 @@ pub struct SandboxConfig {
     /// Orchestrator-side output cap (§6.3 layer 3), independent of and in
     /// addition to tracer.py's own --output-byte-cap.
     pub output_byte_cap: usize,
+    /// Per-container CPU cap, in nano-CPUs (Docker's `--cpus` unit — 1e9 ==
+    /// one full core). Also the source of truth the resource-monitor
+    /// endpoint uses to compute a user's total CPU quota.
+    pub cpu_nano_cpus: i64,
+    /// Per-container memory cap in bytes. Also the source of truth the
+    /// resource-monitor endpoint uses to compute a user's total memory
+    /// quota.
+    pub memory_bytes: i64,
 }
 
 impl SandboxConfig {
@@ -46,6 +55,8 @@ impl SandboxConfig {
             step_cap: 5000,
             max_heap_objects: 2000,
             output_byte_cap: 5 * 1024 * 1024,
+            cpu_nano_cpus: 500_000_000,        // 0.5 CPU
+            memory_bytes: 256 * 1024 * 1024,   // 256 MB
         }
     }
 
@@ -111,11 +122,10 @@ enum Truncation {
 
 pub async fn run_cpp_trace(
     docker: &Docker,
+    container_name: &str,
     source: &str,
     config: &SandboxConfig,
 ) -> Result<SandboxOutcome, SandboxError> {
-    let container_name = format!("lattice-trace-{}", uuid::Uuid::new_v4());
-
     let host_config = HostConfig {
         network_mode: Some("none".to_string()),
         readonly_rootfs: Some(true),
@@ -138,9 +148,9 @@ pub async fn run_cpp_trace(
         // limits) still applies unchanged.
         cap_add: Some(vec!["SYS_PTRACE".to_string()]),
         security_opt: Some(vec!["no-new-privileges".to_string()]),
-        nano_cpus: Some(500_000_000), // 0.5 CPU
-        memory: Some(256 * 1024 * 1024),
-        memory_swap: Some(256 * 1024 * 1024), // == memory: no swap
+        nano_cpus: Some(config.cpu_nano_cpus),
+        memory: Some(config.memory_bytes),
+        memory_swap: Some(config.memory_bytes), // == memory: no swap
         pids_limit: Some(64),
         ..Default::default()
     };
@@ -170,7 +180,7 @@ pub async fn run_cpp_trace(
         .create_container(
             Some(
                 CreateContainerOptionsBuilder::default()
-                    .name(&container_name)
+                    .name(container_name)
                     .build(),
             ),
             body,
@@ -180,10 +190,10 @@ pub async fn run_cpp_trace(
 
     // Always clean up, however this turns out — containers are ephemeral,
     // never reused across requests (§6.1).
-    let result = run_attached(docker, &container_name, source, config).await;
+    let result = run_attached(docker, container_name, source, config).await;
     let _ = docker
         .remove_container(
-            &container_name,
+            container_name,
             Some(RemoveContainerOptionsBuilder::default().force(true).build()),
         )
         .await;
@@ -350,4 +360,49 @@ fn parse_tracer_output(
         compile_command,
         compiler_output,
     })
+}
+
+/// A single-sample snapshot of a running container's resource usage:
+/// `(cpu_percent, memory_bytes)`. `cpu_percent` follows Docker CLI's own
+/// `docker stats` formula (delta of cgroup CPU time over delta of host CPU
+/// time, scaled by online core count) so it reads the same way `docker
+/// stats` would. `None` if the container has already exited or Docker
+/// couldn't produce a sample — callers should treat that as "contributes
+/// nothing" rather than an error, since a run finishing between the
+/// resource-monitor poll and this call is an expected race, not a fault.
+pub async fn container_stats(docker: &Docker, container_name: &str) -> Option<(f64, u64)> {
+    let options = StatsOptionsBuilder::default().stream(false).one_shot(true).build();
+    let mut stream = docker.stats(container_name, Some(options));
+    let stats = stream.next().await?.ok()?;
+
+    let cpu_stats = stats.cpu_stats.as_ref()?;
+    let precpu_stats = stats.precpu_stats.as_ref()?;
+    let cpu_usage = cpu_stats.cpu_usage.as_ref()?.total_usage?;
+    let precpu_usage = precpu_stats.cpu_usage.as_ref().and_then(|u| u.total_usage).unwrap_or(0);
+    let system_usage = cpu_stats.system_cpu_usage?;
+    let presystem_usage = precpu_stats.system_cpu_usage.unwrap_or(0);
+    let online_cpus = cpu_stats.online_cpus.unwrap_or(1).max(1) as f64;
+
+    let cpu_delta = cpu_usage.saturating_sub(precpu_usage) as f64;
+    let system_delta = system_usage.saturating_sub(presystem_usage) as f64;
+    let cpu_percent = if system_delta > 0.0 {
+        (cpu_delta / system_delta) * online_cpus * 100.0
+    } else {
+        0.0
+    };
+
+    let memory_stats = stats.memory_stats.as_ref()?;
+    let raw_usage = memory_stats.usage.unwrap_or(0);
+    // Match `docker stats`: back out page cache, which counts toward the
+    // cgroup's raw usage but isn't "your program's memory" from a user's
+    // point of view. Field name differs between cgroups v1 ("cache") and
+    // v2 ("inactive_file").
+    let cache = memory_stats
+        .stats
+        .as_ref()
+        .and_then(|s| s.get("inactive_file").or_else(|| s.get("cache")))
+        .copied()
+        .unwrap_or(0);
+
+    Some((cpu_percent, raw_usage.saturating_sub(cache)))
 }

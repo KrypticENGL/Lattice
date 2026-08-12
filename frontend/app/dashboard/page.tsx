@@ -1,10 +1,11 @@
 import { currentUser } from "@clerk/nextjs/server";
 import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
 import StatCard from "@/components/dashboard/StatCard";
+import ResourceMonitor from "@/components/dashboard/ResourceMonitor";
 import Notifications from "@/components/dashboard/Notifications";
 import CanvasesMenu from "@/components/dashboard/CanvasesMenu";
+import NewCanvasButton from "@/components/dashboard/NewCanvasButton";
 import RecentTraces from "@/components/dashboard/RecentTraces";
-import MusicPlayer from "@/components/dashboard/MusicPlayer";
 import { STATS } from "@/lib/dashboard-data";
 
 export default async function YouPage() {
@@ -28,13 +29,7 @@ export default async function YouPage() {
 
         <div className="flex items-center gap-3">
           <CanvasesMenu />
-          <button
-            type="button"
-            className="rounded-full px-5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_24px_var(--accent-glow)]"
-            style={{ background: "var(--accent-primary)" }}
-          >
-            + New canvas
-          </button>
+          <NewCanvasButton />
         </div>
       </div>
 
@@ -56,12 +51,12 @@ export default async function YouPage() {
         </div>
 
         <div className="flex min-h-0 flex-col gap-5">
-          <div className="shrink-0">
-            <Notifications />
+          <div className="min-h-0 flex-1">
+            <ResourceMonitor />
           </div>
 
-          <div className="min-h-0 flex-1">
-            <MusicPlayer />
+          <div className="shrink-0">
+            <Notifications />
           </div>
         </div>
       </div>

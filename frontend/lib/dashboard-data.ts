@@ -39,55 +39,6 @@ export function getActivityWeeks(): ActivityDay[][] {
   return weeks;
 }
 
-export type Canvas = {
-  id: string;
-  name: string;
-  language: "Python" | "JavaScript";
-  structure: string;
-  nodes: number;
-  editedAt: string;
-  accent: string;
-};
-
-export const CANVASES: Canvas[] = [
-  {
-    id: "c1",
-    name: "LRU cache eviction",
-    language: "Python",
-    structure: "Doubly linked list + hash map",
-    nodes: 9,
-    editedAt: "2 hours ago",
-    accent: "var(--accent-primary)",
-  },
-  {
-    id: "c2",
-    name: "BST balancing pass",
-    language: "JavaScript",
-    structure: "Binary search tree",
-    nodes: 15,
-    editedAt: "Yesterday",
-    accent: "var(--accent-secondary)",
-  },
-  {
-    id: "c3",
-    name: "Dijkstra shortest path",
-    language: "Python",
-    structure: "Weighted graph",
-    nodes: 12,
-    editedAt: "3 days ago",
-    accent: "#c2703d",
-  },
-  {
-    id: "c4",
-    name: "Ring buffer producer/consumer",
-    language: "JavaScript",
-    structure: "Circular buffer",
-    nodes: 6,
-    editedAt: "1 week ago",
-    accent: "#b5651d",
-  },
-];
-
 export type TraceRun = {
   id: string;
   structure: string;

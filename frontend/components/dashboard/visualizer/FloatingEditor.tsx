@@ -131,6 +131,9 @@ export default function FloatingEditor({
   running = false,
   onGeometryChange,
   activeLine = null,
+  initialSource,
+  initialLanguage,
+  onSourceChange,
 }: {
   boundsRef: RefObject<HTMLDivElement | null>;
   /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
@@ -155,8 +158,21 @@ export default function FloatingEditor({
    * suppressed automatically once the buffer no longer matches what was
    * actually executed — see `staleRef` below. */
   activeLine?: number | null;
+  /** A saved canvas's code, used as Monaco's `defaultValue` in place of the
+   * per-language `localStorage` cache/starter snippet. Falsy (including
+   * `""`, a brand-new canvas's empty `source_code`) falls through to the
+   * existing fallback chain rather than showing a blank editor. Only read
+   * at mount — callers switching canvases should remount via `key`. */
+  initialSource?: string;
+  /** A saved canvas's language, used as the initial `language` state in
+   * place of the default `"cpp"`. Only read at mount, same as `initialSource`. */
+  initialLanguage?: Language;
+  /** Fired from the existing 500ms-debounced content-change listener (the
+   * one that already writes to `localStorage` on every edit) — one more
+   * subscriber on the same cadence, for canvas autosave. */
+  onSourceChange?: (source: string) => void;
 }) {
-  const [language, setLanguage] = useState<Language>("cpp");
+  const [language, setLanguage] = useState<Language>(initialLanguage ?? "cpp");
   const [minimized, setMinimized] = useState(false);
   const [vimEnabled, setVimEnabled] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -477,6 +493,7 @@ export default function FloatingEditor({
     save: handleSave,
     toggleMinimize: handleToggleMinimize,
     toggleVim: handleToggleVim,
+    sourceChange: onSourceChange,
   });
   useEffect(() => {
     handlersRef.current = {
@@ -484,6 +501,7 @@ export default function FloatingEditor({
       save: handleSave,
       toggleMinimize: handleToggleMinimize,
       toggleVim: handleToggleVim,
+      sourceChange: onSourceChange,
     };
   });
 
@@ -703,11 +721,13 @@ export default function FloatingEditor({
       setSourceStale(true);
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = setTimeout(() => {
+        const code = editor.getValue();
         try {
-          window.localStorage.setItem(storageKey(languageRef.current), editor.getValue());
+          window.localStorage.setItem(storageKey(languageRef.current), code);
         } catch {
           // localStorage unavailable (private mode, etc.) — best-effort
         }
+        handlersRef.current.sourceChange?.(code);
       }, 500);
     });
 
@@ -921,6 +941,7 @@ export default function FloatingEditor({
             height="100%"
             language={language}
             defaultValue={
+              initialSource ||
               (typeof window !== "undefined" && window.localStorage.getItem(storageKey(language))) ||
               DEFAULT_SNIPPETS[language]
             }

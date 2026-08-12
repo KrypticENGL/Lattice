@@ -1,14 +1,24 @@
 //! HTTP route handlers (BLUEPRINT.md §11 API contract).
 
+pub mod canvases;
+
+// Aliased: this module's own `canvases` (above) is the HTTP-handler layer;
+// `crate::canvases` is the data-access layer those handlers wrap, and
+// `execute()` below also needs it directly to persist a run's results.
+use crate::canvases as canvas_store;
 use crate::sandbox::{self, SandboxConfig, SandboxOutcome};
 use crate::trace::{ExecuteRequest, ExecuteResponse, TraceEvent};
-use axum::extract::State;
+use axum::extract::{Extension, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use bollard::Docker;
+use clerk_rs::validators::authorizer::ClerkJwt;
 use serde_json::json;
-use std::sync::Arc;
+use sqlx::PgPool;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -17,13 +27,98 @@ pub struct AppState {
     /// 503 instead of taking the whole process down. Lets local dev boot
     /// before Docker is set up.
     pub docker: Option<Arc<Docker>>,
+    /// Total containers ever spun up per signed-in user (Clerk `sub`
+    /// claim) — a lifetime usage counter, not a concurrency limit: it only
+    /// ever increases (see `reserve_container`), and the free-tier cap
+    /// (`MAX_CONTAINERS_PER_USER`) is checked against it. In-memory only
+    /// — resets on restart, so this is a soft cap today, not a durable
+    /// one; persisting it to Postgres alongside canvases is the natural
+    /// next step if that matters.
+    pub container_count: Arc<Mutex<HashMap<String, u32>>>,
+    /// Names of containers *currently* running per user — separate from
+    /// `container_count` above, this is purely bookkeeping for
+    /// `/api/resources`'s live-stats sampling (which containers to query),
+    /// not cap-enforcing.
+    pub active_containers: Arc<Mutex<HashMap<String, Vec<String>>>>,
+    /// Peak usage observed *during* each user's most recent run (see
+    /// `execute`'s sampler task) — a typical run's container lives well
+    /// under a second (measured: ~0.5s for a small trace, start to
+    /// removal), far shorter than any reasonable external poll interval
+    /// could reliably catch live. `/api/resources` falls back to this,
+    /// while fresh, when there's no currently-active container to sample
+    /// directly — otherwise the monitor would show 0 almost always, not
+    /// because nothing happened, but because polling can't win a race
+    /// against a container that's already gone.
+    pub recent_usage: Arc<Mutex<HashMap<String, RecentUsage>>>,
+    /// Backs persistent canvases (§ api::canvases) — unlike `docker`, a
+    /// missing connection here is fatal at startup (see main.rs), not a
+    /// soft-503 degradation.
+    pub pool: PgPool,
 }
+
+#[derive(Clone, Copy)]
+pub struct RecentUsage {
+    pub at: Instant,
+    pub cpu_percent: f64,
+    pub memory_bytes: u64,
+}
+
+/// How long a recent-run's peak usage stays visible in `/api/resources`
+/// after the container itself is gone.
+const RECENT_USAGE_TTL: Duration = Duration::from_secs(20);
+/// Sampling cadence for the peak-usage tracker in `execute` — frequent
+/// enough to catch a sub-second container's actual peak, cheap enough
+/// (a handful of samples per run at most) not to matter.
+const PEAK_SAMPLE_INTERVAL: Duration = Duration::from_millis(150);
 
 /// Generous for a data-structure demo snippet, small enough to reject
 /// abuse (giant paste jobs) before it ever reaches a container.
 const MAX_SOURCE_BYTES: usize = 64 * 1024;
 
-pub async fn execute(State(state): State<AppState>, Json(req): Json<ExecuteRequest>) -> Response {
+/// Free-tier lifetime cap: how many sandbox containers a single signed-in
+/// user may spin up in total. Not a concurrency limit — `container_count`
+/// only ever goes up, so containers finishing doesn't free anything back.
+pub const MAX_CONTAINERS_PER_USER: u32 = 100;
+
+/// Checks and increments `user_id`'s lifetime container count, rejecting
+/// the request with 429 once they've reached `MAX_CONTAINERS_PER_USER`.
+/// Check-and-increment happens under one lock so concurrent requests from
+/// the same user can't race past the cap.
+fn reserve_container(container_count: &Mutex<HashMap<String, u32>>, user_id: &str) -> Result<(), Response> {
+    let mut counts = container_count.lock().unwrap();
+    let count = counts.entry(user_id.to_string()).or_insert(0);
+    if *count >= MAX_CONTAINERS_PER_USER {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({
+                "error": format!(
+                    "free tier is limited to {MAX_CONTAINERS_PER_USER} containers — you've used them all"
+                )
+            })),
+        )
+            .into_response());
+    }
+    *count += 1;
+    Ok(())
+}
+
+fn track_active(active_containers: &Mutex<HashMap<String, Vec<String>>>, user_id: &str, container_name: &str) {
+    let mut active = active_containers.lock().unwrap();
+    active.entry(user_id.to_string()).or_default().push(container_name.to_string());
+}
+
+fn untrack_active(active_containers: &Mutex<HashMap<String, Vec<String>>>, user_id: &str, container_name: &str) {
+    let mut active = active_containers.lock().unwrap();
+    if let Some(names) = active.get_mut(user_id) {
+        names.retain(|n| n != container_name);
+    }
+}
+
+pub async fn execute(
+    State(state): State<AppState>,
+    Extension(clerk_jwt): Extension<ClerkJwt>,
+    Json(req): Json<ExecuteRequest>,
+) -> Response {
     // Client errors (bad input) before infra errors (no Docker) — an
     // unsupported language is never fixed by retrying, so a caller should
     // find that out immediately rather than being told the service is
@@ -46,15 +141,60 @@ pub async fn execute(State(state): State<AppState>, Json(req): Json<ExecuteReque
         }
     };
 
-    let Some(docker) = state.docker.as_deref() else {
+    let Some(docker_arc) = state.docker.clone() else {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(json!({ "error": "sandbox is unavailable (no Docker connection)" })),
         )
             .into_response();
     };
+    let docker = docker_arc.as_ref();
 
-    match sandbox::run_cpp_trace(docker, &req.source, &config).await {
+    let container_name = format!("lattice-trace-{}", uuid::Uuid::new_v4());
+    if let Err(too_many) = reserve_container(&state.container_count, &clerk_jwt.sub) {
+        return too_many;
+    }
+    track_active(&state.active_containers, &clerk_jwt.sub, &container_name);
+
+    // Samples the container's own stats throughout its (typically
+    // sub-second) lifetime, tracking the peak seen — the only reliable way
+    // to observe it at all, given how briefly it lives (see AppState's
+    // `recent_usage` docs). A plain shared Mutex, not the task's own return
+    // value, carries the result out: `abort()` below cuts the task off
+    // mid-loop, which drops whatever it would have returned.
+    let peak = Arc::new(Mutex::new((0.0_f64, 0_u64)));
+    let sampler = tokio::spawn({
+        let docker = Arc::clone(&docker_arc);
+        let name = container_name.clone();
+        let peak = Arc::clone(&peak);
+        async move {
+            loop {
+                if let Some((cpu, mem)) = sandbox::container_stats(&docker, &name).await {
+                    let mut peak = peak.lock().unwrap();
+                    if cpu > peak.0 {
+                        peak.0 = cpu;
+                    }
+                    if mem > peak.1 {
+                        peak.1 = mem;
+                    }
+                }
+                tokio::time::sleep(PEAK_SAMPLE_INTERVAL).await;
+            }
+        }
+    });
+
+    let outcome = sandbox::run_cpp_trace(docker, &container_name, &req.source, &config).await;
+    untrack_active(&state.active_containers, &clerk_jwt.sub, &container_name);
+    sampler.abort();
+    let (peak_cpu_percent, peak_memory_bytes) = *peak.lock().unwrap();
+    if peak_cpu_percent > 0.0 || peak_memory_bytes > 0 {
+        state.recent_usage.lock().unwrap().insert(
+            clerk_jwt.sub.clone(),
+            RecentUsage { at: Instant::now(), cpu_percent: peak_cpu_percent, memory_bytes: peak_memory_bytes },
+        );
+    }
+
+    match outcome {
         Ok(SandboxOutcome::Trace { events, compile_command, compiler_output }) => {
             // The sandbox and pipeline worked fine here — this is the
             // user's *own* code crashing (segfault, etc.), a normal
@@ -64,17 +204,45 @@ pub async fn execute(State(state): State<AppState>, Json(req): Json<ExecuteReque
             if events.iter().any(TraceEvent::is_exception) {
                 tracing::debug!("trace completed with an exception in the user's code");
             }
-            (
-                StatusCode::OK,
-                Json(ExecuteResponse::from_events(events, compile_command, compiler_output)),
-            )
-                .into_response()
+            let response = ExecuteResponse::from_events(events, compile_command, compiler_output);
+            if let Some(canvas_id) = req.canvas_id {
+                let run = canvas_store::RunResult {
+                    source_code: &req.source,
+                    trace_data: Some(&response.trace),
+                    stdout: Some(&response.stdout),
+                    compile_command: Some(&response.compile_command),
+                    compiler_output: Some(&response.compiler_output),
+                    truncated: response.truncated,
+                };
+                if let Err(not_owned) = record_run(&state.pool, &clerk_jwt.sub, canvas_id, run).await {
+                    return not_owned;
+                }
+            }
+            (StatusCode::OK, Json(response)).into_response()
         }
         // A snippet that fails to compile never ran at all — closer to
         // "bad input" (§11) than a normal execution outcome, so 4xx
         // rather than 200-with-error (which is reserved for the user's
-        // code compiling fine but throwing/crashing at runtime).
-        Ok(SandboxOutcome::CompileError(message)) => bad_request(&message),
+        // code compiling fine but throwing/crashing at runtime). Still a
+        // real run result worth recording onto the canvas, if any — the
+        // editor should show the same compile error on reload, not a
+        // stale trace from before the edit that broke the build.
+        Ok(SandboxOutcome::CompileError(message)) => {
+            if let Some(canvas_id) = req.canvas_id {
+                let run = canvas_store::RunResult {
+                    source_code: &req.source,
+                    trace_data: None,
+                    stdout: None,
+                    compile_command: None,
+                    compiler_output: Some(&message),
+                    truncated: false,
+                };
+                if let Err(not_owned) = record_run(&state.pool, &clerk_jwt.sub, canvas_id, run).await {
+                    return not_owned;
+                }
+            }
+            bad_request(&message)
+        }
         Err(e) => {
             tracing::error!(error = %e, "sandbox execution failed");
             (
@@ -86,6 +254,101 @@ pub async fn execute(State(state): State<AppState>, Json(req): Json<ExecuteReque
     }
 }
 
+/// Persists a run's results onto `canvas_id`, translating "not this user's
+/// canvas" into the same 404 shape `api::canvases` handlers use (rather
+/// than silently dropping the save) and a DB error into a 500.
+async fn record_run(
+    pool: &PgPool,
+    owner_id: &str,
+    canvas_id: uuid::Uuid,
+    run: canvas_store::RunResult<'_>,
+) -> Result<(), Response> {
+    match canvas_store::record_run(pool, owner_id, canvas_id, run).await {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(not_found("canvas not found")),
+        Err(e) => {
+            tracing::error!(error = %e, "failed to record run onto canvas");
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "run succeeded but saving it to the canvas failed" })),
+            )
+                .into_response())
+        }
+    }
+}
+
 fn bad_request(message: &str) -> Response {
     (StatusCode::BAD_REQUEST, Json(json!({ "error": message }))).into_response()
+}
+
+fn not_found(message: &str) -> Response {
+    (StatusCode::NOT_FOUND, Json(json!({ "error": message }))).into_response()
+}
+
+/// Resource usage for the signed-in user: lifetime containers spun up
+/// against the free-tier cap (`MAX_CONTAINERS_PER_USER`), and the max
+/// CPU/memory a single run has been observed to use, against what a
+/// single container is capped at (`SandboxConfig::cpp()`) — see `execute`'s
+/// peak sampler and `RecentUsage` for where the CPU/memory numbers come
+/// from.
+pub async fn resources(State(state): State<AppState>, Extension(clerk_jwt): Extension<ClerkJwt>) -> Response {
+    let Some(docker) = state.docker.as_deref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": "sandbox is unavailable (no Docker connection)" })),
+        )
+            .into_response();
+    };
+
+    let names = {
+        let active = state.active_containers.lock().unwrap();
+        active.get(&clerk_jwt.sub).cloned().unwrap_or_default()
+    };
+
+    // A container that finishes between the poll and this call just yields
+    // `None` from container_stats — dropped via `flatten`, not an error.
+    let samples =
+        futures_util::future::join_all(names.iter().map(|name| sandbox::container_stats(docker, name)))
+            .await;
+    let (mut used_cpu_percent, mut used_memory_bytes) = samples
+        .into_iter()
+        .flatten()
+        .fold((0.0_f64, 0_u64), |(cpu, mem), (c, m)| (cpu + c, mem + m));
+
+    // Nothing active right now doesn't mean nothing happened — see
+    // AppState's `recent_usage` docs. Only applies when there's truly
+    // nothing live to report, so a currently-running container's real
+    // reading is never shadowed by a stale one.
+    if names.is_empty() {
+        if let Some(recent) = state.recent_usage.lock().unwrap().get(&clerk_jwt.sub) {
+            if recent.at.elapsed() < RECENT_USAGE_TTL {
+                used_cpu_percent = recent.cpu_percent;
+                used_memory_bytes = recent.memory_bytes;
+            }
+        }
+    }
+
+    // These are "max a single container could ever use" ceilings, not
+    // scaled by MAX_CONTAINERS_PER_USER: cpu/memory here report the peak
+    // *one run* hit (§ RecentUsage), never a sum across the lifetime
+    // container count, so the meaningful denominator is one container's
+    // own cap.
+    let per_container = SandboxConfig::cpp();
+    let cpu_limit_percent = (per_container.cpu_nano_cpus as f64 / 1_000_000_000.0) * 100.0;
+    let memory_limit_bytes = per_container.memory_bytes as u64;
+
+    let used_containers = {
+        let counts = state.container_count.lock().unwrap();
+        *counts.get(&clerk_jwt.sub).unwrap_or(&0)
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "containers": { "used": used_containers, "limit": MAX_CONTAINERS_PER_USER },
+            "cpu": { "used_percent": used_cpu_percent, "limit_percent": cpu_limit_percent },
+            "memory": { "used_bytes": used_memory_bytes, "limit_bytes": memory_limit_bytes },
+        })),
+    )
+        .into_response()
 }

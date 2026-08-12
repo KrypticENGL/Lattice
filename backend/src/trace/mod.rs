@@ -134,6 +134,12 @@ pub enum TraceValue {
 pub struct ExecuteRequest {
     pub language: String,
     pub source: String,
+    /// When set, the run's results are written onto this canvas (§
+    /// `api::canvases`) after a successful (or compile-failed) run — the
+    /// "spin containers inside canvases" wiring. `None` for ad-hoc runs
+    /// not attached to any saved canvas.
+    #[serde(default)]
+    pub canvas_id: Option<uuid::Uuid>,
 }
 
 /// `POST /api/execute` success response body (§11).

@@ -1,15 +1,80 @@
 "use client";
 
-import { useState } from "react";
-import { CANVASES } from "@/lib/dashboard-data";
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { deleteCanvas, listCanvases, type CanvasSummary } from "@/lib/canvases";
+
+function relativeTime(iso: string): string {
+  const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diffSec < 60) return "just now";
+  const min = Math.floor(diffSec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  const week = Math.floor(day / 7);
+  if (week < 5) return `${week}w ago`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export default function CanvasesMenu() {
+  const { getToken } = useAuth();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [canvases, setCanvases] = useState<CanvasSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const filtered = CANVASES.filter((c) =>
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = await getToken();
+        const rows = await listCanvases(token);
+        if (!cancelled) setCanvases(rows);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Couldn't load canvases.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, getToken]);
+
+  const filtered = canvases.filter((c) =>
     c.name.toLowerCase().includes(query.toLowerCase()),
   );
+
+  function openCanvas(id: string) {
+    setOpen(false);
+    router.push(`/dashboard/visualizer/${id}`);
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Delete "${name}"? This can't be undone.`)) return;
+    setDeletingId(id);
+    try {
+      const token = await getToken();
+      await deleteCanvas(id, token);
+      setCanvases((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that canvas.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="relative">
@@ -45,31 +110,53 @@ export default function CanvasesMenu() {
             />
 
             <ul className="scrollbar-thin mt-3 flex max-h-72 flex-col gap-1 overflow-y-auto pr-1">
-              {filtered.length === 0 && (
+              {loading ? (
+                <li className="px-2 py-6 text-center font-mono text-[12px] text-[var(--text-secondary)]">
+                  Loading…
+                </li>
+              ) : error ? (
+                <li className="px-2 py-6 text-center font-mono text-[12px] text-[var(--text-secondary)]">
+                  {error}
+                </li>
+              ) : filtered.length === 0 ? (
                 <li className="px-2 py-6 text-center font-mono text-[12px] text-[var(--text-secondary)]">
                   No canvases found.
                 </li>
+              ) : (
+                filtered.map((c) => (
+                  <li key={c.id} className="group flex items-center gap-1 rounded-xl transition-colors hover:bg-white/5">
+                    <button
+                      type="button"
+                      onClick={() => openCanvas(c.id)}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2.5 text-left"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
+                          {c.name}
+                        </span>
+                        <span className="mt-0.5 block font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
+                          {c.language} · {c.step_count} steps
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-mono text-[12px] text-[var(--text-secondary)]">
+                        {relativeTime(c.updated_at)}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(c.id, c.name)}
+                      disabled={deletingId === c.id}
+                      title="Delete canvas"
+                      aria-label={`Delete ${c.name}`}
+                      className="mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] opacity-0 transition-colors hover:bg-white/10 hover:text-[#ff4d4d] focus-visible:opacity-100 disabled:opacity-40 group-hover:opacity-100"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7m-8 0v13a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5V7" />
+                      </svg>
+                    </button>
+                  </li>
+                ))
               )}
-              {filtered.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/5"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
-                        {c.name}
-                      </span>
-                      <span className="mt-0.5 block font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
-                        {c.language} · {c.nodes} nodes
-                      </span>
-                    </span>
-                    <span className="shrink-0 font-mono text-[12px] text-[var(--text-secondary)]">
-                      {c.editedAt}
-                    </span>
-                  </button>
-                </li>
-              ))}
             </ul>
           </div>
         </>
