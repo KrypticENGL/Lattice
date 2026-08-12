@@ -20,6 +20,8 @@ target/
 .env
 .env.*
 !.env.example
+certificates/
+*.pem
 
 # --- Editors / IDEs ---
 .vscode/
@@ -33,3 +35,5 @@ Thumbs.db
 # Python
 __pycache__/
 *.py[cod]
+.venv/
+backend/ytmusic/token.json
