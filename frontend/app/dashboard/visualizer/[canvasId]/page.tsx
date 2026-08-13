@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboard/visualizer/InfiniteCanvas";
 import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
 import TraceControls, { type RunStatus } from "@/components/dashboard/visualizer/TraceControls";
+import CanvasNameField from "@/components/dashboard/visualizer/CanvasNameField";
 import DiagramView from "@/components/dashboard/visualizer/DiagramView";
 import { runTrace } from "@/lib/trace-schema/execute";
 import { isTruncated, type StepEvent, type TraceEvent } from "@/lib/trace-schema/types";
@@ -42,6 +43,7 @@ export default function VisualizerPage() {
   // not kept in sync afterward (FloatingEditor owns the live buffer).
   const [initialSource, setInitialSource] = useState<string | undefined>(undefined);
   const [initialLanguage, setInitialLanguage] = useState<Language | undefined>(undefined);
+  const [canvasName, setCanvasName] = useState<string | undefined>(undefined);
   const [canvasError, setCanvasError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export default function VisualizerPage() {
     const load = async () => {
       setInitialSource(undefined);
       setInitialLanguage(undefined);
+      setCanvasName(undefined);
       setCanvasError(null);
       setTrace(null);
       setStdout(undefined);
@@ -64,6 +67,7 @@ export default function VisualizerPage() {
         if (cancelled) return;
         setInitialSource(canvas.source_code);
         setInitialLanguage(canvas.language);
+        setCanvasName(canvas.name);
         if (canvas.trace_data) {
           setTrace(canvas.trace_data);
           setStdout(canvas.stdout ?? undefined);
@@ -192,6 +196,16 @@ export default function VisualizerPage() {
       });
   }, [canvasId, getToken]);
 
+  const handleRenameCanvas = useCallback((name: string) => {
+    setCanvasName(name);
+    getToken()
+      .then((token) => updateCanvas(canvasId, { name }, token))
+      .catch(() => {
+        // Best-effort, same as handleSourceChange — a failed rename PATCH
+        // isn't worth surfacing UI for.
+      });
+  }, [canvasId, getToken]);
+
   const stepSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleStepChange = useCallback((index: number) => {
     setStepIndex(index);
@@ -239,7 +253,7 @@ export default function VisualizerPage() {
             >
               Visualizer
             </span>
-            <div className="pointer-events-auto pb-1">
+            <div className="pointer-events-auto flex items-center gap-3 pb-1">
               <TraceControls
                 status={runStatus}
                 error={runError ?? canvasError}
@@ -251,6 +265,7 @@ export default function VisualizerPage() {
                 compileCommand={compileCommand}
                 compilerOutput={compilerOutput}
               />
+              <CanvasNameField name={canvasName} onRename={handleRenameCanvas} />
             </div>
           </div>
         </div>
