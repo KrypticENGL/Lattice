@@ -1,9 +1,9 @@
 import ComingSoon from "@/components/dashboard/ComingSoon";
 
-export default function CanvasPage() {
+export default function CodeCanvasPage() {
   return (
     <ComingSoon
-      eyebrow="Canvas"
+      eyebrow="Code-Canvas"
       title="Build by connecting nodes."
       description="A free-form workspace where you drag out nodes for data structures and operations, wire up the connections, and generate real, runnable code from the graph you build."
       icon={

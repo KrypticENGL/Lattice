@@ -36,8 +36,8 @@ const NAV: { href: string; label: string; icon: ReactNode }[] = [
     ),
   },
   {
-    href: "/dashboard/canvas",
-    label: "Canvas",
+    href: "/dashboard/code-canvas",
+    label: "Code-Canvas",
     icon: (
       <svg {...ICON_PROPS}>
         <circle cx="6" cy="7" r="2.1" />
