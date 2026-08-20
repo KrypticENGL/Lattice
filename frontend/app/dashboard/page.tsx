@@ -1,6 +1,6 @@
-import { currentUser } from "@clerk/nextjs/server";
 import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
 import StatCard from "@/components/dashboard/StatCard";
+import Greeting from "@/components/dashboard/Greeting";
 import ResourceMonitor from "@/components/dashboard/ResourceMonitor";
 import Notifications from "@/components/dashboard/Notifications";
 import CanvasesMenu from "@/components/dashboard/CanvasesMenu";
@@ -8,10 +8,7 @@ import NewCanvasButton from "@/components/dashboard/NewCanvasButton";
 import RecentTraces from "@/components/dashboard/RecentTraces";
 import { STATS } from "@/lib/dashboard-data";
 
-export default async function YouPage() {
-  const user = await currentUser();
-  const name = user?.firstName ?? "there";
-
+export default function YouPage() {
   return (
     <div className="mx-auto flex h-full max-w-7xl flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -19,9 +16,7 @@ export default async function YouPage() {
           <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             You
           </span>
-          <h1 className="text-balance mt-2 font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
-            Welcome back, {name}.
-          </h1>
+          <Greeting />
           <p className="mt-2 font-serif text-[15px] text-[var(--text-secondary)]">
             Here&rsquo;s what you&rsquo;ve been building.
           </p>

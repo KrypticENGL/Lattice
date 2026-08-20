@@ -320,3 +320,56 @@ aside:hover ~ main .shifts-with-sidebar {
   border-bottom: 4px solid transparent;
   border-left: 6px solid var(--accent-primary);
 }
+
+/* Route-transition skeletons (app/dashboard/loading.tsx). A dynamic route
+   can't be prefetched without a loading boundary, so this file is doing
+   two jobs: it paints on click, and it gives Next.js a static shell to
+   prefetch ahead of the navigation.
+
+   Deliberately near-invisible. No border: a hairline outline is the
+   brightest thing on this palette, and a screenful of outlined rectangles
+   flashing on every navigation reads as glare rather than as a page
+   loading. What's left is a fill barely above the page background.
+
+   It also holds at zero opacity for the first 150ms and only then fades
+   in, so a navigation that resolves quickly — which, at ~10ms of server
+   render, is nearly all of them — shows nothing at all. The skeleton is
+   for the slow case it was added to cover, not for every click. */
+@keyframes lattice-skeleton-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+@keyframes lattice-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.skeleton {
+  background: color-mix(in srgb, var(--bg-surface) 62%, var(--bg-base));
+  border-radius: 16px;
+  opacity: 0;
+  /* The pulse picks up at exactly the opacity the fade-in lands on, so the
+     handoff between the two is invisible. */
+  animation:
+    lattice-skeleton-in 300ms ease-out 150ms forwards,
+    lattice-skeleton-pulse 2.6s ease-in-out 450ms infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    /* Still delayed, still silent for a fast navigation — it just arrives
+       rather than fading. Opacity has to be restated here: the base rule
+       starts at 0 and relies on the animation to reveal it. */
+    animation: lattice-skeleton-in 1ms linear 150ms forwards;
+  }
+}
