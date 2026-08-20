@@ -135,6 +135,7 @@ export default function FloatingEditor({
   initialSource,
   initialLanguage,
   onSourceChange,
+  readOnly = false,
 }: {
   boundsRef: RefObject<HTMLDivElement | null>;
   /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
@@ -172,6 +173,14 @@ export default function FloatingEditor({
    * one that already writes to `localStorage` on every edit) — one more
    * subscriber on the same cadence, for canvas autosave. */
   onSourceChange?: (source: string) => void;
+  /** The canvas's code is generated from a Code-Canvas graph, so it isn't
+   * the user's to edit here (the server answers 409 to a `source_code`
+   * PATCH on such a canvas). Puts Monaco in read-only mode, drops the save
+   * paths — both the canvas PATCH and the per-language `localStorage`
+   * cache, which would otherwise poison the starter snippet for hand-written
+   * canvases — and labels the panel. Running still works: it's the whole
+   * point of sending a graph here. */
+  readOnly?: boolean;
 }) {
   const [language, setLanguage] = useState<Language>(initialLanguage ?? "cpp");
   const [minimized, setMinimized] = useState(false);
@@ -495,6 +504,11 @@ export default function FloatingEditor({
     toggleMinimize: handleToggleMinimize,
     toggleVim: handleToggleVim,
     sourceChange: onSourceChange,
+    // Not a handler, but it rides along for the same reason they do: the
+    // content listener is registered once at mount and has to see the
+    // *current* value, and `readOnly` can flip after mount (it depends on
+    // the canvas, which loads asynchronously).
+    readOnly,
   });
   useEffect(() => {
     handlersRef.current = {
@@ -503,6 +517,7 @@ export default function FloatingEditor({
       toggleMinimize: handleToggleMinimize,
       toggleVim: handleToggleVim,
       sourceChange: onSourceChange,
+      readOnly,
     };
   });
 
@@ -725,6 +740,10 @@ export default function FloatingEditor({
     // the user never hit Ctrl+S. Silent (no "Saved" status flash); that
     // flash is reserved for the explicit save actions below.
     editor.onDidChangeModelContent(() => {
+      // A read-only editor still fires this for programmatic edits (a
+      // canvas being loaded, a re-generated source arriving). Nothing about
+      // that is the user's work to save.
+      if (handlersRef.current.readOnly) return;
       // Idempotent: React bails out when the value is unchanged, so this
       // doesn't re-render on every keystroke, only on the first edit.
       setSourceStale(true);
@@ -824,7 +843,9 @@ export default function FloatingEditor({
               className={`h-2 w-2 shrink-0 rounded-full ${effectiveStatus === "running" ? "animate-pulse" : ""}`}
               style={{ background: statusColor }}
             />
-            <span className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">Editor</span>
+            <span className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
+              {readOnly ? "Generated code" : "Editor"}
+            </span>
             <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] sm:inline">
               {statusLabel}
             </span>
@@ -834,6 +855,7 @@ export default function FloatingEditor({
             <select
               value={language}
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              disabled={readOnly}
               aria-label="Language"
               className="rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
             >
@@ -876,8 +898,8 @@ export default function FloatingEditor({
             <button
               type="button"
               onClick={handleSave}
-              disabled={!editorReady}
-              title="Save (Ctrl/Cmd+S)"
+              disabled={!editorReady || readOnly}
+              title={readOnly ? "Generated from a Code-Canvas graph — not editable here" : "Save (Ctrl/Cmd+S)"}
               aria-label="Save"
               className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
             >
@@ -928,6 +950,8 @@ export default function FloatingEditor({
             beforeMount={handleBeforeMount}
             onMount={handleEditorMount}
             options={{
+              readOnly,
+              domReadOnly: readOnly,
               automaticLayout: true,
               fontSize: 13,
               fontFamily: "var(--font-geist-mono), ui-monospace, monospace",

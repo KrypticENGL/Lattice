@@ -131,8 +131,25 @@ export default function CanvasesMenu() {
                       className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2.5 text-left"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
-                          {c.name}
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
+                            {c.name}
+                          </span>
+                          {/* Its code is generated from a graph, so it
+                              reads and runs here but isn't editable —
+                              worth saying before the user opens it. */}
+                          {c.origin === "code_canvas" && (
+                            <span
+                              title="Generated from a Code-Canvas graph"
+                              className="shrink-0 rounded-full border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider"
+                              style={{
+                                borderColor: "color-mix(in srgb, var(--accent-secondary) 45%, transparent)",
+                                color: "var(--accent-secondary)",
+                              }}
+                            >
+                              Graph
+                            </span>
+                          )}
                         </span>
                         <span className="mt-0.5 block font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
                           {c.language} · {c.step_count} steps

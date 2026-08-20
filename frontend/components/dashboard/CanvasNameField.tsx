@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/** Click-to-edit canvas name pill — sits in TraceControls' row, next to
- * the stdout button. Commits on blur/Enter; Escape reverts the draft
+/** Click-to-edit name pill, shared by the Visualizer's canvases and
+ * Code-Canvas's graphs. Commits on blur/Enter; Escape reverts the draft
  * without saving. */
 export default function CanvasNameField({
   name,
@@ -15,10 +15,6 @@ export default function CanvasNameField({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!editing) setDraft(name ?? "");
-  }, [name, editing]);
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -58,7 +54,13 @@ export default function CanvasNameField({
   return (
     <button
       type="button"
-      onClick={() => setEditing(true)}
+      // The draft is seeded here rather than kept in sync with `name` by an
+      // effect: it only exists while editing, so the moment editing starts
+      // is the only moment it needs a value.
+      onClick={() => {
+        setDraft(name ?? "");
+        setEditing(true);
+      }}
       title="Rename canvas"
       className="matte flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-mono text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
     >

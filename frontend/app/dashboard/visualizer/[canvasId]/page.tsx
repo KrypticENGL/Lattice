@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboard/visualizer/InfiniteCanvas";
 import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
 import TraceControls, { type RunStatus } from "@/components/dashboard/visualizer/TraceControls";
-import CanvasNameField from "@/components/dashboard/visualizer/CanvasNameField";
+import CanvasNameField from "@/components/dashboard/CanvasNameField";
 import DiagramView from "@/components/dashboard/visualizer/DiagramView";
 import { runTrace } from "@/lib/trace-schema/execute";
 import { isTruncated, type StepEvent, type TraceEvent } from "@/lib/trace-schema/types";
@@ -45,6 +46,10 @@ export default function VisualizerPage() {
   const [initialLanguage, setInitialLanguage] = useState<Language | undefined>(undefined);
   const [canvasName, setCanvasName] = useState<string | undefined>(undefined);
   const [canvasError, setCanvasError] = useState<string | null>(null);
+  /** Id of the Code-Canvas graph this canvas was generated from, or null
+   * for a hand-written one. Non-null makes the editor read-only: the code
+   * belongs to the graph, and the server rejects edits to it (409). */
+  const [generatedFrom, setGeneratedFrom] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +59,7 @@ export default function VisualizerPage() {
       setInitialLanguage(undefined);
       setCanvasName(undefined);
       setCanvasError(null);
+      setGeneratedFrom(null);
       setTrace(null);
       setStdout(undefined);
       setTruncated(false);
@@ -68,6 +74,7 @@ export default function VisualizerPage() {
         setInitialSource(canvas.source_code);
         setInitialLanguage(canvas.language);
         setCanvasName(canvas.name);
+        setGeneratedFrom(canvas.code_canvas_id);
         if (canvas.trace_data) {
           setTrace(canvas.trace_data);
           setStdout(canvas.stdout ?? undefined);
@@ -188,13 +195,18 @@ export default function VisualizerPage() {
   // more PATCH on the same cadence the editor already autosaves to
   // localStorage at, no extra page-level debouncing needed.
   const handleSourceChange = useCallback((source: string) => {
+    // A generated canvas has nothing to autosave — its source belongs to
+    // the graph, and the PATCH would come back 409. FloatingEditor already
+    // suppresses this in read-only mode; this is the second lock, for the
+    // window before the canvas has finished loading.
+    if (generatedFrom) return;
     getToken()
       .then((token) => updateCanvas(canvasId, { source_code: source }, token))
       .catch(() => {
         // Best-effort — a failed autosave here isn't worth surfacing UI
         // for; the next successful run (or edit) will save again.
       });
-  }, [canvasId, getToken]);
+  }, [canvasId, getToken, generatedFrom]);
 
   const handleRenameCanvas = useCallback((name: string) => {
     setCanvasName(name);
@@ -266,6 +278,21 @@ export default function VisualizerPage() {
                 compilerOutput={compilerOutput}
               />
               <CanvasNameField name={canvasName} onRename={handleRenameCanvas} />
+              {generatedFrom && (
+                <Link
+                  href={`/dashboard/code-canvas/${generatedFrom}`}
+                  title="Generated from a Code-Canvas graph — open it"
+                  className="matte flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="6" cy="7" r="2.1" />
+                    <circle cx="18" cy="7" r="2.1" />
+                    <circle cx="12" cy="18" r="2.1" />
+                    <path d="M7.7 8.6L10.5 16M16.3 8.6L13.5 16M8.1 7h7.8" />
+                  </svg>
+                  From Code-Canvas
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -292,6 +319,20 @@ export default function VisualizerPage() {
         </div>
       </div>
 
+      {/* Held back until the canvas has actually loaded.
+        *
+        * Monaco takes its contents from `defaultValue`, which is read once
+        * when the editor instance is created and never again — so mounting
+        * before `initialSource` arrives races the canvas fetch against the
+        * Monaco chunk load, and when the fetch loses, the editor comes up
+        * showing the per-language `localStorage` snippet instead of this
+        * canvas's code. That was survivable when the fallback was the
+        * user's own last buffer; it is not for a generated canvas, whose
+        * whole point is to show the code its graph produced.
+        *
+        * `undefined` is "not loaded yet" and distinct from `""`, which is
+        * a real brand-new canvas with no code in it. */}
+      {(initialSource !== undefined || canvasError !== null) && (
       <FloatingEditor
         key={canvasId}
         boundsRef={boundsRef}
@@ -306,7 +347,9 @@ export default function VisualizerPage() {
         initialSource={initialSource}
         initialLanguage={initialLanguage}
         onSourceChange={handleSourceChange}
+        readOnly={generatedFrom !== null}
       />
+      )}
     </div>
   );
 }

@@ -269,9 +269,21 @@ produced it, and:
   stays `'code_canvas'` — the provenance mark is permanent — but with no
   graph left to desync from, the canvas becomes editable again.
 
-Still on the frontend's side: the page saves to `localStorage`
-(`lattice:code-canvas:graph:v1`) and does its own create-then-PATCH
-handoff. Pointing it at these routes is the remaining work.
+#### Frontend wiring
+
+The page mirrors the Visualizer's routing: `/dashboard/code-canvas` is an
+entry route that resumes your most recent graph (or creates one, seeded
+with the worked example), and the workspace itself lives at
+`/dashboard/code-canvas/[graphId]`. Graph edits autosave on a 600ms
+debounce; the name is a click-to-edit pill (`CanvasNameField`, now shared
+with the Visualizer). A graph left in `localStorage` by the pre-backend
+build is adopted into an empty workspace once, then that key is cleared.
+
+Visualize is a single call to `/visualize` — with a flush of any pending
+edit first, since the backend compiles the *stored* graph. In the
+Visualizer, a canvas with a `code_canvas_id` renders read-only, titled
+"Generated code", with a "From Code-Canvas" badge linking back to the
+graph, and the canvases quick-switcher badges it "Graph".
 
 ### 4.4 Posts — community write-ups
 
@@ -834,8 +846,9 @@ actual animated node/pointer diagram you can step through.
 - [x] Persist Code-Canvas graphs server-side: `code_canvases` table,
       Clerk-scoped CRUD, a Rust port of the graph → C++ compiler, and
       derived read-only Visualizer canvases (§4.3)
-- [ ] Point the Code-Canvas page at those routes — it still saves to
-      `localStorage` and does its own create-then-PATCH handoff
+- [x] Point the Code-Canvas page at those routes (§4.3): entry route +
+      `[graphId]` workspace, debounced autosave, one-call Visualize, and a
+      read-only Visualizer for generated canvases
 - [ ] Posts backend (§11): `POST/GET /api/posts`, comment threads with
       reply support, notification fan-out on comment/reply create
 - [ ] Replace `lib/dashboard-data.ts` mock reads with real API calls across
