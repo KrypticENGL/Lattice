@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { BeforeMount } from "@monaco-editor/react";
 import { defineLatticeTheme, LATTICE_THEME } from "@/lib/monaco-theme";
@@ -23,6 +23,10 @@ function PaneLoading() {
 const MIN_WIDTH = 360;
 const MAX_WIDTH = 860;
 const MARGIN = 16;
+// Matches FloatingEditor's own collapse, so the two panels on the two
+// pages feel like the same control.
+const MINIMIZE_MS = 300;
+const MINIMIZE_EASING = "ease-out";
 
 /**
  * The generated-code side of Code-Canvas. Read-only on purpose: the graph is
@@ -56,6 +60,7 @@ export default function CodePane({
   const [copied, setCopied] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLButtonElement>(null);
 
   // beforeMount, not onMount: Monaco builds its DOM with the default light
   // theme, so theming it after creation costs a painted frame of white.
@@ -96,13 +101,83 @@ export default function CodePane({
     [onWidthChange, width],
   );
 
-  if (minimized) {
-    return (
+  // Both boxes are docked to the same top-right corner — the panel grows
+  // left and down from it, the pill sits in it — so collapsing is a pure
+  // scale about `transform-origin: top right`, with no travel to correct
+  // for. That is the whole reason this doesn't need the position-tracking
+  // FLIP that FloatingEditor's free-floating, draggable panel does.
+  //
+  // Measured rather than hard-coded: `offsetWidth`/`offsetHeight` are
+  // layout values, so a leftover transform from a fast double-toggle can't
+  // corrupt them the way `getBoundingClientRect` would.
+  const firstRenderRef = useRef(true);
+  useLayoutEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    const panel = panelRef.current;
+    const pill = pillRef.current;
+    if (!panel || !pill) return;
+
+    const scaleX = pill.offsetWidth / panel.offsetWidth;
+    const scaleY = pill.offsetHeight / panel.offsetHeight;
+    const [fromX, fromY, toX, toY] = minimized
+      ? [1, 1, scaleX, scaleY]
+      : [scaleX, scaleY, 1, 1];
+
+    // Promoted up front: without `will-change` the browser only decides to
+    // give this its own compositing layer once the transform starts
+    // moving, which costs a frame or two exactly as the animation begins.
+    // It matters here because the panel holds a live Monaco editor —
+    // expensive to repaint every frame if it isn't compositing a
+    // pre-rasterized layer.
+    panel.style.willChange = "transform";
+    panel.style.transformOrigin = "top right";
+    panel.style.transform = `scale3d(${fromX}, ${fromY}, 1)`;
+    // Force the "from" pose to paint before `transform` joins the
+    // transition list, or both writes batch into one frame and the
+    // scale never renders. Deliberately not disabling transitions first:
+    // `transform` isn't in the declarative transition list below yet, so
+    // this write is already un-animated, and blanking `transitionProperty`
+    // here would cut short the opacity fade that's already running.
+    void panel.offsetHeight;
+    panel.style.transitionProperty = "transform, opacity, visibility";
+    panel.style.transitionDuration = `${MINIMIZE_MS}ms, ${MINIMIZE_MS}ms, 0s`;
+    panel.style.transitionTimingFunction = `${MINIMIZE_EASING}, ${MINIMIZE_EASING}, linear`;
+    panel.style.transitionDelay = `0s, 0s, ${minimized ? `${MINIMIZE_MS}ms` : "0s"}`;
+    panel.style.transform = `scale3d(${toX}, ${toY}, 1)`;
+
+    const timeout = setTimeout(() => {
+      panel.style.transitionProperty = "";
+      panel.style.transitionDuration = "";
+      panel.style.transitionTimingFunction = "";
+      panel.style.transitionDelay = "";
+      panel.style.transform = "";
+      panel.style.transformOrigin = "";
+      panel.style.willChange = "";
+    }, MINIMIZE_MS);
+    return () => clearTimeout(timeout);
+  }, [minimized]);
+
+  return (
+    <>
       <button
+        ref={pillRef}
         type="button"
-        data-tour="code-pane"
         onClick={() => onMinimizedChange(false)}
-        style={{ top: topInset, right: MARGIN }}
+        aria-label="Expand the code pane"
+        aria-hidden={!minimized}
+        tabIndex={minimized ? 0 : -1}
+        style={{
+          top: topInset,
+          right: MARGIN,
+          opacity: minimized ? 1 : 0,
+          visibility: minimized ? "visible" : "hidden",
+          // Visibility flips instantly, but only *after* the fade when
+          // leaving — otherwise the element vanishes before it has faded.
+          transition: `opacity ${MINIMIZE_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? "0s" : `${MINIMIZE_MS}ms`}`,
+        }}
         className="matte absolute z-20 flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
       >
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
@@ -111,14 +186,20 @@ export default function CodePane({
           <path d="M10 3L5 8l5 5" />
         </svg>
       </button>
-    );
-  }
 
   return (
     <div
       ref={panelRef}
       data-tour="code-pane"
-      style={{ top: topInset, right: MARGIN, bottom: MARGIN, width }}
+      style={{
+        top: topInset,
+        right: MARGIN,
+        bottom: MARGIN,
+        width,
+        opacity: minimized ? 0 : 1,
+        visibility: minimized ? "hidden" : "visible",
+        transition: `opacity ${MINIMIZE_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? `${MINIMIZE_MS}ms` : "0s"}`,
+      }}
       className="matte absolute z-20 flex flex-col overflow-hidden rounded-2xl"
     >
       <div
@@ -176,12 +257,12 @@ export default function CodePane({
           <button
             type="button"
             onClick={() => onMinimizedChange(true)}
-            title="Collapse the code pane"
-            aria-label="Collapse the code pane"
+            title="Minimize"
+            aria-label="Minimize the code pane"
             className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 3l5 5-5 5" />
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M3 8h10" />
             </svg>
           </button>
         </div>
@@ -262,5 +343,6 @@ export default function CodePane({
         </div>
       )}
     </div>
+    </>
   );
 }
