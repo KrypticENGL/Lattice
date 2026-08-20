@@ -2,8 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import type { OnMount } from "@monaco-editor/react";
-import { defineLatticeTheme } from "@/lib/monaco-theme";
+import type { BeforeMount } from "@monaco-editor/react";
+import { defineLatticeTheme, LATTICE_THEME } from "@/lib/monaco-theme";
 
 // Same reason as FloatingEditor: monaco-editor touches `window` at import
 // time, so it can never be part of the server bundle.
@@ -57,7 +57,9 @@ export default function CodePane({
   const [notesOpen, setNotesOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const handleMount: OnMount = useCallback((_editor, monaco) => {
+  // beforeMount, not onMount: Monaco builds its DOM with the default light
+  // theme, so theming it after creation costs a painted frame of white.
+  const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     defineLatticeTheme(monaco);
   }, []);
 
@@ -185,12 +187,13 @@ export default function CodePane({
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 bg-[var(--bg-surface)]">
         <Editor
           height="100%"
           language="cpp"
+          theme={LATTICE_THEME}
           value={code}
-          onMount={handleMount}
+          beforeMount={handleBeforeMount}
           options={{
             readOnly: true,
             domReadOnly: true,

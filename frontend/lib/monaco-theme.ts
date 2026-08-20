@@ -1,11 +1,21 @@
 import type * as Monaco from "monaco-editor";
 
+/** Monaco's registry name for the theme defined below. Pass it as
+ * `<Editor theme={LATTICE_THEME}>` so the editor is *created* dark. */
+export const LATTICE_THEME = "lattice-dark";
+
 /** The editor theme, matched to the dashboard's palette. Shared by every
  * Monaco instance in the app (the Visualizer's FloatingEditor and
  * Code-Canvas's generated-code pane) so they can't drift apart — Monaco
- * themes are global, so whichever editor mounts first defines it for all. */
+ * themes are global, so whichever editor mounts first defines it for all.
+ *
+ * Call this from `<Editor beforeMount>`, never `onMount`. Monaco builds its
+ * DOM with the default `vs` theme — a pure white `rgb(255,255,254)`
+ * background — and applying a theme afterwards means one painted frame of
+ * white before it flips. `beforeMount` runs ahead of editor creation, so
+ * there is no light frame to flash. */
 export function defineLatticeTheme(monaco: typeof Monaco) {
-  monaco.editor.defineTheme("lattice-dark", {
+  monaco.editor.defineTheme(LATTICE_THEME, {
     base: "vs-dark",
     inherit: true,
     rules: [
@@ -33,5 +43,5 @@ export function defineLatticeTheme(monaco: typeof Monaco) {
       "scrollbarSlider.hoverBackground": "#7d859055",
     },
   });
-  monaco.editor.setTheme("lattice-dark");
+  monaco.editor.setTheme(LATTICE_THEME);
 }

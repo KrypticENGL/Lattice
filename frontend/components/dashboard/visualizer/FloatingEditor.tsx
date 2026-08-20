@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import dynamic from "next/dynamic";
-import type { OnMount } from "@monaco-editor/react";
+import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type { VimAdapterInstance } from "monaco-vim";
 import type * as Monaco from "monaco-editor";
-import { defineLatticeTheme } from "@/lib/monaco-theme";
+import { defineLatticeTheme, LATTICE_THEME } from "@/lib/monaco-theme";
 
 // monaco-editor touches `window` while it's being imported, which crashes
 // SSR ("ReferenceError: window is not defined") if it's pulled in
@@ -708,6 +708,14 @@ export default function FloatingEditor({
     [boundsRef],
   );
 
+  // Runs before the editor instance exists. Monaco would otherwise build
+  // its DOM under the default light theme and paint one white frame before
+  // onMount could switch it — very visible against this palette when the
+  // panel appears on a route change.
+  const handleBeforeMount: BeforeMount = useCallback((monaco) => {
+    defineLatticeTheme(monaco);
+  }, []);
+
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -731,8 +739,6 @@ export default function FloatingEditor({
         handlersRef.current.sourceChange?.(code);
       }, 500);
     });
-
-    defineLatticeTheme(monaco);
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => handlersRef.current.run());
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handlersRef.current.save());
@@ -909,15 +915,17 @@ export default function FloatingEditor({
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 bg-[var(--bg-surface)]">
           <Editor
             height="100%"
             language={language}
+            theme={LATTICE_THEME}
             defaultValue={
               initialSource ||
               (typeof window !== "undefined" && window.localStorage.getItem(storageKey(language))) ||
               DEFAULT_SNIPPETS[language]
             }
+            beforeMount={handleBeforeMount}
             onMount={handleEditorMount}
             options={{
               automaticLayout: true,
