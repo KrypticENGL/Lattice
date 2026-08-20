@@ -54,6 +54,11 @@ const LIST_Y = 0;
 const TREE_LEVEL_HEIGHT = 100;
 const TREE_LEAF_SPACING = 90;
 const GRAPH_RADIUS = 130;
+// Minimum straight-line gap kept between two nodes sharing a ring — big
+// enough to clear NODE_RADIUS (22, defined in DiagramView.tsx) on both
+// sides with room to spare, so a ring's radius (below) can be solved for
+// from its population without importing across the render/layout split.
+const GRAPH_MIN_NODE_ARC = 70;
 
 function isRef(value: TraceValue): value is { ref: string } {
   return typeof value === "object" && value !== null && !Array.isArray(value) && "ref" in value;
@@ -399,6 +404,16 @@ function layoutTree(
   return { kind: "tree", nodes, edges };
 }
 
+/** Rings the component out from `anchor` by BFS distance rather than
+ * dropping every node on one fixed circle in arbitrary Set-iteration
+ * order: ring 0 is just the anchor (pinned dead center, and — since every
+ * other node's radius is a ring index times a positive step — the only
+ * node that can ever land there), ring 1 is everything directly connected
+ * to it, ring 2 is everything connected to *that*, and so on. A node
+ * therefore always renders next to whichever already-placed neighbor
+ * actually reaches it (a "30" wired to "20" lands in 20's ring, angularly
+ * grouped with it) instead of at a slot decided by hash/insertion order
+ * that has nothing to do with the graph's edges. */
 function layoutGraph(
   ids: Set<string>,
   edges: DiagramEdge[],
@@ -406,21 +421,74 @@ function layoutGraph(
   anchor: string,
 ): Diagram {
   const list = [...ids];
-  const n = Math.max(list.length, 1);
-  const raw = list.map((id, i) => {
-    const angle = (2 * Math.PI * i) / n;
-    return { id, x: GRAPH_RADIUS * Math.cos(angle), y: GRAPH_RADIUS * Math.sin(angle) };
+  const anchorId = ids.has(anchor) ? anchor : (list[0] as string);
+
+  // Undirected adjacency: layout cares which nodes are near which, not
+  // which way a pointer happens to run, so an edge is walkable from BFS in
+  // either direction.
+  const adjacency = new Map<string, string[]>();
+  for (const id of list) adjacency.set(id, []);
+  for (const e of edges) {
+    if (!adjacency.has(e.from) || !adjacency.has(e.to) || e.from === e.to) continue;
+    adjacency.get(e.from)?.push(e.to);
+    adjacency.get(e.to)?.push(e.from);
+  }
+
+  const depth = new Map<string, number>([[anchorId, 0]]);
+  const parent = new Map<string, string>();
+  const rings: string[][] = [[anchorId]];
+  let frontier = [anchorId];
+  while (frontier.length > 0) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const to of adjacency.get(id) ?? []) {
+        if (depth.has(to)) continue;
+        depth.set(to, (depth.get(id) ?? 0) + 1);
+        parent.set(to, id);
+        next.push(to);
+      }
+    }
+    if (next.length > 0) rings.push(next);
+    frontier = next;
+  }
+  // A cycle reachable only through a back-edge the BFS never walked (the
+  // anchor's own component, per connectedComponent's backward-closure
+  // step, can include nodes no forward+outward walk from the anchor
+  // actually touches) still needs a slot — give it one on its own outer
+  // ring rather than dropping it.
+  const stray = list.filter((id) => !depth.has(id));
+  if (stray.length > 0) rings.push(stray);
+
+  const angle = new Map<string, number>([[anchorId, 0]]);
+  const positions = new Map<string, { x: number; y: number }>([[anchorId, { x: 0, y: 0 }]]);
+  for (let d = 1; d < rings.length; d++) {
+    // Sorting by the parent's already-assigned angle (stable, so members
+    // of the same parent stay in their BFS discovery order relative to
+    // each other) is what clusters siblings — and transitively anything
+    // hanging off the same neighbor — together instead of scattering them
+    // around the ring by id.
+    const nodes = [...rings[d]].sort((a, b) => {
+      const pa = angle.get(parent.get(a) ?? "") ?? 0;
+      const pb = angle.get(parent.get(b) ?? "") ?? 0;
+      return pa - pb;
+    });
+    const count = nodes.length;
+    // Radius has to satisfy two separate overlap risks: rings colliding
+    // with each other (GRAPH_RADIUS * d, growing with depth) and nodes on
+    // *this* ring crowding each other once there are enough of them that
+    // even spacing around a fixed-size circle would pack them closer than
+    // GRAPH_MIN_NODE_ARC apart.
+    const radius = Math.max(GRAPH_RADIUS * d, (count * GRAPH_MIN_NODE_ARC) / (2 * Math.PI));
+    nodes.forEach((id, i) => {
+      const a = (2 * Math.PI * i) / count;
+      angle.set(id, a);
+      positions.set(id, { x: radius * Math.cos(a), y: radius * Math.sin(a) });
+    });
+  }
+
+  const nodes: DiagramNode[] = list.map((id) => {
+    const pos = positions.get(id) ?? { x: 0, y: 0 };
+    return { id, x: pos.x, y: pos.y, label: pickLabel(heap[id]), type: heap[id].type };
   });
-  // Re-center on the main/root reference so it stays pinned at the canvas
-  // origin rather than wherever its index around the circle happened to
-  // land — same reasoning as layoutTree's re-centering.
-  const anchorPos = raw.find((p) => p.id === anchor) ?? raw[0] ?? { x: 0, y: 0 };
-  const nodes: DiagramNode[] = raw.map((p) => ({
-    id: p.id,
-    x: p.x - anchorPos.x,
-    y: p.y - anchorPos.y,
-    label: pickLabel(heap[p.id]),
-    type: heap[p.id].type,
-  }));
   return { kind: "graph", nodes, edges };
 }
