@@ -1,6 +1,7 @@
 //! HTTP route handlers (BLUEPRINT.md §11 API contract).
 
 pub mod canvases;
+pub mod code_canvases;
 
 // Aliased: this module's own `canvases` (above) is the HTTP-handler layer;
 // `crate::canvases` is the data-access layer those handlers wrap, and
@@ -130,6 +131,36 @@ pub async fn execute(
         return bad_request(&format!(
             "source exceeds the {MAX_SOURCE_BYTES}-byte limit"
         ));
+    }
+
+    // A canvas whose code was generated from a graph runs *its stored
+    // source*, never whatever arrived in the request. The Visualizer
+    // renders such a canvas read-only, so a mismatch means a stale tab or
+    // a hand-rolled client — and either way the trace about to be saved
+    // has to describe the code the canvas actually holds, or the step
+    // highlight would point at lines that aren't there.
+    let mut req = req;
+    if let Some(canvas_id) = req.canvas_id {
+        match canvas_store::generated_source(&state.pool, &clerk_jwt.sub, canvas_id).await {
+            Ok(Some(stored)) => {
+                if stored != req.source {
+                    tracing::debug!(
+                        %canvas_id,
+                        "ignoring submitted source for a generated canvas; running its stored source"
+                    );
+                }
+                req.source = stored;
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::error!(error = %e, "failed to read canvas source");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": "database error, please try again" })),
+                )
+                    .into_response();
+            }
+        }
     }
 
     let config = match req.language.as_str() {

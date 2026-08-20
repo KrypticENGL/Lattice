@@ -27,6 +27,17 @@ pub struct Canvas {
     pub compiler_output: Option<String>,
     pub truncated: bool,
     pub step_index: i32,
+    /// `"user"` for a canvas somebody opened and typed into, `"code_canvas"`
+    /// for one Lattice generated from a Code-Canvas graph. Permanent: it
+    /// records where this canvas came from, and survives the graph being
+    /// deleted.
+    pub origin: String,
+    /// The graph this canvas was generated from, or `None` for a hand-written
+    /// canvas — and also for a generated one whose graph has since been
+    /// deleted (the FK is `ON DELETE SET NULL`). While this is `Some`, the
+    /// source is derived and therefore read-only; once it's `None` there is
+    /// nothing left to desync from, so editing is allowed again.
+    pub code_canvas_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -40,6 +51,10 @@ pub struct CanvasSummary {
     pub language: String,
     pub updated_at: DateTime<Utc>,
     pub step_count: i32,
+    /// Carried into the list so the quick-switcher can badge a generated
+    /// canvas rather than presenting it as one the user wrote.
+    pub origin: String,
+    pub code_canvas_id: Option<Uuid>,
 }
 
 /// `PATCH /api/canvases/{id}` body — every field optional, `None` means
@@ -66,7 +81,9 @@ pub struct RunResult<'a> {
 
 pub async fn list(pool: &PgPool, owner_id: &str) -> sqlx::Result<Vec<CanvasSummary>> {
     sqlx::query_as::<_, CanvasSummary>(
-        "SELECT id, name, language, updated_at, COALESCE(jsonb_array_length(trace_data), 0) AS step_count \
+        "SELECT id, name, language, updated_at, \
+                COALESCE(jsonb_array_length(trace_data), 0) AS step_count, \
+                origin, code_canvas_id \
          FROM canvases WHERE owner_id = $1 ORDER BY updated_at DESC",
     )
     .bind(owner_id)
@@ -95,12 +112,77 @@ pub async fn get(pool: &PgPool, owner_id: &str, id: Uuid) -> sqlx::Result<Option
         .await
 }
 
+/// Outcome of a `PATCH /api/canvases/{id}` — three cases the handler has
+/// to answer differently, so they're modelled rather than squeezed into
+/// `Option<Canvas>`.
+pub enum UpdateOutcome {
+    Updated(Box<Canvas>),
+    NotFound,
+    /// The patch tried to change generated source on a canvas still linked
+    /// to the graph that produced it.
+    ReadOnly,
+}
+
 pub async fn update(
     pool: &PgPool,
     owner_id: &str,
     id: Uuid,
     patch: &CanvasPatch,
-) -> sqlx::Result<Option<Canvas>> {
+) -> sqlx::Result<UpdateOutcome> {
+    // A generated canvas's source and language belong to its graph — the
+    // only legitimate way to change them is to re-generate from the
+    // Code-Canvas page. Name and step_index stay editable: renaming a
+    // canvas and remembering where you were reading are both about *this*
+    // canvas, not about the code in it.
+    //
+    // Read-then-write inside one transaction rather than a cleverer single
+    // statement: the check has to see the row's `code_canvas_id`, and
+    // expressing "reject this patch, but only for these two fields, only
+    // for linked rows" in SQL would be considerably harder to read than it
+    // is to justify.
+    if patch.source_code.is_some() || patch.language.is_some() {
+        let mut tx = pool.begin().await?;
+        let linked: Option<Option<Uuid>> =
+            sqlx::query_scalar("SELECT code_canvas_id FROM canvases WHERE id = $1 AND owner_id = $2 FOR UPDATE")
+                .bind(id)
+                .bind(owner_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        match linked {
+            None => {
+                tx.rollback().await?;
+                return Ok(UpdateOutcome::NotFound);
+            }
+            Some(Some(_)) => {
+                tx.rollback().await?;
+                return Ok(UpdateOutcome::ReadOnly);
+            }
+            Some(None) => {
+                let updated = apply_patch(&mut *tx, owner_id, id, patch).await?;
+                tx.commit().await?;
+                return Ok(match updated {
+                    Some(canvas) => UpdateOutcome::Updated(Box::new(canvas)),
+                    None => UpdateOutcome::NotFound,
+                });
+            }
+        }
+    }
+
+    Ok(match apply_patch(pool, owner_id, id, patch).await? {
+        Some(canvas) => UpdateOutcome::Updated(Box::new(canvas)),
+        None => UpdateOutcome::NotFound,
+    })
+}
+
+async fn apply_patch<'e, E>(
+    executor: E,
+    owner_id: &str,
+    id: Uuid,
+    patch: &CanvasPatch,
+) -> sqlx::Result<Option<Canvas>>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     sqlx::query_as::<_, Canvas>(
         "UPDATE canvases SET \
             name = COALESCE($1, name), \
@@ -117,7 +199,7 @@ pub async fn update(
     .bind(patch.step_index)
     .bind(id)
     .bind(owner_id)
-    .fetch_optional(pool)
+    .fetch_optional(executor)
     .await
 }
 
@@ -144,8 +226,14 @@ pub async fn record_run(
 ) -> sqlx::Result<bool> {
     let trace_json = run.trace_data.map(|events| Json(events.to_vec()));
     let result = sqlx::query(
+        // The CASE keeps a generated canvas's source pinned to what its
+        // graph produced. `execute` already substitutes the stored source
+        // before running, so the trace being saved here *is* a trace of
+        // this text — the guard is what stops a stale or hand-rolled
+        // client from rewriting it as a side effect of running.
         "UPDATE canvases SET \
-            source_code = $1, trace_data = $2, stdout = $3, compile_command = $4, \
+            source_code = CASE WHEN code_canvas_id IS NULL THEN $1 ELSE source_code END, \
+            trace_data = $2, stdout = $3, compile_command = $4, \
             compiler_output = $5, truncated = $6, step_index = 0, updated_at = now() \
          WHERE id = $7 AND owner_id = $8",
     )
@@ -160,4 +248,21 @@ pub async fn record_run(
     .execute(pool)
     .await?;
     Ok(result.rows_affected() > 0)
+}
+
+/// The stored source of a canvas whose code is generated, or `None` when
+/// the canvas is hand-written, missing, or not the caller's.
+///
+/// `execute` runs *this* rather than whatever the client posted for such a
+/// canvas, so a generated canvas's trace can only ever describe the code
+/// its graph actually produced.
+pub async fn generated_source(pool: &PgPool, owner_id: &str, id: Uuid) -> sqlx::Result<Option<String>> {
+    sqlx::query_scalar(
+        "SELECT source_code FROM canvases \
+         WHERE id = $1 AND owner_id = $2 AND code_canvas_id IS NOT NULL",
+    )
+    .bind(id)
+    .bind(owner_id)
+    .fetch_optional(pool)
+    .await
 }

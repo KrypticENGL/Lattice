@@ -219,10 +219,59 @@ array/stack/queue/hashmap/variable containers; and four operations
 (traverse, insert, search, print) that chain through a `then` handle to
 give statement order. Arbitrary control flow stays a non-goal.
 
-Not yet wired to the backend: the graph autosaves to `localStorage`
-(`lattice:code-canvas:graph:v1`) because §10's `canvases` table stores
-Visualizer workspaces (source + trace), with no column for a node graph
-yet. Persisting canvases server-side is the remaining Phase 3 work here.
+#### Backend (built)
+
+`backend/src/code_canvas/` — graphs persist to their own `code_canvases`
+table (migration `0002`), rather than the `graph_data` column on `CANVASES`
+that §10.1 sketches: the shipped `canvases` table went the other way and is
+now a Visualizer *workspace* (source + latest trace + resume step), so a
+graph gets its own row with its own lifecycle.
+
+| Module | Role |
+|---|---|
+| `code_canvas/graph.rs` | the block vocabulary the server understands — kinds, handles, and which wires between them are legal — plus structural validation |
+| `code_canvas/codegen.rs` | the authoritative graph → C++ compiler |
+| `code_canvas/mod.rs` | CRUD over `code_canvases`, and `visualize`'s upsert of the derived canvas |
+| `api/code_canvases.rs` | the HTTP handlers, Clerk-scoped exactly like `api/canvases.rs` |
+
+**Codegen ownership.** `codegen.rs` is the authority; the frontend's
+`lib/code-canvas/codegen.ts` is a port of the same algorithm, kept only so
+the code pane can update on every keystroke without a round trip. The two
+must emit identical text — a change to one is a change to both. They are
+checked against each other by generating the same fixture graphs through
+both and diffing.
+
+**Validation is structural, not semantic.** An unknown block kind, a wire
+to a handle that doesn't exist, or a second wire on a single-connection
+handle is a 400. A traverse wired to nothing is *not* — half-built graphs
+are the normal state of a canvas somebody is still working on, so codegen
+reports that as a note instead.
+
+#### Derived canvases
+
+Visualize doesn't hand code to a normal Visualizer canvas; it creates a
+third kind of thing, sitting between the two pages. Such a canvas carries
+`origin = 'code_canvas'` and a `code_canvas_id` back to the graph that
+produced it, and:
+
+- **Its code is read-only while it stays linked.** `PATCH` of `source_code`
+  or `language` answers 409, `record_run` refuses to overwrite the stored
+  source, and `/api/execute` runs *the stored source* rather than whatever
+  the client posted — so the trace can only ever describe the code the
+  graph actually produced. Name and `step_index` stay editable: those are
+  properties of the canvas, not of the code in it.
+- **A graph has at most one.** Pressing Visualize again refreshes that
+  canvas in place (clearing the now-stale trace along with the source it
+  described) rather than littering the Visualizer with one canvas per
+  click. Unchanged source is a no-op, so the trace survives.
+- **Deleting the graph detaches rather than destroys.** The FK is
+  `ON DELETE SET NULL`, so the traces it produced outlive it. `origin`
+  stays `'code_canvas'` — the provenance mark is permanent — but with no
+  graph left to desync from, the canvas becomes editable again.
+
+Still on the frontend's side: the page saves to `localStorage`
+(`lattice:code-canvas:graph:v1`) and does its own create-then-PATCH
+handoff. Pointing it at these routes is the remaining work.
 
 ### 4.4 Posts — community write-ups
 
@@ -686,7 +735,21 @@ POST   /api/posts/:id/comments { body, parent_comment_id? } → created comment,
 GET    /api/notifications       → current user's notifications, newest first
 POST   /api/notifications/:id/read → marks one read (drives the unread badge in Notifications.tsx)
 GET    /api/canvases            → current user's saved canvases (backs CanvasesMenu.tsx)
-POST   /api/canvases            { name, language, graph_data } → saved canvas
+POST   /api/canvases            { name, language } → saved canvas
+```
+
+**Code-Canvas — built (§4.3):**
+
+```
+GET    /api/code-canvases                → current user's graphs, newest first (id, name, node/edge counts)
+POST   /api/code-canvases                { name?, graph? } → created graph
+GET    /api/code-canvases/:id            → one graph in full
+PATCH  /api/code-canvases/:id            { name?, graph? } → updated graph
+DELETE /api/code-canvases/:id            → 204; any derived canvas detaches rather than being deleted
+POST   /api/code-canvases/:id/generate   → 200 { source, notes[] }   // compiles, persists nothing
+POST   /api/code-canvases/:id/visualize  → 201 { canvas_id, outcome, source, notes[] } on first press,
+                                            200 thereafter; outcome is created | refreshed | unchanged
+  → 400 { "error": "..." }               // graph the server can't describe or compile
 GET    /api/traces              → current user's recent trace runs (backs RecentTraces.tsx and the Activity heatmap)
 ```
 
@@ -768,8 +831,11 @@ actual animated node/pointer diagram you can step through.
       general control flow, see §13), hand-rolled node editor, and a codegen
       step that turns the graph into real C++ runnable through the same
       `/api/execute` pipeline from Phase 1
-- [ ] Persist Code-Canvas graphs server-side (they live in `localStorage`
-      today) — either a `node_graph` column on `canvases` or its own table
+- [x] Persist Code-Canvas graphs server-side: `code_canvases` table,
+      Clerk-scoped CRUD, a Rust port of the graph → C++ compiler, and
+      derived read-only Visualizer canvases (§4.3)
+- [ ] Point the Code-Canvas page at those routes — it still saves to
+      `localStorage` and does its own create-then-PATCH handoff
 - [ ] Posts backend (§11): `POST/GET /api/posts`, comment threads with
       reply support, notification fan-out on comment/reply create
 - [ ] Replace `lib/dashboard-data.ts` mock reads with real API calls across

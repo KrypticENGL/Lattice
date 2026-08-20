@@ -7,7 +7,7 @@
 //! 404s, same as a row that doesn't exist at all — existence isn't leaked.
 
 use super::AppState;
-use crate::canvases::{self, CanvasPatch};
+use crate::canvases::{self, CanvasPatch, UpdateOutcome};
 use axum::extract::{Extension, Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -77,8 +77,19 @@ pub async fn update(
     Json(patch): Json<CanvasPatch>,
 ) -> Response {
     match canvases::update(&state.pool, &clerk_jwt.sub, id, &patch).await {
-        Ok(Some(canvas)) => (StatusCode::OK, Json(canvas)).into_response(),
-        Ok(None) => not_found(),
+        Ok(UpdateOutcome::Updated(canvas)) => (StatusCode::OK, Json(canvas)).into_response(),
+        Ok(UpdateOutcome::NotFound) => not_found(),
+        // 409 rather than 403: the caller is allowed to touch this canvas
+        // (they own it), the request just conflicts with what it *is* —
+        // its code belongs to the graph that generated it.
+        Ok(UpdateOutcome::ReadOnly) => (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": "this canvas's code is generated from a Code-Canvas graph — \
+                          edit the graph and press Visualize to change it"
+            })),
+        )
+            .into_response(),
         Err(e) => db_error(e),
     }
 }

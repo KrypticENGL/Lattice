@@ -6,6 +6,7 @@
 
 mod api;
 mod canvases;
+mod code_canvas;
 mod sandbox;
 mod trace;
 
@@ -58,6 +59,18 @@ fn router(state: AppState, clerk: Clerk) -> Router {
                 .patch(api::canvases::update)
                 .delete(api::canvases::delete),
         )
+        .route(
+            "/api/code-canvases",
+            get(api::code_canvases::list).post(api::code_canvases::create),
+        )
+        .route(
+            "/api/code-canvases/{id}",
+            get(api::code_canvases::get)
+                .patch(api::code_canvases::update)
+                .delete(api::code_canvases::delete),
+        )
+        .route("/api/code-canvases/{id}/generate", post(api::code_canvases::generate))
+        .route("/api/code-canvases/{id}/visualize", post(api::code_canvases::visualize))
         .layer(clerk_layer);
 
     Router::new()
