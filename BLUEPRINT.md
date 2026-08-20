@@ -142,7 +142,7 @@ flowchart TB
     Sidebar["Sidebar nav\n(collapsed icon rail, expands on hover)"]
     Sidebar --> You["You\n/dashboard\nBUILT (mock data)"]
     Sidebar --> Visualizer["Visualizer\n/dashboard/visualizer\nComingSoon placeholder"]
-    Sidebar --> Canvas["Canvas\n/dashboard/canvas\nComingSoon placeholder"]
+    Sidebar --> Canvas["Code-Canvas\n/dashboard/code-canvas\nBUILT (frontend, local persistence)"]
     Sidebar --> Posts["Posts\n/dashboard/posts\nComingSoon placeholder"]
     Sidebar --> AI["Ask Our AI\n/dashboard/ai\nComingSoon placeholder"]
 
@@ -191,20 +191,38 @@ powers the landing page's static `CodeShowcase` demo, but interactive and
 built into the authenticated workspace. Phase 1/2 of the roadmap (§12)
 build this.
 
-### 4.3 Canvas — diagram to code
+### 4.3 Code-Canvas — diagram to code (frontend built)
 
-`app/dashboard/canvas/page.tsx` (currently `ComingSoon`). The inverse of
-the Visualizer: a free-form node-graph workspace where the user drags out
-nodes representing data structures and operations, wires up connections,
-and Lattice **generates real, runnable source** from that graph — which can
-then be fed straight into the Visualizer's execute pipeline (§3) to trace
-and animate what the generated code actually does. This is a new
-capability with no analog in the original trace-only design; it needs its
-own scoped node vocabulary (see §13) before implementation, because
-"drag-and-drop general-purpose programming" is an unbounded problem —
-v1 should cover the same structures the Visualizer already understands
-(arrays, linked lists, trees, graphs, hashmaps) and their basic operations,
-not arbitrary control flow.
+`app/dashboard/code-canvas/page.tsx`. The inverse of the Visualizer: a
+free-form node-graph workspace where the user drags out nodes representing
+data structures and operations, wires up connections, and Lattice
+**generates real, runnable source** from that graph — which can then be fed
+straight into the Visualizer's execute pipeline (§3) to trace and animate
+what the generated code actually does.
+
+The screen mirrors the Visualizer's layout: an infinite pan/zoom canvas
+fills the page, a code pane docks to the right, and the same floating
+header chrome sits on top. Pieces:
+
+| File | Role |
+|---|---|
+| `lib/code-canvas/graph.ts` | the block catalog (`NODE_TYPES`), the graph model, port geometry, and the connection rules — one entry per block, everything else derives from it |
+| `lib/code-canvas/codegen.ts` | pure `graph → C++` compiler: allocate every node, then wire, then name entry points, then run operations (allocating first is what makes cyclic graphs emit valid code) |
+| `components/dashboard/code-canvas/NodeCanvas.tsx` | the canvas: dot grid, pan/zoom, node dragging, handle-to-handle wiring, edge selection |
+| `components/dashboard/code-canvas/NodePalette.tsx` | the block library; drag a block out or click to drop one |
+| `components/dashboard/code-canvas/CodePane.tsx` | read-only Monaco showing the generated program, plus "Visualize" (hands the code to a fresh Visualizer canvas) |
+| `components/dashboard/code-canvas/Tutorial.tsx` | first-run spotlight tour, replayable from the `?` button, skippable at every step |
+
+The node vocabulary is deliberately bounded (see §13): start pointers,
+singly/doubly linked cells, binary tree nodes and graph vertices;
+array/stack/queue/hashmap/variable containers; and four operations
+(traverse, insert, search, print) that chain through a `then` handle to
+give statement order. Arbitrary control flow stays a non-goal.
+
+Not yet wired to the backend: the graph autosaves to `localStorage`
+(`lattice:code-canvas:graph:v1`) because §10's `canvases` table stores
+Visualizer workspaces (source + trace), with no column for a node graph
+yet. Persisting canvases server-side is the remaining Phase 3 work here.
 
 ### 4.4 Posts — community write-ups
 
@@ -244,7 +262,7 @@ Lattice/
         layout.tsx                  # auth() gate + Sidebar
         page.tsx                    # You — personal home (BUILT, §4.1)
         visualizer/page.tsx         # code → trace → diagram (ComingSoon, §4.2)
-        canvas/page.tsx             # node-graph → code builder (ComingSoon, §4.3)
+        code-canvas/page.tsx        # node-graph → code builder (BUILT, §4.3)
         posts/page.tsx              # community write-ups (ComingSoon, §4.4)
         ai/page.tsx                 # Ask Our AI / Hermes (ComingSoon, §4.5)
     components/
@@ -745,11 +763,13 @@ actual animated node/pointer diagram you can step through.
 ### Phase 3 — Canvas, community & persistence (L)
 - [ ] Stand up Postgres + `sqlx` migrations for the §10 schema (`users`,
       `canvases`, `trace_runs`, `posts`, `comments`, `notifications`)
-- [ ] Canvas builder (§4.3): scoped node/edge vocabulary (array, linked
-      list, tree, graph, hashmap + their basic operations only — not
-      general control flow, see §13), React Flow-based editor, and a
-      codegen step that turns the graph into real Python/JS source runnable
-      through the same `/api/execute` pipeline from Phase 1
+- [x] Canvas builder frontend (§4.3): scoped node/edge vocabulary (array,
+      linked list, tree, graph, hashmap + their basic operations only — not
+      general control flow, see §13), hand-rolled node editor, and a codegen
+      step that turns the graph into real C++ runnable through the same
+      `/api/execute` pipeline from Phase 1
+- [ ] Persist Code-Canvas graphs server-side (they live in `localStorage`
+      today) — either a `node_graph` column on `canvases` or its own table
 - [ ] Posts backend (§11): `POST/GET /api/posts`, comment threads with
       reply support, notification fan-out on comment/reply create
 - [ ] Replace `lib/dashboard-data.ts` mock reads with real API calls across
