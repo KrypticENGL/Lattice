@@ -20,7 +20,7 @@ function PaneLoading() {
   );
 }
 
-const MIN_WIDTH = 360;
+const MIN_WIDTH = 300;
 const MAX_WIDTH = 860;
 const MARGIN = 16;
 // Matches FloatingEditor's own collapse, so the two panels on the two
@@ -39,6 +39,7 @@ export default function CodePane({
   notes,
   topInset,
   width,
+  maxWidth,
   onWidthChange,
   minimized,
   onMinimizedChange,
@@ -50,6 +51,12 @@ export default function CodePane({
   notes: string[];
   topInset: number;
   width: number;
+  /** Widest the pane may be right now — the workspace's own width less
+   * the block palette it must not cover. Applied during the drag as well
+   * as after it: the resize handler writes straight to the DOM, so a
+   * clamp that only ran on pointerup would leave the pane sitting on top
+   * of the palette until something else happened to re-render it. */
+  maxWidth: number;
   onWidthChange: (width: number) => void;
   minimized: boolean;
   onMinimizedChange: (minimized: boolean) => void;
@@ -86,19 +93,21 @@ export default function CodePane({
       e.preventDefault();
       const startX = e.clientX;
       const startWidth = width;
+      const ceiling = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, maxWidth));
+      const widthAt = (clientX: number) =>
+        Math.min(ceiling, Math.max(MIN_WIDTH, startWidth - (clientX - startX)));
       const onMove = (ev: PointerEvent) => {
-        const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth - (ev.clientX - startX)));
-        if (panelRef.current) panelRef.current.style.width = `${next}px`;
+        if (panelRef.current) panelRef.current.style.width = `${widthAt(ev.clientX)}px`;
       };
       const onUp = (ev: PointerEvent) => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
-        onWidthChange(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth - (ev.clientX - startX))));
+        onWidthChange(widthAt(ev.clientX));
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [onWidthChange, width],
+    [maxWidth, onWidthChange, width],
   );
 
   // Both boxes are docked to the same top-right corner — the panel grows
@@ -196,6 +205,7 @@ export default function CodePane({
         right: MARGIN,
         bottom: MARGIN,
         width,
+        maxWidth: Math.max(MIN_WIDTH, maxWidth),
         opacity: minimized ? 0 : 1,
         visibility: minimized ? "hidden" : "visible",
         transition: `opacity ${MINIMIZE_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? `${MINIMIZE_MS}ms` : "0s"}`,

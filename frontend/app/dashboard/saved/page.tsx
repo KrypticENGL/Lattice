@@ -2,7 +2,7 @@ import SavedPostsGrid from "@/components/dashboard/SavedPostsGrid";
 
 export default function SavedPage() {
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col gap-5">
+    <div className="mx-auto flex min-h-full max-w-6xl flex-col gap-5">
       <div>
         <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
           Saved

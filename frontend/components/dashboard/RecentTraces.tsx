@@ -12,7 +12,7 @@ export default function RecentTraces() {
         </span>
       </div>
 
-      <ul className="scrollbar-thin mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
+      <ul className="scrollbar-thin mt-2 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pr-1">
         {RECENT_TRACES.map((t) => (
           <li
             key={t.id}

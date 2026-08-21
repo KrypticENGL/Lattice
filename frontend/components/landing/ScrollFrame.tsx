@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { WIDE_VIEWPORT_QUERY } from "@/lib/use-wide-viewport";
 
 const DURATION = 900;
 
@@ -41,7 +42,37 @@ export default function ScrollFrame({ children }: { children: ReactNode }) {
       requestAnimationFrame(step);
     }
 
+    /**
+     * Whether one-panel-per-gesture is appropriate right now.
+     *
+     * Hijacking the wheel is only defensible while a panel really is one
+     * screen tall, because the gesture then has nothing else it could
+     * have meant. Two situations break that, and both used to leave
+     * content permanently out of reach:
+     *
+     *  - Below the workspace breakpoint the sections are taller than the
+     *    viewport by design (see `.snap-panel` in globals.css).
+     *  - Zoomed in, *every* section outgrows the viewport.
+     *
+     * The measurement covers both without having to special-case either:
+     * if the panels together are taller than one screen each, the wheel
+     * goes back to being an ordinary scroll.
+     */
+    function shouldSnap() {
+      if (!window.matchMedia(WIDE_VIEWPORT_QUERY).matches) return false;
+      const panels = el!.children.length;
+      if (panels === 0) return false;
+      // 2px of slack for sub-pixel rounding on fractional zoom levels.
+      return el!.scrollHeight <= el!.clientHeight * panels + 2;
+    }
+
     function onWheel(e: WheelEvent) {
+      // Ctrl/⌘+wheel is the browser's zoom gesture (and a trackpad pinch,
+      // which arrives as exactly the same event). Swallowing it here is
+      // what made the landing page impossible to zoom.
+      if (e.ctrlKey || e.metaKey) return;
+      if (!shouldSnap()) return;
+
       e.preventDefault();
       const now = performance.now();
       if (now < lockedUntilRef.current) return;

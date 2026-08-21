@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
+import { isMobileRequest } from "@/lib/is-mobile-request";
 import { starterGraph } from "@/lib/code-canvas/graph";
 
 /** Same default as `next.config.ts`'s dev proxy target — this runs on the
@@ -15,6 +17,14 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://127.0.0.1:3001";
  * every time. Mirrors the Visualizer's own entry route.
  */
 export default async function CodeCanvasEntryPage() {
+  // Short-circuits *before* the fetch/POST below. Every other route
+  // gates on viewport size in the browser, but this one creates a
+  // workspace on the way through — so a phone that deep-links here would
+  // leave an empty canvas behind on its way to being turned away.
+  if (await isMobileRequest()) {
+    return <WorkspaceGate feature="Code-Canvas">{null}</WorkspaceGate>;
+  }
+
   const { getToken } = await auth();
   const token = await getToken();
   const headers = {

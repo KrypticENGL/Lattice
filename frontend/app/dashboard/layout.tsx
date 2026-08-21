@@ -9,9 +9,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   return (
-    <div className="relative h-full bg-[var(--bg-base)] p-4 sm:p-6">
+    <div className="viewport-shell relative bg-[var(--bg-base)] p-4 sm:p-6">
       <Sidebar />
-      <main className="scrollbar-hide h-full min-h-0 overflow-y-auto pl-[92px] sm:pl-[104px]">
+      {/* Clearance for whichever navigation is on screen: a left gutter
+        * for the wide rail, a bottom gutter for the compact bar. Both are
+        * fixed overlays, so this padding is the only thing keeping page
+        * content out from underneath them.
+        *
+        * `main` owns the scrolling, not the document — the dashboard's
+        * chrome (rail, bar) is meant to stay put while the page moves.
+        * `.viewport-shell` above stops that from becoming a trap: once
+        * the viewport is too short to hold the shell's floor, the shell
+        * keeps its height and the document scrolls it into reach. */}
+      <main className="scrollbar-hide h-full min-h-0 overflow-y-auto pb-20 wide:pl-[104px] wide:pb-0">
         {children}
       </main>
     </div>

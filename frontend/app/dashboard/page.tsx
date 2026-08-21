@@ -10,7 +10,19 @@ import { STATS } from "@/lib/dashboard-data";
 
 export default function YouPage() {
   return (
-    <div className="mx-auto flex h-full max-w-7xl flex-col gap-5">
+    // Two sizing modes, because two things are true at once.
+    //
+    // At `xl` the two-column layout is meant to be a dashboard: one screen,
+    // no page scroll, panels scrolling internally where they have more rows
+    // than room. That needs a *definite* height — with only `min-h-full`
+    // the grid sizes to max-content, `flex-1` never binds, and the panels
+    // each take their full intrinsic height (Recent traces alone claimed
+    // 612px) until the page runs 300px past the viewport.
+    //
+    // Below `xl` the panels stack into one column and no amount of
+    // shrinking fits five of them on a phone screen, so there it keeps the
+    // `min-h-full` behaviour: grow, and let the document scroll.
+    <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-4 xl:h-full">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
@@ -22,14 +34,21 @@ export default function YouPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Canvases and new-canvas both lead to the Visualizer, which is a
+          * wide-viewport workspace — offering them on a phone would only
+          * route the user into the "needs a bigger canvas" wall. */}
+        <div className="hidden items-center gap-3 wide:flex">
           <CanvasesMenu />
           <NewCanvasButton />
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 xl:grid-cols-[1fr_320px]">
-        <div className="flex min-h-0 flex-col gap-5">
+      {/* An explicit `minmax(0, 1fr)` row, not the implicit `auto` one: an
+        * auto row is sized to its max-content and overflows a fixed-height
+        * grid rather than making its items shrink, which would undo the
+        * definite height established above. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1fr_320px] xl:grid-rows-[minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col gap-4">
           <div className="grid shrink-0 gap-4 sm:grid-cols-3">
             {STATS.map((stat) => (
               <StatCard key={stat.label} {...stat} />
@@ -40,17 +59,23 @@ export default function YouPage() {
             <ActivityHeatmap />
           </div>
 
-          <div className="min-h-0 flex-1">
+          {/* A floor under the internally-scrolling list — without it the
+            * flex chain happily hands it 0px on a short viewport and the
+            * whole panel disappears. Deliberately modest: the floor is the
+            * point at which the page gives up and scrolls, so setting it
+            * to the panel's comfortable size defeats the purpose. */}
+          <div className="min-h-[8.5rem] flex-1">
             <RecentTraces />
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-col gap-5">
-          <div className="min-h-0 flex-1">
+        <div className="flex min-h-0 flex-col gap-4">
+          {/* Fixed to its content; Notifications takes the remainder. */}
+          <div className="shrink-0">
             <ResourceMonitor />
           </div>
 
-          <div className="shrink-0">
+          <div className="min-h-[8.5rem] flex-1">
             <Notifications />
           </div>
         </div>

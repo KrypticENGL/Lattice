@@ -57,7 +57,7 @@ export default function CodeShowcase() {
   return (
     <section
       id="trace"
-      className="flex h-full flex-col justify-center py-16 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
     >
       <div className="mx-auto w-full max-w-6xl">
         <motion.div
@@ -70,7 +70,7 @@ export default function CodeShowcase() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             Trace schema
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
+          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-5xl">
             Same idea, your own snippet.
           </h2>
           <p className="mt-4 max-w-xl font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
@@ -80,7 +80,7 @@ export default function CodeShowcase() {
           </p>
         </motion.div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, x: -16 }}
             whileInView={{ opacity: 1, x: 0 }}

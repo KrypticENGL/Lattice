@@ -8,6 +8,7 @@ import NodePalette from "@/components/dashboard/code-canvas/NodePalette";
 import CodePane from "@/components/dashboard/code-canvas/CodePane";
 import Tutorial, { TUTORIAL_STORAGE_KEY } from "@/components/dashboard/code-canvas/Tutorial";
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
+import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
 import {
   connect,
   connectionError,
@@ -39,6 +40,14 @@ const PANE_WIDTH_STORAGE_KEY = "lattice:code-canvas:pane-width";
  * that closing the tab straight after an edit doesn't lose it. */
 const SAVE_DEBOUNCE_MS = 600;
 const DEFAULT_PANE_WIDTH = 520;
+/** Width the block palette occupies on the left, plus the gutters either
+ * side of it. The code pane is docked to the opposite edge and is free to
+ * float over the canvas — but not over the palette, which is the one thing
+ * on this screen the user cannot work without. */
+const PALETTE_RESERVE = 268;
+/** Floor for the squeezed pane. Below this the generated code stops being
+ * readable at all, and minimizing it is the better answer. */
+const MIN_PANE_WIDTH = 300;
 
 /** A graph left in `localStorage` by the pre-backend build, if any. */
 function readLegacyGraph(): CanvasGraph | null {
@@ -56,11 +65,15 @@ export default function CodeCanvasPage() {
   const { graphId } = useParams<{ graphId: string }>();
   const canvasRef = useRef<NodeCanvasHandle>(null);
   const headerRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   const [graph, setGraph] = useState<CanvasGraph>({ nodes: [], edges: [] });
   const [selection, setSelection] = useState<Selection>(null);
   const [zoom, setZoom] = useState(1);
   const [topInset, setTopInset] = useState(96);
+  /** Measured width of the workspace, so the code pane can be held back
+   * from the palette rather than sliding over it on a narrow screen. */
+  const [shellWidth, setShellWidth] = useState(0);
   const [paneWidth, setPaneWidth] = useState(DEFAULT_PANE_WIDTH);
   const [paneMinimized, setPaneMinimized] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
@@ -308,6 +321,16 @@ export default function CodeCanvasPage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const update = () => setShellWidth(el.getBoundingClientRect().width);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handlePaneWidth = useCallback((width: number) => {
     setPaneWidth(width);
     try {
@@ -368,10 +391,19 @@ export default function CodeCanvasPage() {
     [graphId, getToken],
   );
 
-  const rightInset = paneMinimized ? 120 : paneWidth + 32;
+  // The user's chosen pane width, capped by whatever the workspace can
+  // actually spare next to the palette. Zero means "not measured yet", in
+  // which case their preference stands until the observer reports in.
+  const effectivePaneWidth =
+    shellWidth > 0
+      ? Math.max(MIN_PANE_WIDTH, Math.min(paneWidth, shellWidth - PALETTE_RESERVE))
+      : paneWidth;
+
+  const rightInset = paneMinimized ? 120 : effectivePaneWidth + 32;
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <WorkspaceGate feature="Code-Canvas">
+    <div ref={shellRef} className="relative h-full w-full overflow-hidden">
       <NodeCanvas
         ref={canvasRef}
         graph={graph}
@@ -390,7 +422,12 @@ export default function CodeCanvasPage() {
       />
 
       {graph.nodes.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center pr-[520px]">
+        <div
+          className="pointer-events-none absolute inset-0 flex items-center justify-center transition-[padding] duration-200"
+          // Centred in the space the canvas actually has, not in the
+          // space it would have if the code pane were always 520px wide.
+          style={{ paddingRight: rightInset, paddingLeft: PALETTE_RESERVE }}
+        >
           <p className="max-w-xs text-center font-mono text-[11px] uppercase leading-relaxed tracking-wider text-[var(--text-secondary)]">
             Drag a block out of the palette
             <br />
@@ -401,20 +438,25 @@ export default function CodeCanvasPage() {
 
       <div
         ref={headerRef}
-        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-wrap items-end justify-between gap-4 p-1"
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 p-1"
       >
         <div className="shifts-with-sidebar pointer-events-none pl-8">
-          <span aria-hidden="true" className="invisible block font-mono text-[13px] uppercase tracking-[0.2em]">
+          <span aria-hidden="true" className="invisible hidden font-mono text-[13px] uppercase tracking-[0.2em] lg:block">
             Code-Canvas
           </span>
-          <div className="mt-2 flex flex-wrap items-end gap-8">
+          {/* The page title is decorative — the sidebar already says which
+            * workspace this is — so it's the first thing to go when the
+            * header would otherwise wrap into three rows and eat half of
+            * a small workspace's height. Below `lg` the controls get the
+            * whole header to themselves. */}
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 lg:mt-2 xl:gap-x-8">
             <span
-              className="block font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl"
+              className="hidden font-serif text-3xl font-black tracking-tight text-[var(--text-primary)] lg:block xl:text-5xl"
               style={{ filter: "drop-shadow(0 2px 16px rgba(0,0,0,0.55))" }}
             >
               Code-Canvas
             </span>
-            <div className="pointer-events-auto flex items-center gap-3 pb-1">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-3 pb-1">
               <span className="matte flex items-center gap-3 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
                 <span className="text-[var(--text-primary)]">{graph.nodes.length}</span> blocks
                 <span className="h-3 w-px bg-[var(--hairline)]" />
@@ -433,8 +475,8 @@ export default function CodeCanvasPage() {
           </div>
         </div>
 
-        <div className="pointer-events-auto mb-2 flex items-center gap-3">
-          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] xl:inline-block">
+        <div className="pointer-events-auto mb-2 ml-auto flex flex-wrap items-center justify-end gap-2 xl:gap-3">
+          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:inline-block">
             Scroll to zoom · Drag to pan
           </span>
           <div className="matte flex items-center gap-3 rounded-full px-4 py-2.5">
@@ -491,7 +533,8 @@ export default function CodeCanvasPage() {
         code={generated.code}
         notes={generated.notes}
         topInset={topInset}
-        width={paneWidth}
+        width={effectivePaneWidth}
+        maxWidth={shellWidth > 0 ? shellWidth - PALETTE_RESERVE : DEFAULT_PANE_WIDTH}
         onWidthChange={handlePaneWidth}
         minimized={paneMinimized}
         onMinimizedChange={setPaneMinimized}
@@ -525,5 +568,6 @@ export default function CodeCanvasPage() {
 
       <Tutorial key={tutorialRun} open={tutorialOpen} onClose={closeTutorial} />
     </div>
+    </WorkspaceGate>
   );
 }

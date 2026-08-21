@@ -254,6 +254,12 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
     const container = containerRef.current;
     if (!container) return;
     const handleWheel = (e: WheelEvent) => {
+      // Ctrl/⌘+wheel (and a trackpad pinch, which arrives as the same
+      // event) belongs to the browser's own zoom. The canvas has the
+      // plain wheel to itself, so there's nothing to gain from taking
+      // this one too — and taking it is what left the page impossible to
+      // zoom out of once its chrome no longer fit.
+      if (e.ctrlKey || e.metaKey) return;
       e.preventDefault();
       const rect = container.getBoundingClientRect();
       const px = e.clientX - rect.left;

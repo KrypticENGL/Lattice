@@ -1,5 +1,34 @@
 @import "tailwindcss";
 
+/* The workspace breakpoint.
+   ------------------------------------------------------------------
+   Visualizer, Code-Canvas and the Simulator are direct-manipulation
+   canvases: they need room for a diagram, a floating editor and a
+   palette all at once, and they're driven by drag/scroll gestures a
+   touch screen can't disambiguate. Everything else (landing, posts,
+   saved, Ask Our AI) is ordinary reading UI and works anywhere.
+
+   Both axes are checked on purpose. Width alone lets a phone in
+   landscape (932x430) through, where there is no vertical room for the
+   chrome at all. 720x520 admits a tablet in portrait and rejects every
+   phone in either orientation — 720 rather than a round 768 because an
+   iPad in portrait is *exactly* 768 CSS pixels wide, and a threshold
+   that a supported device only just clears is one a classic scrollbar
+   or a slightly-inset window can tip the wrong way.
+
+   Because browser zoom scales the CSS-pixel viewport, this doubles as
+   the zoom guard: zoom far enough in on a desktop and the workspace
+   politely asks for more room instead of silently clipping itself.
+
+   There is deliberately no matching `narrow:` variant: every rule below
+   the breakpoint is expressible as a base style that `wide:` overrides,
+   and one variant is one fewer thing to keep in sync. */
+@custom-variant wide {
+  @media (min-width: 720px) and (min-height: 520px) {
+    @slot;
+  }
+}
+
 :root {
   /* Backgrounds: deep slate-charcoal */
   --bg-base: #0d1117;
@@ -28,16 +57,47 @@
   --color-foreground: var(--text-primary);
 }
 
+/* The page is sized by a *minimum*, never a fixed height.
+   ------------------------------------------------------------------
+   This used to be `height: 100%; overflow: hidden` on both elements,
+   which pinned the whole app to exactly one viewport and threw away
+   anything that didn't fit. That reads fine at 100% zoom on a laptop
+   and falls apart everywhere else: zooming in shrinks the CSS-pixel
+   viewport, so the chrome no longer fits — and with the document
+   unable to scroll, whatever overflowed was simply unreachable.
+
+   Now the document scrolls when (and only when) it has to. Panes that
+   still want to fill the screen say so with `.viewport-shell` below,
+   which keeps a floor under itself for exactly the same reason. */
 html {
   scroll-behavior: smooth;
-  height: 100%;
+  min-height: 100%;
+  /* Stops mobile Safari/Chrome from inflating font sizes on rotate,
+     which would break the carefully-sized chrome below. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100dvh;
+  /* Vertical scrolling is the escape hatch that makes zoom survivable.
+     Horizontal is still clamped: nothing in this design is meant to
+     scroll sideways, so a stray wide child should be contained rather
+     than given a scrollbar the user has to fight. */
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg-base);
   color: var(--text-primary);
+}
+
+/* A pane that wants to fill the screen — the landing frame, a canvas
+   workspace — but must stop shrinking once there is genuinely no room
+   left. Below the floor the shell keeps its size and `body` scrolls,
+   so zoomed-in or short-window users can still reach every control
+   instead of having it cropped off the bottom. */
+.viewport-shell {
+  height: 100dvh;
+  min-height: 34rem;
 }
 
 ::selection {
@@ -76,21 +136,39 @@ body {
   background: var(--text-secondary);
 }
 
-/* Section-snap scroll container: each child section owns one full screen */
+/* Section-snap scroll container: each child section owns one full screen.
+   ------------------------------------------------------------------
+   Snapping is a wide-viewport affordance only. One-screen-per-section
+   assumes the section *fits* in a screen; on a phone (or at 200% zoom)
+   it doesn't, and mandatory snap then fights the user for every pixel
+   of the overflow. Below the breakpoint this degrades to an ordinary
+   scrolling page, which is what the content wants there anyway.
+
+   Note `min-height` rather than `height` even in the snapping case: a
+   panel whose content outgrows the viewport should get taller and let
+   the user scroll through it, not clip. Snap alignment still lands on
+   the panel's top edge, so the effect is unchanged whenever it fits. */
 .snap-container {
   height: 100%;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory;
+  overflow-y: auto;
   overscroll-behavior-y: contain;
 }
 
 .snap-panel {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  height: 100%;
   min-height: 100%;
   width: 100%;
   flex-shrink: 0;
+}
+
+@media (min-width: 720px) and (min-height: 520px) {
+  .snap-container {
+    scroll-snap-type: y mandatory;
+  }
+
+  .snap-panel {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
 }
 
 /* Frosted liquid glass — panels, pills, code windows, animation stages.
@@ -235,8 +313,12 @@ body {
   transition: margin-left 300ms ease-out;
 }
 
-aside:hover ~ main .shifts-with-sidebar {
-  margin-left: 152px;
+/* Scoped to the breakpoint the rail itself exists at — below it the
+   sidebar is a bottom bar with no width to clear. */
+@media (min-width: 720px) and (min-height: 520px) {
+  aside:hover ~ main .shifts-with-sidebar {
+    margin-left: 152px;
+  }
 }
 
 /* Freeform gradient + grain — the page backdrop inside the framed box.

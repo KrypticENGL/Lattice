@@ -8,6 +8,7 @@ import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboar
 import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
 import TraceControls, { type RunStatus } from "@/components/dashboard/visualizer/TraceControls";
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
+import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
 import DiagramView from "@/components/dashboard/visualizer/DiagramView";
 import { runTrace } from "@/lib/trace-schema/execute";
 import { isTruncated, type StepEvent, type TraceEvent } from "@/lib/trace-schema/types";
@@ -245,6 +246,7 @@ export default function VisualizerPage() {
   }, []);
 
   return (
+    <WorkspaceGate feature="Visualizer">
     <div ref={boundsRef} className="relative h-full w-full overflow-hidden">
       <InfiniteCanvas ref={canvasRef} onZoomChange={setZoom}>
         {diagram && <DiagramView diagram={diagram} zoom={zoom} />}
@@ -252,20 +254,25 @@ export default function VisualizerPage() {
 
       <div
         ref={headerRef}
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-end justify-between gap-4 p-1"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 p-1"
       >
         <div className="shifts-with-sidebar pointer-events-none pl-8">
-          <span aria-hidden="true" className="invisible block font-mono text-[13px] uppercase tracking-[0.2em]">
+          <span aria-hidden="true" className="invisible hidden font-mono text-[13px] uppercase tracking-[0.2em] lg:block">
             Visualizer
           </span>
-          <div className="mt-2 flex flex-wrap items-end gap-8">
+          {/* The page title is decorative — the sidebar already says which
+            * workspace this is — so it's the first thing to go when the
+            * header would otherwise wrap into three rows and eat half of
+            * a small workspace's height. Below `lg` the controls get the
+            * whole header to themselves. */}
+          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 lg:mt-2 xl:gap-x-8">
             <span
-              className="block font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl"
+              className="hidden font-serif text-3xl font-black tracking-tight text-[var(--text-primary)] lg:block xl:text-5xl"
               style={{ filter: "drop-shadow(0 2px 16px rgba(0,0,0,0.55))" }}
             >
               Visualizer
             </span>
-            <div className="pointer-events-auto flex items-center gap-3 pb-1">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-3 pb-1">
               <TraceControls
                 status={runStatus}
                 error={runError ?? canvasError}
@@ -297,8 +304,8 @@ export default function VisualizerPage() {
           </div>
         </div>
 
-        <div className="pointer-events-auto mb-2 flex items-center gap-3">
-          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] lg:inline-block">
+        <div className="pointer-events-auto mb-2 ml-auto flex flex-wrap items-center justify-end gap-2 xl:gap-3">
+          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:inline-block">
             Scroll to zoom · Drag to pan
           </span>
           <div className="matte flex items-center gap-3 rounded-full px-4 py-2.5">
@@ -351,5 +358,6 @@ export default function VisualizerPage() {
       />
       )}
     </div>
+    </WorkspaceGate>
   );
 }

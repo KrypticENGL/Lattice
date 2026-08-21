@@ -15,7 +15,7 @@
  */
 export default function DashboardLoading() {
   return (
-    <div className="mx-auto flex h-full max-w-7xl flex-col gap-5" aria-busy="true">
+    <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-5" aria-busy="true">
       <span className="sr-only" role="status">
         Loading…
       </span>
@@ -26,8 +26,8 @@ export default function DashboardLoading() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 pb-1 xl:grid-cols-[1fr_320px]">
-        <div className="skeleton min-h-0 flex-1" />
-        <div className="skeleton hidden min-h-0 xl:block" />
+        <div className="skeleton min-h-[18rem] flex-1" />
+        <div className="skeleton hidden min-h-[18rem] xl:block" />
       </div>
     </div>
   );

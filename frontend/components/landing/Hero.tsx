@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section
       id="top"
-      className="relative flex h-full items-center overflow-hidden py-16 sm:py-20"
+      className="relative flex min-h-full items-center overflow-hidden py-12 sm:py-20"
     >
       <div
         aria-hidden="true"
@@ -21,13 +21,20 @@ export default function Hero() {
         }}
       />
 
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
         <div>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55 }}
-            className="text-balance font-serif text-[13vw] leading-[0.95] font-black tracking-tight text-[var(--text-primary)] sm:text-6xl lg:text-[5.2rem]"
+            // Sized off both axes at once rather than through breakpoints.
+            // A width-only scale gives a landscape phone (780x380) the
+            // same display size as a laptop, because it is nearly as wide
+            // and a fifth as tall; taking the smaller of the two keeps the
+            // headline proportional to the space that actually exists.
+            // It also degrades correctly under browser zoom, which shrinks
+            // both viewport axes together.
+            className="text-balance font-serif text-[clamp(2.25rem,min(8.5vw,13vh),5.2rem)] leading-[0.95] font-black tracking-tight text-[var(--text-primary)]"
           >
             Watch your code
             <br />
@@ -75,7 +82,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-9 flex items-center gap-4 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]"
+            className="mt-9 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]"
           >
             <span>python</span>
             <span className="opacity-40">/</span>

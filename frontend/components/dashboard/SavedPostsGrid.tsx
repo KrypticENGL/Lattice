@@ -26,7 +26,12 @@ export default function SavedPostsGrid() {
         {saved.length} saved
       </span>
 
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+      {/* The inner scroller is a wide-viewport affordance: it keeps the
+        * grid inside the dashboard's own frame when there's a frame worth
+        * keeping. On a phone, nesting a second scroll region inside the
+        * page's is just a way to lose the list — there it's plain content
+        * and `main` does the scrolling. */}
+      <div className="min-h-0 flex-1 wide:scrollbar-thin wide:overflow-y-auto wide:pr-1">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {saved.map((p) => (
             <div key={p.id} className="matte flex flex-col rounded-2xl p-5">

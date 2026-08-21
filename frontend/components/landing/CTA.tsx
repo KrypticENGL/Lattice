@@ -5,7 +5,7 @@ import { scrollToSection } from "@/lib/scroll-to-section";
 
 export default function CTA() {
   return (
-    <section className="py-20 sm:py-24">
+    <section className="py-14 sm:py-24">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -13,7 +13,7 @@ export default function CTA() {
         transition={{ duration: 0.5 }}
         className="mx-auto flex max-w-4xl flex-col items-center gap-6 text-center"
       >
-        <h2 className="text-balance font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] sm:text-6xl">
+        <h2 className="text-balance font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-6xl">
           Bring your code to life.
         </h2>
         <p className="max-w-md font-serif text-[16px] leading-7 text-[var(--text-secondary)]">

@@ -99,10 +99,15 @@ function storageKey(language: Language) {
   return `lattice:visualizer:code:${language}`;
 }
 
-const MIN_WIDTH = 380;
-const MIN_HEIGHT = 260;
+const MIN_WIDTH = 320;
+const MIN_HEIGHT = 220;
 const DEFAULT_WIDTH = 560;
 const DEFAULT_HEIGHT = 400;
+/** Share of the container the auto-laid-out panel is allowed to take.
+ * The panel is right-docked over the canvas it's meant to accompany, so
+ * a fixed 560px — fine on a 1600px screen — swallows almost the whole
+ * workspace on a tablet, leaving the diagram nowhere to be drawn. */
+const DEFAULT_WIDTH_RATIO = 0.46;
 const DEFAULT_X = 64;
 const DEFAULT_Y = 88;
 // Gap kept between the panel and the container's right/bottom edges when
@@ -263,12 +268,54 @@ export default function FloatingEditor({
   // sticks.
   const userAdjustedRef = useRef(false);
   const applyDefaultLayout = useCallback(() => {
-    if (userAdjustedRef.current) return;
     const bounds = boundsRef.current?.getBoundingClientRect();
     if (!bounds) return;
 
+    // A panel the user has sized themselves keeps that size — but "their
+    // layout sticks" can't mean "their layout is allowed to hang off the
+    // screen". Shrinking the window, or zooming in, takes away room they
+    // had when they chose it, so re-fit the box they asked for into the
+    // room that's actually left and leave it alone otherwise.
+    if (userAdjustedRef.current) {
+      const maxWidth = Math.max(MIN_WIDTH, bounds.width - PANEL_MARGIN * 2);
+      const maxHeight = Math.max(MIN_HEIGHT, bounds.height - topInset - PANEL_MARGIN);
+      const width = Math.min(sizeRef.current.width, maxWidth);
+      const height = Math.min(sizeRef.current.height, maxHeight);
+      const { x, y } = clampFor(positionRef.current.x, positionRef.current.y, width, height);
+      if (
+        width === sizeRef.current.width &&
+        height === sizeRef.current.height &&
+        x === positionRef.current.x &&
+        y === positionRef.current.y
+      ) {
+        return;
+      }
+      sizeRef.current = { width, height };
+      setSize({ width, height });
+      positionRef.current = { x, y };
+      setPosition({ x, y });
+      const adjusted = panelRef.current;
+      if (adjusted) {
+        adjusted.style.left = `${x}px`;
+        adjusted.style.top = `${y}px`;
+        adjusted.style.width = `${width}px`;
+        adjusted.style.height = `${height}px`;
+      }
+      return;
+    }
+
     const height = clamp(bounds.height - topInset - PANEL_MARGIN, MIN_HEIGHT, bounds.height);
-    const nextSize = { width: sizeRef.current.width, height };
+    // Never wider than its share of the container, and never wider than
+    // the container itself — the two clamps matter at different sizes,
+    // and without the second one a narrow workspace gets a panel hanging
+    // off both edges at once.
+    const widthCeiling = Math.max(MIN_WIDTH, bounds.width - PANEL_MARGIN * 2);
+    const width = clamp(
+      Math.round(bounds.width * DEFAULT_WIDTH_RATIO),
+      MIN_WIDTH,
+      Math.min(DEFAULT_WIDTH, widthCeiling),
+    );
+    const nextSize = { width, height };
     sizeRef.current = nextSize;
     setSize(nextSize);
 
@@ -284,7 +331,7 @@ export default function FloatingEditor({
       panel.style.width = `${nextSize.width}px`;
       panel.style.height = `${nextSize.height}px`;
     }
-  }, [boundsRef, topInset]);
+  }, [boundsRef, topInset, clampFor]);
 
   useLayoutEffect(() => {
     applyDefaultLayout();

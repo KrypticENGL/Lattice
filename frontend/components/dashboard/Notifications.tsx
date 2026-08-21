@@ -2,8 +2,11 @@ import { NOTIFICATIONS } from "@/lib/dashboard-data";
 
 export default function Notifications() {
   return (
-    <div className="matte flex flex-col rounded-2xl p-5">
-      <div className="flex items-baseline justify-between">
+    // `h-full min-h-0` so it can absorb whatever the sidebar has left over
+    // once the Resource Monitor has taken its (fixed) share, and shrink
+    // instead of overflowing when that is not much.
+    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-4">
+      <div className="flex shrink-0 items-baseline justify-between">
         <h2 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
           Notifications
         </h2>
@@ -12,7 +15,9 @@ export default function Notifications() {
         </span>
       </div>
 
-      <ul className="scrollbar-thin mt-4 flex max-h-[440px] flex-col overflow-y-auto pr-1">
+      {/* The list scrolls within whatever height it is given, rather than
+        * standing at a fixed 440px the page then has to find room for. */}
+      <ul className="scrollbar-thin mt-3 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pr-1">
         {NOTIFICATIONS.map((n) => (
           <li
             key={n.id}

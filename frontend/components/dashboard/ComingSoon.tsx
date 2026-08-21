@@ -12,7 +12,7 @@ export default function ComingSoon({
   icon: ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-16 text-center">
+    <div className="flex min-h-full flex-col items-center justify-center gap-6 px-2 py-12 text-center sm:px-6 sm:py-16">
       <div
         className="matte flex h-16 w-16 items-center justify-center rounded-2xl"
         style={{ color: "var(--accent-secondary)" }}
@@ -24,7 +24,7 @@ export default function ComingSoon({
         <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
           {eyebrow}
         </span>
-        <h1 className="text-balance mt-3 font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
+        <h1 className="text-balance mt-3 font-serif text-3xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
           {title}
         </h1>
         <p className="mt-4 font-serif text-[16px] leading-7 text-[var(--text-secondary)]">

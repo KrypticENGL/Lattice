@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
+import { isMobileRequest } from "@/lib/is-mobile-request";
 
 /** Same default as `next.config.ts`'s dev proxy target — this runs on the
  * Next.js server itself, not in the browser, so it can't rely on that
@@ -15,6 +17,14 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://127.0.0.1:3001";
  * resume yet.
  */
 export default async function VisualizerEntryPage() {
+  // Short-circuits *before* the fetch/POST below. Every other route
+  // gates on viewport size in the browser, but this one creates a
+  // workspace on the way through — so a phone that deep-links here would
+  // leave an empty canvas behind on its way to being turned away.
+  if (await isMobileRequest()) {
+    return <WorkspaceGate feature="Visualizer">{null}</WorkspaceGate>;
+  }
+
   const { getToken } = await auth();
   const token = await getToken();
   const headers = {

@@ -62,7 +62,7 @@ export default function Features() {
   return (
     <section
       id="features"
-      className="flex h-full flex-col justify-center py-16 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
     >
       <div className="mx-auto w-full max-w-6xl">
         <motion.div
@@ -75,12 +75,12 @@ export default function Features() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             Features
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
+          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-5xl">
             Built for accuracy, not approximation.
           </h2>
         </motion.div>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
             <motion.div
               key={f.title}

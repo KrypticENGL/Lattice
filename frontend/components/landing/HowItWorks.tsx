@@ -24,7 +24,7 @@ export default function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="flex h-full flex-col justify-center py-16 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
     >
       <div className="mx-auto w-full max-w-6xl">
         <motion.div
@@ -37,7 +37,7 @@ export default function HowItWorks() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             How it works
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] sm:text-6xl">
+          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-6xl">
             Trace first, visualize second.
           </h2>
           <p className="mt-4 max-w-xl font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
@@ -47,7 +47,7 @@ export default function HowItWorks() {
           </p>
         </motion.div>
 
-        <div className="relative mt-14 grid gap-8 sm:grid-cols-3">
+        <div className="relative mt-10 grid gap-8 sm:mt-14 sm:grid-cols-3">
           <div
             aria-hidden="true"
             className="absolute top-7 left-0 hidden h-px w-full bg-[var(--hairline-strong)] sm:block"

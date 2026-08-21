@@ -33,7 +33,7 @@ export default function Navbar() {
 
   return (
     <header className="relative z-50 flex justify-center">
-      <nav className="glass-nav flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2.5 sm:px-7">
+      <nav className="glass-nav flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:gap-4 sm:px-7">
         <div className="flex items-center gap-3 sm:gap-5">
           <button
             type="button"
@@ -129,7 +129,7 @@ export default function Navbar() {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="glass-nav absolute top-[calc(100%+10px)] left-3 right-3 overflow-hidden rounded-3xl md:hidden"
+            className="glass-nav absolute top-[calc(100%+10px)] left-3 right-3 max-h-[calc(100dvh-8rem)] overflow-y-auto overflow-x-hidden rounded-3xl md:hidden"
           >
             <div className="flex flex-col gap-1 px-5 py-4">
               {LINKS.map((link) => (

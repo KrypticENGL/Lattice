@@ -43,7 +43,7 @@ export default function CodeFlowSimulator() {
   }
 
   return (
-    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-5">
+    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
           Step through your code&rsquo;s execution
@@ -68,8 +68,8 @@ export default function CodeFlowSimulator() {
         </div>
       </div>
 
-      <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
-        <div className="glass flex flex-col overflow-hidden rounded-xl">
+      <div className="mt-4 grid min-h-0 flex-1 auto-rows-fr gap-4 lg:auto-rows-auto lg:grid-cols-2">
+        <div className="glass flex min-h-[15rem] flex-col overflow-hidden rounded-xl">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--hairline)] px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-[#f87171]/70" />
@@ -131,7 +131,7 @@ export default function CodeFlowSimulator() {
           </div>
         </div>
 
-        <div className="glass flex flex-col overflow-hidden rounded-xl">
+        <div className="glass flex min-h-[15rem] flex-col overflow-hidden rounded-xl">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--hairline)] px-4 py-3">
             <span className="font-mono text-[13px] text-[var(--text-secondary)]">
               lattice.trace() &rarr; LinkedList
