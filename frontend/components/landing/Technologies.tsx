@@ -1,8 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+
+/* The detail panel carries fourteen full brand logos — about 25KB of
+   path data that nobody who never opens a technology needs. Splitting it
+   out keeps it off the landing page's first load and fetches it when
+   somebody actually asks for it. */
+const TechDetail = dynamic(() => import("./TechDetail"), { ssr: false });
 
 /* The card's box, declared rather than measured: its position is worked
    out before it exists, and its height is fixed so that moving between
@@ -165,12 +172,19 @@ const ICONS: Record<string, ReactNode> = {
   ),
 };
 
-type StackItem = { name: string; icon: keyof typeof ICONS; role: string };
+type StackItem = {
+  name: string;
+  icon: keyof typeof ICONS;
+  /** One line, shown on hover. */
+  role: string;
+  /** The longer account, shown when the pill is opened. */
+  detail: string;
+};
 
-/* The `role` lines say what each piece does *here*, not what it is in
-   general — a reader who already knows what Postgres is learns nothing
-   from being told it is a database. They follow BLUEPRINT.md §2, which
-   records the reason each choice was made. */
+/* The `role` and `detail` lines say what each piece does *here*, not
+   what it is in general — a reader who already knows what Postgres is
+   learns nothing from being told it is a database. They follow
+   BLUEPRINT.md §2, which records the reason each choice was made. */
 const STACK: { group: string; items: StackItem[] }[] = [
   {
     group: "Frontend",
@@ -179,41 +193,57 @@ const STACK: { group: string; items: StackItem[] }[] = [
         name: "Next.js 16",
         icon: "nextjs",
         role: "App Router shell. Server-renders the editor and workstation so the first paint is instant, then hands the interactive panels to client components.",
+        detail:
+          "Server components render the shell — the landing page, the workstation chrome — so the first paint needs no JavaScript, while the parts that are genuinely interactive opt in as client components. Every route under /dashboard is gated in one place, app/dashboard/layout.tsx, rather than checked per page.",
       },
       {
         name: "React 19",
         icon: "react",
         role: "The layer the visualizer is built on. Every trace step is just new props, so a replay is a re-render rather than bespoke drawing code.",
+        detail:
+          "The visualizer is a function of one trace step. Replaying an execution means handing it successive snapshots and letting reconciliation work out what changed, which is why a pointer moving is a re-render rather than a hand-written animation. The same components serve stepping, scrubbing and autoplay without knowing which one is driving them.",
       },
       {
         name: "TypeScript",
         icon: "typescript",
         role: "The trace schema is typed end to end. Change the format and the build breaks — instead of the diagram quietly going wrong.",
+        detail:
+          "The trace schema is the contract between a tracer running inside a sandbox and the code that draws the diagram, and both ends are typed from the same definitions. If the shape of a trace event changes, the compiler finds every reader of it — the failure mode this avoids is a diagram that renders happily and is quietly wrong.",
       },
       {
         name: "Tailwind CSS v4",
         icon: "tailwind",
         role: "Every surface here, including the glass material on these pills and the one-section-per-screen scrolling this page uses.",
+        detail:
+          "Utilities cover the ordinary layout work; the things that need to be exact live as hand-written classes in globals.css — the glass material, the one-section-per-screen scroll deck, the page grain. That split keeps the parts with real constraints, like which properties are cheap to animate, in one place with the reasoning next to them.",
       },
       {
         name: "Monaco Editor",
         icon: "monaco",
         role: "The editor VS Code is built on, driving the snippet pane — syntax highlighting and per-language modes for free.",
+        detail:
+          "The editor VS Code is built on, so the snippet pane inherits syntax highlighting, bracket matching and per-language modes without any of it being written here. monaco-vim rides along for modal editing.",
       },
       {
         name: "React Flow",
         icon: "reactflow",
         role: "Draws node-link structures — linked lists, graphs, trees — and underpins the Code-Canvas node builder.",
+        detail:
+          "Handles the structures that are genuinely graphs — linked lists, trees, object graphs — where nodes need real positions and edges need to follow them. It also underpins the Code-Canvas builder, so the same node-and-edge machinery serves both reading a trace and composing one.",
       },
       {
         name: "d3-hierarchy",
         icon: "d3",
         role: "Computes tree layout, so a binary tree lands where a reader expects it rather than where the trace happened to emit it.",
+        detail:
+          "Tree layout is the one part of drawing a tree that is actually hard: parents above children, siblings evenly spread, no overlaps at depth. This computes those positions so a binary tree looks like the picture in a textbook rather than like the order the trace emitted its nodes.",
       },
       {
         name: "Framer Motion",
         icon: "framer",
         role: "Diffs one trace step against the next, so a pointer re-targeting glides to its new node instead of teleporting.",
+        detail:
+          "Every transition here animates transform and opacity only, which the compositor can run without repainting — including the trace diagram, where a node moving between steps is interpolated rather than redrawn. The landing page's scroll deck and these panels use the same curves.",
       },
     ],
   },
@@ -224,31 +254,43 @@ const STACK: { group: string; items: StackItem[] }[] = [
         name: "Rust",
         icon: "rust",
         role: "The trace pipeline: it accepts a snippet, drives the sandbox that runs it, and streams the resulting steps back.",
+        detail:
+          "Runs the trace pipeline: it takes a snippet, drives the container that executes it, reads back the events the tracer emits, and streams them to the browser. It is the only part of the system that touches both untrusted code and the network, which is a good argument for a language that will not let it confuse a buffer for a length.",
       },
       {
         name: "Tokio",
         icon: "tokio",
         role: "The async runtime. One task per run, so a snippet that sits in an infinite loop never blocks anyone else's trace.",
+        detail:
+          "The async runtime underneath the server. A trace run is mostly waiting — on a container starting, on a process producing output — so each one is a task rather than a thread, and a snippet stuck in an infinite loop costs one suspended task instead of blocking anyone else.",
       },
       {
         name: "Axum 0.8",
         icon: "axum",
         role: "HTTP routes and the WebSocket the trace streams over — steps reach the browser as they are produced, not in one lump at the end.",
+        detail:
+          "Serves the HTTP API and the WebSocket the trace arrives on. Streaming matters more than it sounds: a long execution can produce thousands of steps, and sending them as they are produced means the diagram starts drawing while the sandbox is still running rather than after it finishes.",
       },
       {
         name: "serde / serde_json",
         icon: "serde",
         role: "Serializes the canonical trace schema — the single contract between a tracer and the frontend, and what makes new languages cheap to add.",
+        detail:
+          "Defines and serializes the trace schema, which is the one interface every other part of the system agrees on. A new language needs a tracer that emits this shape and nothing else changes — not the API, not the sandbox orchestration, not a line of the visualizer. Maps keep their insertion order through indexmap, because a hash map that reorders itself between steps would animate as chaos.",
       },
       {
         name: "bollard",
         icon: "bollard",
         role: "Speaks the Docker Engine API from async Rust, so the backend can start, watch and kill sandbox containers without shelling out.",
+        detail:
+          "Speaks the Docker Engine API directly from async Rust — create, start, wait, collect output, remove — so container control is ordinary typed code rather than shelling out and parsing text. It also means a container's lifetime is tied to the task that owns it, and a cancelled run cleans up after itself.",
       },
       {
         name: "tracing",
         icon: "tracing",
         role: "Structured logs across the pipeline, so a run that failed can be followed from the request all the way to the container exiting.",
+        detail:
+          "Structured, span-based logging across the pipeline, so a single trace run can be followed end to end: the request that started it, the container it was given, and how that container exited. Filtering is per-module through tracing-subscriber's env filter.",
       },
     ],
   },
@@ -259,21 +301,29 @@ const STACK: { group: string; items: StackItem[] }[] = [
         name: "Docker",
         icon: "docker",
         role: "Every run gets a throwaway container built from this repo's tracer image, and it is destroyed once the trace is captured.",
+        detail:
+          "Every run happens in a throwaway container built from this repo's tracer image, and the container is removed once the trace has been captured. Nothing survives between runs, which is the point: untrusted code gets a filesystem and a process table that exist only for as long as it does.",
       },
       {
         name: "gVisor (runsc)",
         icon: "gvisor",
         role: "The isolation layer the sandbox is designed to sit on: a syscall interception boundary between untrusted code and the host kernel.",
+        detail:
+          "The isolation layer this sandbox is designed to sit on. A container alone shares the host kernel, so a kernel bug is a way out; runsc puts a user-space kernel in between and intercepts syscalls before they ever reach the real one. It is the boundary the threat model assumes rather than something the current pipeline configures.",
       },
       {
         name: "Redis",
         icon: "redis",
         role: "Where the run queue goes once traces outgrow a single instance. Today they are scheduled in-process, which is enough at this size.",
+        detail:
+          "Where the run queue goes when traces outgrow one machine. Today runs are scheduled in-process through a bounded worker pool, which is enough at this size and considerably easier to reason about — the queue moves out of process when there is more than one instance to share it between.",
       },
       {
         name: "Postgres (sqlx)",
         icon: "postgres",
         role: "Saved canvases and trace runs, plus the posts, comments and notifications behind the community layer. Queried with compile-time-checked SQL.",
+        detail:
+          "Holds everything meant to outlive a single visit: saved canvases, past trace runs, and the posts, comments and notifications the community layer is built on. Queries are checked against the schema at compile time, so a migration that breaks a query fails the build rather than a request.",
       },
     ],
   },
@@ -284,11 +334,15 @@ const STACK: { group: string; items: StackItem[] }[] = [
         name: "Python sys.settrace",
         icon: "python",
         role: "A line-level hook the interpreter calls as it executes, recording each assignment and mutation in the order it really happened.",
+        detail:
+          "A hook the interpreter itself calls on every line, which is what makes the resulting picture trustworthy: the events come from CPython executing the code, not from anything here reading it. Each callback records the frame's locals, so what comes back is the order things really happened in, edge cases and bugs included.",
       },
       {
         name: "Babel / SWC",
         icon: "babel",
         role: "Instruments JavaScript at the AST level, so a JS run emits the same trace events as every other language the visualizer already reads.",
+        detail:
+          "JavaScript has no equivalent of a line-level trace hook, so the code is instrumented instead — parsed to an AST, with recording calls inserted around the operations worth watching, then run. The output is the same trace schema every other language produces, which is the whole point of having one.",
       },
     ],
   },
@@ -317,46 +371,65 @@ function Pill({
   item,
   onShow,
   onHide,
+  onOpen,
 }: {
   item: StackItem;
   onShow: (item: StackItem, el: HTMLElement) => void;
   onHide: () => void;
+  onOpen: (item: StackItem) => void;
 }) {
-  const ref = useRef<HTMLLIElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
 
   function show() {
     // Hover-expansion is a pointer affordance. On a touch screen the tap
-    // that opens a card is also the tap that would leave it stuck open.
+    // that opens a card is also the tap that would leave it stuck open —
+    // which is why tapping opens the full panel instead.
     if (!window.matchMedia("(hover: hover)").matches) return;
     if (ref.current) onShow(item, ref.current);
   }
 
   return (
-    <li
-      ref={ref}
-      onMouseEnter={show}
-      onMouseLeave={onHide}
-      onFocus={show}
-      onBlur={onHide}
-      tabIndex={0}
-      className="glass-flat relative flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)] outline-none focus-visible:border-[var(--accent-secondary)]"
-    >
-      <span
-        className="flex h-4 w-4 shrink-0 items-center justify-center"
-        style={{ color: "var(--accent-secondary)" }}
+    <li className="relative">
+      {/* A real button, so the panel is reachable by keyboard and
+          announced as something that can be opened — the pill was
+          previously a focusable list item, which is neither. */}
+      <button
+        ref={ref}
+        type="button"
+        onMouseEnter={show}
+        onMouseLeave={onHide}
+        onFocus={show}
+        onBlur={onHide}
+        onClick={() => onOpen(item)}
+        aria-haspopup="dialog"
+        className="glass-flat flex w-full cursor-pointer items-center gap-2.5 rounded-full px-3 py-1 text-left text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--accent-secondary)] focus-visible:border-[var(--accent-secondary)]"
       >
-        {ICONS[item.icon]}
-      </span>
-      <span className="font-mono text-[12px]">{item.name}</span>
+        <span
+          className="flex h-4 w-4 shrink-0 items-center justify-center"
+          style={{ color: "var(--accent-secondary)" }}
+        >
+          {ICONS[item.icon]}
+        </span>
+        <span className="font-mono text-[12px]">{item.name}</span>
+      </button>
     </li>
   );
 }
 
 export default function Technologies() {
   const [active, setActive] = useState<Active | null>(null);
+  const [opened, setOpened] = useState<StackItem | null>(null);
+  const [openedGroup, setOpenedGroup] = useState("");
   const gridRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduceMotion = useReducedMotion();
+
+  function openDetail(item: StackItem, group: string) {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setActive(null);
+    setOpenedGroup(group);
+    setOpened(item);
+  }
 
   function show(item: StackItem, el: HTMLElement) {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -461,6 +534,7 @@ export default function Technologies() {
                     item={item}
                     onShow={show}
                     onHide={hide}
+                    onOpen={(picked) => openDetail(picked, group.group)}
                   />
                 ))}
               </ul>
@@ -566,6 +640,19 @@ export default function Technologies() {
           </AnimatePresence>
         </div>
       </div>
+
+      <TechDetail
+        item={
+          opened && {
+            name: opened.name,
+            group: openedGroup,
+            role: opened.role,
+            detail: opened.detail,
+            fallback: ICONS[opened.icon],
+          }
+        }
+        onClose={() => setOpened(null)}
+      />
     </section>
   );
 }
