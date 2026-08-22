@@ -1,7 +1,14 @@
 "use client";
 
-import { motion } from "framer-motion";
-import type { ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+
+/* Both are needed before the card exists, to choose which corner it
+   grows from — so they are declared rather than measured. Keep them in
+   step with the card's actual box below. */
+const CARD_WIDTH = 260;
+const CARD_HEIGHT = 170;
 
 const ICON_PROPS = {
   viewBox: "0 0 24 24",
@@ -152,48 +159,247 @@ const ICONS: Record<string, ReactNode> = {
   ),
 };
 
-const STACK: { group: string; items: { name: string; icon: keyof typeof ICONS }[] }[] = [
+type StackItem = { name: string; icon: keyof typeof ICONS; role: string };
+
+/* The `role` lines say what each piece does *here*, not what it is in
+   general — a reader who already knows what Postgres is learns nothing
+   from being told it is a database. They follow BLUEPRINT.md §2, which
+   records the reason each choice was made. */
+const STACK: { group: string; items: StackItem[] }[] = [
   {
     group: "Frontend",
     items: [
-      { name: "Next.js 16", icon: "nextjs" },
-      { name: "React 19", icon: "react" },
-      { name: "TypeScript", icon: "typescript" },
-      { name: "Tailwind CSS v4", icon: "tailwind" },
-      { name: "Monaco Editor", icon: "monaco" },
-      { name: "React Flow", icon: "reactflow" },
-      { name: "d3-hierarchy", icon: "d3" },
-      { name: "Framer Motion", icon: "framer" },
+      {
+        name: "Next.js 16",
+        icon: "nextjs",
+        role: "App Router shell. Server-renders the editor and workstation so the first paint is instant, then hands the interactive panels to client components.",
+      },
+      {
+        name: "React 19",
+        icon: "react",
+        role: "The layer the visualizer is built on. Every trace step is just new props, so a replay is a re-render rather than bespoke drawing code.",
+      },
+      {
+        name: "TypeScript",
+        icon: "typescript",
+        role: "The trace schema is typed end to end. Change the format and the build breaks — instead of the diagram quietly going wrong.",
+      },
+      {
+        name: "Tailwind CSS v4",
+        icon: "tailwind",
+        role: "Every surface here, including the glass material on these pills and the one-section-per-screen scrolling this page uses.",
+      },
+      {
+        name: "Monaco Editor",
+        icon: "monaco",
+        role: "The editor VS Code is built on, driving the snippet pane — syntax highlighting and per-language modes for free.",
+      },
+      {
+        name: "React Flow",
+        icon: "reactflow",
+        role: "Draws node-link structures — linked lists, graphs, trees — and underpins the Code-Canvas node builder.",
+      },
+      {
+        name: "d3-hierarchy",
+        icon: "d3",
+        role: "Computes tree layout, so a binary tree lands where a reader expects it rather than where the trace happened to emit it.",
+      },
+      {
+        name: "Framer Motion",
+        icon: "framer",
+        role: "Diffs one trace step against the next, so a pointer re-targeting glides to its new node instead of teleporting.",
+      },
     ],
   },
   {
     group: "Backend",
     items: [
-      { name: "Rust", icon: "rust" },
-      { name: "Tokio", icon: "tokio" },
-      { name: "Axum 0.8", icon: "axum" },
-      { name: "serde / serde_json", icon: "serde" },
-      { name: "bollard", icon: "bollard" },
-      { name: "tracing", icon: "tracing" },
+      {
+        name: "Rust",
+        icon: "rust",
+        role: "The trace pipeline: it accepts a snippet, drives the sandbox that runs it, and streams the resulting steps back.",
+      },
+      {
+        name: "Tokio",
+        icon: "tokio",
+        role: "The async runtime. One task per run, so a snippet that sits in an infinite loop never blocks anyone else's trace.",
+      },
+      {
+        name: "Axum 0.8",
+        icon: "axum",
+        role: "HTTP routes and the WebSocket the trace streams over — steps reach the browser as they are produced, not in one lump at the end.",
+      },
+      {
+        name: "serde / serde_json",
+        icon: "serde",
+        role: "Serializes the canonical trace schema — the single contract between a tracer and the frontend, and what makes new languages cheap to add.",
+      },
+      {
+        name: "bollard",
+        icon: "bollard",
+        role: "Speaks the Docker Engine API from async Rust, so the backend can start, watch and kill sandbox containers without shelling out.",
+      },
+      {
+        name: "tracing",
+        icon: "tracing",
+        role: "Structured logs across the pipeline, so a run that failed can be followed from the request all the way to the container exiting.",
+      },
     ],
   },
   {
     group: "Sandbox & infra",
     items: [
-      { name: "Docker", icon: "docker" },
-      { name: "gVisor (runsc)", icon: "gvisor" },
-      { name: "Redis", icon: "redis" },
-      { name: "Postgres (sqlx)", icon: "postgres" },
+      {
+        name: "Docker",
+        icon: "docker",
+        role: "Every run gets a throwaway container built from this repo's tracer image, and it is destroyed once the trace is captured.",
+      },
+      {
+        name: "gVisor (runsc)",
+        icon: "gvisor",
+        role: "The isolation layer the sandbox is designed to sit on: a syscall interception boundary between untrusted code and the host kernel.",
+      },
+      {
+        name: "Redis",
+        icon: "redis",
+        role: "Where the run queue goes once traces outgrow a single instance. Today they are scheduled in-process, which is enough at this size.",
+      },
+      {
+        name: "Postgres (sqlx)",
+        icon: "postgres",
+        role: "Saved canvases and trace runs, plus the posts, comments and notifications behind the community layer. Queried with compile-time-checked SQL.",
+      },
     ],
   },
   {
     group: "Tracers",
     items: [
-      { name: "Python sys.settrace", icon: "python" },
-      { name: "Babel / SWC", icon: "babel" },
+      {
+        name: "Python sys.settrace",
+        icon: "python",
+        role: "A line-level hook the interpreter calls as it executes, recording each assignment and mutation in the order it really happened.",
+      },
+      {
+        name: "Babel / SWC",
+        icon: "babel",
+        role: "Instruments JavaScript at the AST level, so a JS run emits the same trace events as every other language the visualizer already reads.",
+      },
     ],
   },
 ];
+
+/** Which corner the open card grows from, so it stays on screen. */
+type Anchor = { up: boolean; right: boolean };
+
+/**
+ * A pill that expands into a card describing what the technology does in
+ * this project.
+ *
+ * The card is absolutely positioned and never participates in layout.
+ * That is not a detail — laying it out would reflow the column beneath
+ * it (expensive, and visibly shoves the other pills around) and, worse,
+ * would grow the panel past one screen. `ScrollFrame.shouldSnap()`
+ * measures exactly that and quietly turns snapping off for the whole
+ * deck when it fails, so a card that changed layout would break
+ * scrolling on a completely different part of the page.
+ *
+ * Only `opacity` and `transform` are animated, both of which the
+ * compositor can run without re-rasterizing anything, and the card
+ * carries no `backdrop-filter` or `mix-blend-mode` for the same reason
+ * the pills no longer do.
+ */
+function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<Anchor>({ up: false, right: lastColumn });
+  const ref = useRef<HTMLLIElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  function show() {
+    // Hover-expansion is a pointer affordance. On a touch screen the tap
+    // that opens a card is also the tap that would leave it stuck open.
+    if (!window.matchMedia("(hover: hover)").matches) return;
+
+    // One measurement, before the animation starts, to pick a direction
+    // that keeps the card inside the scroll frame.
+    const el = ref.current;
+    const frame = el?.closest(".snap-container");
+    if (el && frame) {
+      const pill = el.getBoundingClientRect();
+      const bounds = frame.getBoundingClientRect();
+      setAnchor({
+        up: pill.top + CARD_HEIGHT > bounds.bottom - 12,
+        right: lastColumn || pill.left + CARD_WIDTH > bounds.right - 12,
+      });
+    }
+    setOpen(true);
+  }
+
+  return (
+    <li
+      ref={ref}
+      // `mouseleave` only fires once the pointer has left the pill *and*
+      // every descendant, so the card — which is a descendant, and hangs
+      // well outside the pill's own box — holds itself open.
+      onMouseEnter={show}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={show}
+      onBlur={() => setOpen(false)}
+      tabIndex={0}
+      className="glass-flat relative flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)] outline-none focus-visible:border-[var(--accent-secondary)]"
+      style={{ zIndex: open ? 30 : undefined }}
+    >
+      <span
+        className="flex h-4 w-4 shrink-0 items-center justify-center"
+        style={{ color: "var(--accent-secondary)" }}
+      >
+        {ICONS[item.icon]}
+      </span>
+      <span className="font-mono text-[12px]">{item.name}</span>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            // Growing from the corner the card is pinned to is what sells
+            // it as the pill expanding rather than a tooltip appearing.
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+            transition={{
+              duration: reduceMotion ? 0.12 : 0.26,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            style={
+              {
+                width: CARD_WIDTH,
+                transformOrigin: `${anchor.up ? "bottom" : "top"} ${anchor.right ? "right" : "left"}`,
+                ...(anchor.up ? { bottom: -6 } : { top: -6 }),
+                ...(anchor.right ? { right: -6 } : { left: -6 }),
+              } satisfies CSSProperties
+            }
+            className="tech-card absolute cursor-default rounded-2xl p-3.5"
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-elevated)]"
+                style={{ color: "var(--accent-secondary)" }}
+              >
+                <span className="flex h-[18px] w-[18px] items-center justify-center">
+                  {ICONS[item.icon]}
+                </span>
+              </span>
+              <span className="font-mono text-[12.5px] font-medium text-[var(--text-primary)]">
+                {item.name}
+              </span>
+            </div>
+            <p className="mt-2.5 text-[12px] leading-[1.55] text-[var(--text-secondary)]">
+              {item.role}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
 
 export default function Technologies() {
   return (
@@ -240,18 +446,11 @@ export default function Technologies() {
               </h3>
               <ul className="mt-2.5 flex flex-col gap-1.5">
                 {group.items.map((item) => (
-                  <li
+                  <Pill
                     key={item.name}
-                    className="glass-flat flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)]"
-                  >
-                    <span
-                      className="flex h-4 w-4 shrink-0 items-center justify-center"
-                      style={{ color: "var(--accent-secondary)" }}
-                    >
-                      {ICONS[item.icon]}
-                    </span>
-                    <span className="font-mono text-[12px]">{item.name}</span>
-                  </li>
+                    item={item}
+                    lastColumn={i === STACK.length - 1}
+                  />
                 ))}
               </ul>
             </motion.div>

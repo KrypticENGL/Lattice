@@ -351,6 +351,28 @@ body {
   pointer-events: none;
 }
 
+/* The card a technology pill expands into.
+   ------------------------------------------------------------------
+   Opaque on purpose: it covers the pill it grew out of, which is what
+   makes the pill look like it expanded rather than like a tooltip
+   appeared over it. Translucency would show the pill's own text
+   through the card's.
+
+   Same discipline as the pills — a fill, a border, a rim and a shadow,
+   and deliberately no `backdrop-filter` or `mix-blend-mode`. This
+   element appears and disappears under the pointer, so anything that
+   forced the page to re-rasterize would show up as a stutter at
+   exactly the moment someone is looking straight at it. */
+.tech-card {
+  /* Fully opaque, not merely nearly so: at 97% the covered pill's own
+     border bled through as a faint line across the card. */
+  background: var(--bg-elevated);
+  border: 1px solid var(--hairline-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 18px 40px -16px rgba(0, 0, 0, 0.85);
+}
+
 /* Liquid-glass floating navbar */
 .glass-nav {
   position: relative;
