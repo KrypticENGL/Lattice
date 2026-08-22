@@ -9,6 +9,10 @@ import type { CSSProperties, ReactNode } from "react";
    step with the card's actual box below. */
 const CARD_WIDTH = 260;
 const CARD_HEIGHT = 170;
+/** Space between the pill and the card that opens beside it. */
+const GAP = 10;
+/** Margin the card keeps from the edges of the scroll frame. */
+const EDGE = 12;
 
 const ICON_PROPS = {
   viewBox: "0 0 24 24",
@@ -289,7 +293,12 @@ const STACK: { group: string; items: StackItem[] }[] = [
 ];
 
 /** Which corner the open card grows from, so it stays on screen. */
-type Anchor = { up: boolean; right: boolean };
+/**
+ * Where the card sits relative to its pill: beside it on the given
+ * side, nudged vertically by `shift` px when centring it on the pill
+ * would push it out of the frame.
+ */
+type Anchor = { side: "right" | "left"; shift: number };
 
 /**
  * A pill that expands into a card describing what the technology does in
@@ -310,7 +319,10 @@ type Anchor = { up: boolean; right: boolean };
  */
 function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<Anchor>({ up: false, right: lastColumn });
+  const [anchor, setAnchor] = useState<Anchor>({
+    side: lastColumn ? "left" : "right",
+    shift: 0,
+  });
   const ref = useRef<HTMLLIElement>(null);
   const reduceMotion = useReducedMotion();
 
@@ -319,17 +331,31 @@ function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
     // that opens a card is also the tap that would leave it stuck open.
     if (!window.matchMedia("(hover: hover)").matches) return;
 
-    // One measurement, before the animation starts, to pick a direction
-    // that keeps the card inside the scroll frame.
+    // One measurement, before the animation starts, so the card can be
+    // placed somewhere it actually fits.
     const el = ref.current;
     const frame = el?.closest(".snap-container");
     if (el && frame) {
       const pill = el.getBoundingClientRect();
       const bounds = frame.getBoundingClientRect();
-      setAnchor({
-        up: pill.top + CARD_HEIGHT > bounds.bottom - 12,
-        right: lastColumn || pill.left + CARD_WIDTH > bounds.right - 12,
-      });
+
+      // Beside the pill on the right, unless the frame runs out first —
+      // which is what happens to the last column.
+      const side =
+        bounds.right - pill.right >= CARD_WIDTH + GAP + EDGE ? "right" : "left";
+
+      // The card is centred on its pill; near the top or bottom of the
+      // frame that would hang over the edge, so nudge it back inside.
+      const middle = pill.top + pill.height / 2;
+      const half = CARD_HEIGHT / 2;
+      let shift = 0;
+      if (middle - half < bounds.top + EDGE) {
+        shift = bounds.top + EDGE - (middle - half);
+      } else if (middle + half > bounds.bottom - EDGE) {
+        shift = bounds.bottom - EDGE - (middle + half);
+      }
+
+      setAnchor({ side, shift: Math.round(shift) });
     }
     setOpen(true);
   }
@@ -361,9 +387,20 @@ function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
           <motion.div
             // Growing from the corner the card is pinned to is what sells
             // it as the pill expanding rather than a tooltip appearing.
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+            // `y` carries the centring as well as the animation, because
+            // framer-motion writes `transform` wholesale — a `translateY`
+            // set in CSS would be overwritten the moment `scale` animates.
+            initial={
+              reduceMotion
+                ? { opacity: 0, y: "-50%" }
+                : { opacity: 0, scale: 0.92, y: "-50%" }
+            }
+            animate={{ opacity: 1, scale: 1, y: "-50%" }}
+            exit={
+              reduceMotion
+                ? { opacity: 0, y: "-50%" }
+                : { opacity: 0, scale: 0.96, y: "-50%" }
+            }
             transition={{
               duration: reduceMotion ? 0.12 : 0.26,
               ease: [0.22, 1, 0.36, 1],
@@ -371,27 +408,47 @@ function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
             style={
               {
                 width: CARD_WIDTH,
-                transformOrigin: `${anchor.up ? "bottom" : "top"} ${anchor.right ? "right" : "left"}`,
-                ...(anchor.up ? { bottom: -6 } : { top: -6 }),
-                ...(anchor.right ? { right: -6 } : { left: -6 }),
+                // Growing from the edge nearest the pill is what makes it
+                // read as the pill opening out, rather than a tooltip
+                // materialising somewhere off to the side.
+                transformOrigin:
+                  anchor.side === "right" ? "left center" : "right center",
+                top: `calc(50% + ${anchor.shift}px)`,
+                ...(anchor.side === "right"
+                  ? { left: `calc(100% + ${GAP}px)` }
+                  : { right: `calc(100% + ${GAP}px)` }),
               } satisfies CSSProperties
             }
-            className="tech-card absolute cursor-default rounded-2xl p-3.5"
+            className="tech-card absolute cursor-default overflow-hidden rounded-2xl p-3.5"
           >
-            <div className="flex items-center gap-2.5">
+            {/* The mark, blown up and bled off the trailing edge as a
+                watermark. Purely decorative, so it is hidden from
+                assistive tech and never takes the pointer. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute flex h-[118px] w-[118px] items-center justify-center"
+              style={{
+                color: "var(--accent-secondary)",
+                opacity: 0.09,
+                right: -20,
+                bottom: -18,
+              }}
+            >
+              {ICONS[item.icon]}
+            </span>
+
+            <div className="relative flex items-center gap-2.5">
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-elevated)]"
+                className="flex h-4 w-4 shrink-0 items-center justify-center"
                 style={{ color: "var(--accent-secondary)" }}
               >
-                <span className="flex h-[18px] w-[18px] items-center justify-center">
-                  {ICONS[item.icon]}
-                </span>
+                {ICONS[item.icon]}
               </span>
               <span className="font-mono text-[12.5px] font-medium text-[var(--text-primary)]">
                 {item.name}
               </span>
             </div>
-            <p className="mt-2.5 text-[12px] leading-[1.55] text-[var(--text-secondary)]">
+            <p className="relative mt-2.5 text-[12px] leading-[1.55] text-[var(--text-secondary)]">
               {item.role}
             </p>
           </motion.div>
