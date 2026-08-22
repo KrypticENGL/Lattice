@@ -199,9 +199,9 @@ export default function Technologies() {
   return (
     <section
       id="technologies"
-      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-8 sm:py-12"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto w-full max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -212,7 +212,7 @@ export default function Technologies() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             Technologies
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-5xl">
+          <h2 className="text-balance mt-2.5 font-serif text-3xl leading-[1.05] font-black tracking-tight text-[var(--text-primary)] wide:text-4xl">
             The stack underneath.
           </h2>
           <p className="mt-4 max-w-xl font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
@@ -222,7 +222,7 @@ export default function Technologies() {
           </p>
         </motion.div>
 
-        <div className="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+        <div className="mt-6 grid gap-5 sm:mt-8 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
           {STACK.map((group, i) => (
             <motion.div
               key={group.group}
@@ -234,11 +234,11 @@ export default function Technologies() {
               <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">
                 {group.group}
               </h3>
-              <ul className="mt-3 flex flex-col gap-2">
+              <ul className="mt-2.5 flex flex-col gap-1.5">
                 {group.items.map((item) => (
                   <li
                     key={item.name}
-                    className="glass flex items-center gap-2.5 rounded-full px-3.5 py-2 text-[var(--text-primary)]"
+                    className="glass flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)]"
                   >
                     <span
                       className="flex h-4 w-4 shrink-0 items-center justify-center"

@@ -13,7 +13,7 @@ const LINKS = [
 
 function LogoMark() {
   return (
-    <svg width="24" height="24" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <svg width="21" height="21" viewBox="0 0 26 26" fill="none" aria-hidden="true">
       <circle cx="6" cy="6" r="3" fill="var(--accent-secondary)" />
       <circle cx="20" cy="7" r="3" fill="var(--accent-primary)" />
       <circle cx="13" cy="20" r="3" fill="var(--accent-primary)" />
@@ -33,15 +33,15 @@ export default function Navbar() {
 
   return (
     <header className="relative z-50 flex justify-center">
-      <nav className="glass-nav flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:gap-4 sm:px-7">
-        <div className="flex items-center gap-3 sm:gap-5">
+      <nav className="glass-nav flex w-full max-w-4xl items-center justify-between gap-3 px-3.5 py-1.5 sm:gap-4 sm:px-5">
+        <div className="flex items-center gap-2.5 sm:gap-4">
           <button
             type="button"
             onClick={() => scrollToSection("top")}
             className="flex items-center gap-2"
           >
             <LogoMark />
-            <span className="font-serif text-[19px] font-semibold tracking-tight text-[var(--text-primary)]">
+            <span className="font-serif text-[16px] font-semibold tracking-tight text-[var(--text-primary)]">
               Lattice
             </span>
           </button>
@@ -49,26 +49,26 @@ export default function Navbar() {
             href="https://github.com"
             target="_blank"
             rel="noreferrer"
-            className="hidden rounded-full border border-white/15 px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] md:inline-flex md:items-center md:justify-center"
+            className="hidden rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] md:inline-flex md:items-center md:justify-center"
           >
             GitHub
           </a>
         </div>
 
-        <div className="hidden items-center gap-7 md:flex">
+        <div className="hidden items-center gap-6 md:flex">
           {LINKS.map((link) => (
             <button
               key={link.id}
               type="button"
               onClick={() => scrollToSection(link.id)}
-              className="font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:text-[var(--accent-secondary)]"
+              className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:text-[var(--accent-secondary)]"
             >
               {link.label}
             </button>
           ))}
         </div>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-2.5 md:flex">
           {isLoaded &&
             (isSignedIn ? (
               <UserButton />
@@ -76,7 +76,7 @@ export default function Navbar() {
               <SignInButton mode="modal">
                 <button
                   type="button"
-                  className="rounded-full border border-white/15 px-4 py-2 font-mono text-[12px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-primary)]"
+                  className="rounded-full border border-white/15 px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-primary)]"
                 >
                   Sign in
                 </button>
@@ -85,7 +85,7 @@ export default function Navbar() {
           {primaryHref ? (
             <a
               href={primaryHref}
-              className="rounded-full px-5 py-2 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow"
+              className="rounded-full px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow"
               style={{
                 background: "var(--accent-primary)",
                 boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
@@ -97,7 +97,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => scrollToSection("trace")}
-              className="rounded-full px-5 py-2 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_24px_var(--accent-glow)]"
+              className="rounded-full px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_24px_var(--accent-glow)]"
               style={{ background: "var(--accent-primary)" }}
             >
               {primaryLabel}
@@ -110,7 +110,7 @@ export default function Navbar() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
           aria-expanded={open}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-[var(--text-primary)] md:hidden"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-[var(--text-primary)] md:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             {open ? (

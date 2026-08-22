@@ -24,9 +24,9 @@ export default function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-8 sm:py-12"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto w-full max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -37,7 +37,7 @@ export default function HowItWorks() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             How it works
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-6xl">
+          <h2 className="text-balance mt-2.5 font-serif text-3xl leading-[1.05] font-black tracking-tight text-[var(--text-primary)] wide:text-[2.75rem]">
             Trace first, visualize second.
           </h2>
           <p className="mt-4 max-w-xl font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
@@ -47,10 +47,10 @@ export default function HowItWorks() {
           </p>
         </motion.div>
 
-        <div className="relative mt-10 grid gap-8 sm:mt-14 sm:grid-cols-3">
+        <div className="relative mt-8 grid gap-7 sm:mt-10 sm:grid-cols-3">
           <div
             aria-hidden="true"
-            className="absolute top-7 left-0 hidden h-px w-full bg-[var(--hairline-strong)] sm:block"
+            className="absolute top-6 left-0 hidden h-px w-full bg-[var(--hairline-strong)] sm:block"
           />
           {STEPS.map((step, i) => (
             <motion.div
@@ -61,10 +61,10 @@ export default function HowItWorks() {
               transition={{ duration: 0.5, delay: i * 0.12 }}
               className="relative"
             >
-              <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--hairline-strong)] bg-[var(--bg-base)] font-serif text-[17px] font-bold text-[var(--accent-secondary)]">
+              <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--hairline-strong)] bg-[var(--bg-base)] font-serif text-[15px] font-bold text-[var(--accent-secondary)]">
                 {step.n}
               </div>
-              <h3 className="mt-5 font-serif text-[20px] font-bold text-[var(--text-primary)]">
+              <h3 className="mt-4 font-serif text-[18px] font-bold text-[var(--text-primary)]">
                 {step.title}
               </h3>
               <p className="mt-2 text-[14px] leading-6 text-[var(--text-secondary)]">

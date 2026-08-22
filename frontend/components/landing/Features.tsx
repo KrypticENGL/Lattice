@@ -62,9 +62,9 @@ export default function Features() {
   return (
     <section
       id="features"
-      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-8 sm:py-12"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto w-full max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -75,12 +75,12 @@ export default function Features() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             Features
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-5xl">
+          <h2 className="text-balance mt-2.5 font-serif text-3xl leading-[1.05] font-black tracking-tight text-[var(--text-primary)] wide:text-4xl">
             Built for accuracy, not approximation.
           </h2>
         </motion.div>
 
-        <div className="mt-8 grid gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+        <div className="mt-6 grid gap-4 sm:mt-9 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
             <motion.div
               key={f.title}
@@ -89,10 +89,10 @@ export default function Features() {
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.45, delay: i * 0.08 }}
               whileHover={{ y: -3 }}
-              className="rounded-xl border border-[var(--hairline)] bg-[var(--bg-surface)] p-5"
+              className="rounded-xl border border-[var(--hairline)] bg-[var(--bg-surface)] p-4"
             >
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                className="flex h-8 w-8 items-center justify-center rounded-lg"
                 style={{
                   color: f.color,
                   backgroundColor: "var(--bg-elevated)",
@@ -102,7 +102,7 @@ export default function Features() {
                   {f.icon}
                 </svg>
               </div>
-              <h3 className="mt-4 font-serif text-[16px] font-bold text-[var(--text-primary)]">
+              <h3 className="mt-3.5 font-serif text-[15px] font-bold text-[var(--text-primary)]">
                 {f.title}
               </h3>
               <p className="mt-2 text-[13.5px] leading-6 text-[var(--text-secondary)]">

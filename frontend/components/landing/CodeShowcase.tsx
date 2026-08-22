@@ -57,9 +57,9 @@ export default function CodeShowcase() {
   return (
     <section
       id="trace"
-      className="flex min-h-full flex-col justify-center py-12 sm:py-20"
+      className="flex min-h-full flex-col justify-center py-8 sm:py-12"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto w-full max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -70,7 +70,7 @@ export default function CodeShowcase() {
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             Trace schema
           </span>
-          <h2 className="text-balance mt-3 font-serif text-4xl leading-[1.02] font-black tracking-tight text-[var(--text-primary)] wide:text-5xl">
+          <h2 className="text-balance mt-2.5 font-serif text-3xl leading-[1.05] font-black tracking-tight text-[var(--text-primary)] wide:text-4xl">
             Same idea, your own snippet.
           </h2>
           <p className="mt-4 max-w-xl font-serif text-[16px] leading-7 text-[var(--text-secondary)]">
@@ -80,7 +80,7 @@ export default function CodeShowcase() {
           </p>
         </motion.div>
 
-        <div className="mt-8 grid gap-5 sm:mt-10 sm:gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, x: -16 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -96,7 +96,7 @@ export default function CodeShowcase() {
                 snippet.py
               </span>
             </div>
-            <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-7 text-[var(--text-primary)]">
+            <pre className="overflow-x-auto px-4 py-4 font-mono text-[13px] leading-6 text-[var(--text-primary)]">
               {CODE_LINES.map((line, i) => (
                 <div key={i} className="flex gap-4">
                   <span className="w-4 shrink-0 select-none text-right text-[var(--text-secondary)]">
@@ -123,7 +123,7 @@ export default function CodeShowcase() {
                 step 08/08
               </span>
             </div>
-            <div className="flex flex-1 items-center justify-center p-6">
+            <div className="flex flex-1 items-center justify-center p-5">
               <motion.svg
                 viewBox="0 0 360 120"
                 className="h-auto w-full max-w-sm"

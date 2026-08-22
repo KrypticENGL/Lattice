@@ -8,7 +8,7 @@ export default function Hero() {
   return (
     <section
       id="top"
-      className="relative flex min-h-full items-center overflow-hidden py-12 sm:py-20"
+      className="relative flex min-h-full items-center overflow-hidden py-8 sm:py-12"
     >
       <div
         aria-hidden="true"
@@ -21,7 +21,7 @@ export default function Hero() {
         }}
       />
 
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
+      <div className="mx-auto grid w-full max-w-5xl items-center gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-10">
         <div>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
@@ -34,7 +34,14 @@ export default function Hero() {
             // headline proportional to the space that actually exists.
             // It also degrades correctly under browser zoom, which shrinks
             // both viewport axes together.
-            className="text-balance font-serif text-[clamp(2.25rem,min(8.5vw,13vh),5.2rem)] leading-[0.95] font-black tracking-tight text-[var(--text-primary)]"
+            //
+            // The ceiling is deliberately well below what the width alone
+            // would allow. At 100% zoom on an ordinary laptop the old cap
+            // let the headline, its paragraph, the buttons and the language
+            // strip add up to more than one panel — and an overflowing
+            // panel doesn't just look cramped, it switches the deck out of
+            // snapping altogether (see `shouldSnap` in ScrollFrame).
+            className="text-balance font-serif text-[clamp(2rem,min(6.6vw,10vh),4rem)] leading-[0.98] font-black tracking-tight text-[var(--text-primary)]"
           >
             Watch your code
             <br />
@@ -48,7 +55,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.16 }}
-            className="mt-6 max-w-lg font-serif text-[17px] leading-7 text-[var(--text-secondary)]"
+            className="mt-5 max-w-lg font-serif text-[17px] leading-7 text-[var(--text-secondary)]"
           >
             Paste a snippet. Lattice runs it for real inside a sandbox,
             captures a step-by-step memory trace, and replays it as an
@@ -59,12 +66,12 @@ export default function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.24 }}
-            className="mt-8 flex flex-wrap items-center gap-3"
+            className="mt-6 flex flex-wrap items-center gap-3"
           >
             <button
               type="button"
               onClick={() => scrollToSection("trace")}
-              className="rounded-full px-6 py-3 font-mono text-[13px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_28px_var(--accent-glow)]"
+              className="rounded-full px-5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_28px_var(--accent-glow)]"
               style={{ background: "var(--accent-primary)" }}
             >
               Try a live snippet
@@ -72,7 +79,7 @@ export default function Hero() {
             <button
               type="button"
               onClick={() => scrollToSection("how-it-works")}
-              className="glass rounded-full px-6 py-3 font-mono text-[13px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+              className="glass rounded-full px-5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
             >
               See how it works
             </button>
@@ -82,7 +89,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-9 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]"
+            className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]"
           >
             <span>python</span>
             <span className="opacity-40">/</span>

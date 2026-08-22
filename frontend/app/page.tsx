@@ -10,7 +10,7 @@ import ScrollFrame from "@/components/landing/ScrollFrame";
 
 export default function Home() {
   return (
-    <div className="grain-bg viewport-shell relative flex flex-col gap-4 p-4 sm:gap-8 sm:p-12">
+    <div className="grain-bg viewport-shell relative flex flex-col gap-3 p-3 sm:gap-6 sm:p-8">
       <div className="shrink-0">
         <Navbar />
       </div>
