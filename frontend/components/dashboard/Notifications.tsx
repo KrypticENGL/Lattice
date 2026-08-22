@@ -5,12 +5,12 @@ export default function Notifications() {
     // `h-full min-h-0` so it can absorb whatever the sidebar has left over
     // once the Resource Monitor has taken its (fixed) share, and shrink
     // instead of overflowing when that is not much.
-    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-4">
+    <div className="matte flex h-full min-h-0 flex-col rounded-2xl p-3.5">
       <div className="flex shrink-0 items-baseline justify-between">
-        <h2 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
+        <h2 className="font-serif text-[15px] font-bold text-[var(--text-primary)]">
           Notifications
         </h2>
-        <span className="font-mono text-[13px] uppercase tracking-wider text-[var(--accent-secondary)]">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--accent-secondary)]">
           {NOTIFICATIONS.length} new
         </span>
       </div>
@@ -25,12 +25,12 @@ export default function Notifications() {
           >
             <div className="flex items-center gap-2.5">
               <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-semibold"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold"
                 style={{ background: "var(--bg-elevated)", color: "var(--accent-secondary)" }}
               >
                 {n.author.charAt(0)}
               </span>
-              <p className="text-[13px] leading-5 text-[var(--text-primary)]">
+              <p className="text-[12.5px] leading-5 text-[var(--text-primary)]">
                 <span className="font-semibold">{n.author}</span>{" "}
                 <span className="text-[var(--text-secondary)]">
                   {n.type === "reply" ? "replied to" : "commented on"}
@@ -38,10 +38,10 @@ export default function Notifications() {
                 <span className="font-semibold">{n.postTitle}</span>
               </p>
             </div>
-            <p className="mt-2 pl-[38px] font-serif text-[13px] leading-5 text-[var(--text-secondary)]">
+            <p className="mt-1.5 pl-[34px] font-serif text-[12.5px] leading-5 text-[var(--text-secondary)]">
               &ldquo;{n.excerpt}&rdquo;
             </p>
-            <p className="mt-1.5 pl-[38px] font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
+            <p className="mt-1 pl-[34px] font-mono text-[10.5px] uppercase tracking-wider text-[var(--text-secondary)]">
               {n.time}
             </p>
           </li>

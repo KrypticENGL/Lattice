@@ -427,10 +427,12 @@ body {
    expands on hover without reflowing layout, so page chrome near the
    left edge can end up hidden underneath it. `.shifts-with-sidebar`
    opts an element in to sliding clear, kept in sync with the sidebar's
-   own 300ms hover transition. 152px = the sidebar's expanded width
-   (224px) minus its collapsed width (72px) — the extra clearance needed
+   own 300ms hover transition. 132px = the sidebar's expanded width
+   (192px) minus its collapsed width (60px) — the extra clearance needed
    on top of whatever base padding already accounts for the collapsed
-   state. */
+   state. The dashboard pages no longer need this: their gutter clears
+   the expanded rail outright. It is the canvas workspaces, whose
+   floating panels sit hard against the left edge, that still do. */
 .shifts-with-sidebar {
   transition: margin-left 300ms ease-out;
 }
@@ -439,7 +441,7 @@ body {
    sidebar is a bottom bar with no width to clear. */
 @media (min-width: 720px) and (min-height: 520px) {
   aside:hover ~ main .shifts-with-sidebar {
-    margin-left: 152px;
+    margin-left: 132px;
   }
 }
 

@@ -16,18 +16,18 @@ export default function ActivityHeatmap() {
   const activeDays = weeks.flat().filter((d) => d.count > 0).length;
 
   return (
-    <div className="matte rounded-2xl p-5">
+    <div className="matte rounded-2xl p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-serif text-[19px] font-bold text-[var(--text-primary)]">
+        <h2 className="font-serif text-[16px] font-bold text-[var(--text-primary)]">
           Activity
         </h2>
-        <p className="font-mono text-[13px] uppercase tracking-wider text-[var(--text-secondary)]">
+        <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
           {totalTraces} traces · {activeDays} active days
         </p>
       </div>
 
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-        <div className="flex shrink-0 flex-col justify-between py-[3px] font-mono text-[12px] text-[var(--text-secondary)]">
+      <div className="mt-3 flex gap-2.5 overflow-x-auto pb-1">
+        <div className="flex shrink-0 flex-col justify-between py-[3px] font-mono text-[10px] text-[var(--text-secondary)]">
           {DAY_LABELS.map((label, i) => (
             <span key={i} className="h-[13px] leading-[13px]">
               {label}

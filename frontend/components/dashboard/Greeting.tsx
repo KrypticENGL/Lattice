@@ -20,7 +20,7 @@ export default function Greeting() {
   const { user, isLoaded } = useUser();
 
   return (
-    <h1 className="text-balance mt-2 font-serif text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">
+    <h1 className="text-balance mt-1.5 font-serif text-3xl font-black tracking-tight text-[var(--text-primary)] sm:text-4xl">
       Welcome back
       <span
         className="transition-opacity duration-200"

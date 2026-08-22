@@ -104,12 +104,12 @@ export default function ResourceMonitor() {
     // it claim half the sidebar just pushed everything else off-screen.
     // The neighbouring Notifications list takes the slack instead — it
     // has arbitrarily many rows and can actually use the room.
-    <div className="matte flex flex-col rounded-2xl p-4">
+    <div className="matte flex flex-col rounded-2xl p-3.5">
       <div className="flex shrink-0 items-baseline justify-between">
-        <h2 className="font-serif text-[17px] font-bold text-[var(--text-primary)]">
+        <h2 className="font-serif text-[15px] font-bold text-[var(--text-primary)]">
           Resource Monitor
         </h2>
-        <span className="font-mono text-[13px] uppercase tracking-wider text-[var(--accent-secondary)]">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--accent-secondary)]">
           Free tier
         </span>
       </div>

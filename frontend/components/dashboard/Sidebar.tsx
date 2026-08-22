@@ -99,7 +99,7 @@ const NAV: { href: string; label: string; icon: ReactNode; workspace?: boolean }
 
 function LogoMark() {
   return (
-    <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 26 26" fill="none" aria-hidden="true">
       <circle cx="6" cy="6" r="3" fill="var(--accent-secondary)" />
       <circle cx="20" cy="7" r="3" fill="var(--accent-primary)" />
       <circle cx="13" cy="20" r="3" fill="var(--accent-primary)" />
@@ -129,13 +129,13 @@ export default function Sidebar() {
       {/* Wide viewports: the hover-to-expand rail. Kept as the first
           sibling of <main> — `aside:hover ~ main .shifts-with-sidebar`
           in globals.css depends on that relationship. */}
-      <aside className="matte group fixed top-4 bottom-4 left-4 z-30 hidden w-[72px] flex-col justify-between overflow-hidden rounded-[28px] py-5 transition-[width] duration-300 ease-out hover:w-56 wide:flex sm:top-6 sm:bottom-6 sm:left-6">
+      <aside className="matte group fixed top-4 bottom-4 left-4 z-30 hidden w-[60px] flex-col justify-between overflow-hidden rounded-[24px] py-4 transition-[width] duration-300 ease-out hover:w-48 wide:flex sm:top-6 sm:bottom-6 sm:left-6">
         <Link
           href="/"
           aria-label="Lattice home"
-          className="flex h-10 items-center gap-2 transition-colors hover:bg-white/5"
+          className="flex h-9 items-center gap-2 transition-colors hover:bg-white/5"
         >
-          <span className="flex h-10 w-[72px] shrink-0 items-center justify-center">
+          <span className="flex h-9 w-[60px] shrink-0 items-center justify-center">
             <LogoMark />
           </span>
           <span className="max-w-0 overflow-hidden whitespace-nowrap font-serif text-[16px] font-semibold text-[var(--text-primary)] opacity-0 transition-all duration-300 group-hover:max-w-[120px] group-hover:opacity-100">
@@ -146,7 +146,7 @@ export default function Sidebar() {
         {/* Scrolls rather than squashes: at 200% zoom the rail is barely
             taller than its own nav, and eight items that quietly shrink
             into each other are worse than eight you can scroll. */}
-        <nav className="scrollbar-hide flex min-h-0 flex-col gap-2 overflow-y-auto px-3">
+        <nav className="scrollbar-hide flex min-h-0 flex-col gap-1.5 overflow-y-auto px-2.5">
           {NAV.map((item) => {
             const active = isActive(pathname, item.href);
 
@@ -156,7 +156,7 @@ export default function Sidebar() {
                 href={item.href}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
-                className="flex h-11 shrink-0 items-center gap-3 rounded-2xl px-3 transition-colors"
+                className="flex h-10 shrink-0 items-center gap-3 rounded-xl px-2.5 transition-colors"
                 style={{
                   background: active ? "var(--accent-primary)" : "transparent",
                   color: active ? "var(--bg-base)" : "var(--text-secondary)",
@@ -165,7 +165,7 @@ export default function Sidebar() {
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                   {item.icon}
                 </span>
-                <span className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[12px] uppercase tracking-wider opacity-0 transition-all duration-300 group-hover:max-w-[140px] group-hover:opacity-100">
+                <span className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[12px] uppercase tracking-wider opacity-0 transition-all duration-300 group-hover:max-w-[120px] group-hover:opacity-100">
                   {item.label}
                 </span>
               </Link>
@@ -173,21 +173,21 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="flex h-10 items-center gap-2">
-          <span className="flex h-10 w-[72px] shrink-0 items-center justify-center">
+        <div className="flex h-9 items-center gap-2">
+          <span className="flex h-9 w-[60px] shrink-0 items-center justify-center">
             <UserButton
               appearance={{
-                elements: { avatarBox: { width: "32px", height: "32px" } },
+                elements: { avatarBox: { width: "28px", height: "28px" } },
               }}
             />
           </span>
-          <span className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[12px] text-[var(--text-secondary)] opacity-0 transition-all duration-300 group-hover:max-w-[140px] group-hover:opacity-100">
+          <span className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[12px] text-[var(--text-secondary)] opacity-0 transition-all duration-300 group-hover:max-w-[120px] group-hover:opacity-100">
             {isLoaded ? (user?.firstName ?? "Account") : ""}
           </span>
         </div>
       </aside>
 
-      {/* Narrow viewports: a bottom bar. A 72px-wide overlay rail on a
+      {/* Narrow viewports: a bottom bar. A 60px-wide overlay rail on a
           phone covers the content it is meant to navigate; docking the
           nav to the bottom edge gives it a row of its own that nothing
           has to reach around, and puts it under the user's thumb. */}

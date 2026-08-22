@@ -22,14 +22,14 @@ export default function YouPage() {
     // Below `xl` the panels stack into one column and no amount of
     // shrinking fits five of them on a phone screen, so there it keeps the
     // `min-h-full` behaviour: grow, and let the document scroll.
-    <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-4 xl:h-full">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-3 xl:h-full">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
             You
           </span>
           <Greeting />
-          <p className="mt-2 font-serif text-[15px] text-[var(--text-secondary)]">
+          <p className="mt-1.5 font-serif text-[13px] text-[var(--text-secondary)]">
             Here&rsquo;s what you&rsquo;ve been building.
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function YouPage() {
         {/* Canvases and new-canvas both lead to the Visualizer, which is a
           * wide-viewport workspace — offering them on a phone would only
           * route the user into the "needs a bigger canvas" wall. */}
-        <div className="hidden items-center gap-3 wide:flex">
+        <div className="hidden items-center gap-2.5 wide:flex">
           <CanvasesMenu />
           <NewCanvasButton />
         </div>
@@ -47,9 +47,9 @@ export default function YouPage() {
         * auto row is sized to its max-content and overflows a fixed-height
         * grid rather than making its items shrink, which would undo the
         * definite height established above. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1fr_320px] xl:grid-rows-[minmax(0,1fr)]">
-        <div className="flex min-h-0 flex-col gap-4">
-          <div className="grid shrink-0 gap-4 sm:grid-cols-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[1fr_288px] xl:grid-rows-[minmax(0,1fr)]">
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="grid shrink-0 gap-3 sm:grid-cols-3">
             {STATS.map((stat) => (
               <StatCard key={stat.label} {...stat} />
             ))}
@@ -69,7 +69,7 @@ export default function YouPage() {
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-col gap-4">
+        <div className="flex min-h-0 flex-col gap-3">
           {/* Fixed to its content; Notifications takes the remainder. */}
           <div className="shrink-0">
             <ResourceMonitor />

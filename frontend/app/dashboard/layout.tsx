@@ -16,12 +16,21 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         * fixed overlays, so this padding is the only thing keeping page
         * content out from underneath them.
         *
+        * The gutter clears the rail *expanded*, not collapsed. It used to
+        * clear only the 72px resting width, which meant hovering the rail
+        * slid 150px of navigation straight over the page — the content
+        * was never pushed aside, it was covered. Sized off the hover
+        * width (192px) plus a margin, the rail now grows into empty
+        * gutter and never reaches anything. On a 1536px screen this costs
+        * nothing: the page caps at max-w-7xl and was already leaving that
+        * space unused.
+        *
         * `main` owns the scrolling, not the document — the dashboard's
         * chrome (rail, bar) is meant to stay put while the page moves.
         * `.viewport-shell` above stops that from becoming a trap: once
         * the viewport is too short to hold the shell's floor, the shell
         * keeps its height and the document scrolls it into reach. */}
-      <main className="scrollbar-hide h-full min-h-0 overflow-y-auto pb-20 wide:pl-[104px] wide:pb-0">
+      <main className="scrollbar-hide h-full min-h-0 overflow-y-auto pb-20 wide:pl-[208px] wide:pb-0">
         {children}
       </main>
     </div>

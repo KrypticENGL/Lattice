@@ -81,7 +81,7 @@ export default function CanvasesMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="matte flex items-center gap-2 rounded-full px-5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+        className="matte flex items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
           <circle cx="6" cy="7" r="2.1" />
