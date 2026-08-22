@@ -229,7 +229,11 @@ export default function Technologies() {
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-30px" }}
-              transition={{ duration: 0.45, delay: i * 0.08 }}
+              // The stagger runs while the panel is still gliding into
+              // place, so a long tail reads as the content lagging behind
+              // the scroll rather than as choreography. Four columns land
+              // within 0.55s of the first instead of 0.69s.
+              transition={{ duration: 0.4, delay: i * 0.05 }}
             >
               <h3 className="font-mono text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">
                 {group.group}
@@ -238,7 +242,7 @@ export default function Technologies() {
                 {group.items.map((item) => (
                   <li
                     key={item.name}
-                    className="glass flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)]"
+                    className="glass-flat flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)]"
                   >
                     <span
                       className="flex h-4 w-4 shrink-0 items-center justify-center"
