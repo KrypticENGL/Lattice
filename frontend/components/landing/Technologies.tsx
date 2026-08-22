@@ -1,14 +1,16 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
-/* Both are needed before the card exists, to choose which corner it
-   grows from — so they are declared rather than measured. Keep them in
-   step with the card's actual box below. */
+/* The card's box, declared rather than measured: its position is worked
+   out before it exists, and its height is fixed so that moving between
+   two pills is a translation and nothing has to resize mid-flight. Both
+   are applied to the card directly, so this *is* the box, not a guess
+   about one. Long enough for the wordiest role line below. */
 const CARD_WIDTH = 260;
-const CARD_HEIGHT = 170;
+const CARD_HEIGHT = 156;
 /** Space between the pill and the card that opens beside it. */
 const GAP = 10;
 /** Margin the card keeps from the edges of the scroll frame. */
@@ -292,87 +294,52 @@ const STACK: { group: string; items: StackItem[] }[] = [
   },
 ];
 
-/** Which corner the open card grows from, so it stays on screen. */
-/**
- * Where the card sits relative to its pill: beside it on the given
- * side, nudged vertically by `shift` px when centring it on the pill
- * would push it out of the frame.
- */
-type Anchor = { side: "right" | "left"; shift: number };
+/** An open card: which technology, and where it sits in the grid. */
+type Active = {
+  item: StackItem;
+  /** Offsets from the grid's top-left, applied as a transform. */
+  x: number;
+  y: number;
+  side: "right" | "left";
+};
 
 /**
- * A pill that expands into a card describing what the technology does in
- * this project.
+ * A pill. Purely presentational — it reports hover upward and owns no
+ * card of its own.
  *
- * The card is absolutely positioned and never participates in layout.
- * That is not a detail — laying it out would reflow the column beneath
- * it (expensive, and visibly shoves the other pills around) and, worse,
- * would grow the panel past one screen. `ScrollFrame.shouldSnap()`
- * measures exactly that and quietly turns snapping off for the whole
- * deck when it fails, so a card that changed layout would break
- * scrolling on a completely different part of the page.
- *
- * Only `opacity` and `transform` are animated, both of which the
- * compositor can run without re-rasterizing anything, and the card
- * carries no `backdrop-filter` or `mix-blend-mode` for the same reason
- * the pills no longer do.
+ * The card used to live here, one per pill, which meant moving the
+ * pointer from one pill to the next unmounted one card and mounted
+ * another: two unrelated animations that read as a flicker rather than
+ * as a single thing moving. There is now one card for the whole
+ * section (see `Technologies`), so switching pills is a move.
  */
-function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<Anchor>({
-    side: lastColumn ? "left" : "right",
-    shift: 0,
-  });
+function Pill({
+  item,
+  onShow,
+  onHide,
+}: {
+  item: StackItem;
+  onShow: (item: StackItem, el: HTMLElement) => void;
+  onHide: () => void;
+}) {
   const ref = useRef<HTMLLIElement>(null);
-  const reduceMotion = useReducedMotion();
 
   function show() {
     // Hover-expansion is a pointer affordance. On a touch screen the tap
     // that opens a card is also the tap that would leave it stuck open.
     if (!window.matchMedia("(hover: hover)").matches) return;
-
-    // One measurement, before the animation starts, so the card can be
-    // placed somewhere it actually fits.
-    const el = ref.current;
-    const frame = el?.closest(".snap-container");
-    if (el && frame) {
-      const pill = el.getBoundingClientRect();
-      const bounds = frame.getBoundingClientRect();
-
-      // Beside the pill on the right, unless the frame runs out first —
-      // which is what happens to the last column.
-      const side =
-        bounds.right - pill.right >= CARD_WIDTH + GAP + EDGE ? "right" : "left";
-
-      // The card is centred on its pill; near the top or bottom of the
-      // frame that would hang over the edge, so nudge it back inside.
-      const middle = pill.top + pill.height / 2;
-      const half = CARD_HEIGHT / 2;
-      let shift = 0;
-      if (middle - half < bounds.top + EDGE) {
-        shift = bounds.top + EDGE - (middle - half);
-      } else if (middle + half > bounds.bottom - EDGE) {
-        shift = bounds.bottom - EDGE - (middle + half);
-      }
-
-      setAnchor({ side, shift: Math.round(shift) });
-    }
-    setOpen(true);
+    if (ref.current) onShow(item, ref.current);
   }
 
   return (
     <li
       ref={ref}
-      // `mouseleave` only fires once the pointer has left the pill *and*
-      // every descendant, so the card — which is a descendant, and hangs
-      // well outside the pill's own box — holds itself open.
       onMouseEnter={show}
-      onMouseLeave={() => setOpen(false)}
+      onMouseLeave={onHide}
       onFocus={show}
-      onBlur={() => setOpen(false)}
+      onBlur={onHide}
       tabIndex={0}
       className="glass-flat relative flex items-center gap-2.5 rounded-full px-3 py-1 text-[var(--text-primary)] outline-none focus-visible:border-[var(--accent-secondary)]"
-      style={{ zIndex: open ? 30 : undefined }}
     >
       <span
         className="flex h-4 w-4 shrink-0 items-center justify-center"
@@ -381,84 +348,67 @@ function Pill({ item, lastColumn }: { item: StackItem; lastColumn: boolean }) {
         {ICONS[item.icon]}
       </span>
       <span className="font-mono text-[12px]">{item.name}</span>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            // Growing from the corner the card is pinned to is what sells
-            // it as the pill expanding rather than a tooltip appearing.
-            // `y` carries the centring as well as the animation, because
-            // framer-motion writes `transform` wholesale — a `translateY`
-            // set in CSS would be overwritten the moment `scale` animates.
-            initial={
-              reduceMotion
-                ? { opacity: 0, y: "-50%" }
-                : { opacity: 0, scale: 0.92, y: "-50%" }
-            }
-            animate={{ opacity: 1, scale: 1, y: "-50%" }}
-            exit={
-              reduceMotion
-                ? { opacity: 0, y: "-50%" }
-                : { opacity: 0, scale: 0.96, y: "-50%" }
-            }
-            transition={{
-              duration: reduceMotion ? 0.12 : 0.26,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            style={
-              {
-                width: CARD_WIDTH,
-                // Growing from the edge nearest the pill is what makes it
-                // read as the pill opening out, rather than a tooltip
-                // materialising somewhere off to the side.
-                transformOrigin:
-                  anchor.side === "right" ? "left center" : "right center",
-                top: `calc(50% + ${anchor.shift}px)`,
-                ...(anchor.side === "right"
-                  ? { left: `calc(100% + ${GAP}px)` }
-                  : { right: `calc(100% + ${GAP}px)` }),
-              } satisfies CSSProperties
-            }
-            className="tech-card absolute cursor-default overflow-hidden rounded-2xl p-3.5"
-          >
-            {/* The mark, blown up and bled off the trailing edge as a
-                watermark. Purely decorative, so it is hidden from
-                assistive tech and never takes the pointer. */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute flex h-[118px] w-[118px] items-center justify-center"
-              style={{
-                color: "var(--accent-secondary)",
-                opacity: 0.09,
-                right: -20,
-                bottom: -18,
-              }}
-            >
-              {ICONS[item.icon]}
-            </span>
-
-            <div className="relative flex items-center gap-2.5">
-              <span
-                className="flex h-4 w-4 shrink-0 items-center justify-center"
-                style={{ color: "var(--accent-secondary)" }}
-              >
-                {ICONS[item.icon]}
-              </span>
-              <span className="font-mono text-[12.5px] font-medium text-[var(--text-primary)]">
-                {item.name}
-              </span>
-            </div>
-            <p className="relative mt-2.5 text-[12px] leading-[1.55] text-[var(--text-secondary)]">
-              {item.role}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </li>
   );
 }
 
 export default function Technologies() {
+  const [active, setActive] = useState<Active | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  function show(item: StackItem, el: HTMLElement) {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+
+    const grid = gridRef.current;
+    const frame = grid?.closest(".snap-container");
+    if (!grid || !frame) return;
+
+    // One measurement per hover, before anything animates.
+    const origin = grid.getBoundingClientRect();
+    const pill = el.getBoundingClientRect();
+    const bounds = frame.getBoundingClientRect();
+
+    // Beside the pill on the right, unless the frame runs out first —
+    // which is what happens to the last column.
+    const side =
+      bounds.right - pill.right >= CARD_WIDTH + GAP + EDGE ? "right" : "left";
+    const x =
+      side === "right"
+        ? pill.right - origin.left + GAP
+        : pill.left - origin.left - GAP - CARD_WIDTH;
+
+    // Centred on its pill, then nudged back inside if that would hang
+    // the card over the top or bottom of the frame.
+    let top = pill.top + pill.height / 2 - CARD_HEIGHT / 2;
+    if (top < bounds.top + EDGE) top = bounds.top + EDGE;
+    else if (top + CARD_HEIGHT > bounds.bottom - EDGE) {
+      top = bounds.bottom - EDGE - CARD_HEIGHT;
+    }
+
+    setActive({ item, x: Math.round(x), y: Math.round(top - origin.top), side });
+  }
+
+  /**
+   * Closing is deferred. Leaving one pill fires before entering the
+   * next, so clearing immediately would tear the card down and rebuild
+   * it — exactly the flicker this is meant to remove. A short grace
+   * period lets the next pill (or the card itself) cancel the close,
+   * and it also covers the pointer crossing the gap between them.
+   */
+  function hide() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setActive(null), 90);
+  }
+
+  useEffect(
+    () => () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
   return (
     <section
       id="technologies"
@@ -485,7 +435,10 @@ export default function Technologies() {
           </p>
         </motion.div>
 
-        <div className="mt-6 grid gap-5 sm:mt-8 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+        <div
+          ref={gridRef}
+          className="relative mt-6 grid gap-5 sm:mt-8 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4"
+        >
           {STACK.map((group, i) => (
             <motion.div
               key={group.group}
@@ -506,12 +459,111 @@ export default function Technologies() {
                   <Pill
                     key={item.name}
                     item={item}
-                    lastColumn={i === STACK.length - 1}
+                    onShow={show}
+                    onHide={hide}
                   />
                 ))}
               </ul>
             </motion.div>
           ))}
+
+          <AnimatePresence>
+            {active && (
+              <motion.div
+                // A constant key, deliberately: React keeps this one node
+                // across a change of pill, so moving between pills
+                // animates `x`/`y` on an element that never went away.
+                // Keying it by technology would unmount and remount it,
+                // which is the flicker being fixed.
+                key="tech-card"
+                initial={{
+                  opacity: 0,
+                  scale: reduceMotion ? 1 : 0.94,
+                  x: active.x,
+                  y: active.y,
+                }}
+                animate={{ opacity: 1, scale: 1, x: active.x, y: active.y }}
+                exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.96 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0.12 }
+                    : {
+                        // The travel is the slow part and carries the eye;
+                        // opacity and scale only have to cover the card
+                        // arriving and leaving.
+                        x: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
+                        y: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
+                        default: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+                      }
+                }
+                style={
+                  {
+                    width: CARD_WIDTH,
+                    // Fixed, so travelling between two pills is a pure
+                    // translation. A card that also resized would have to
+                    // animate its box, which is layout work the
+                    // compositor cannot do on its own.
+                    height: CARD_HEIGHT,
+                    top: 0,
+                    left: 0,
+                    transformOrigin:
+                      active.side === "right" ? "left center" : "right center",
+                  } satisfies CSSProperties
+                }
+                // Transparent to the pointer, and it has to be: the card
+                // opens over the neighbouring column, so a card that took
+                // hover events would sit between the cursor and the very
+                // pills it is meant to describe — you could not reach the
+                // next column while one was open. Nothing in here is
+                // interactive, so it gives up the pointer entirely.
+                className="tech-card pointer-events-none absolute z-30 overflow-hidden rounded-2xl"
+              >
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    // The contents cross-fade per technology, so the text
+                    // changes without the card flickering underneath it.
+                    key={active.item.name}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: reduceMotion ? 0.08 : 0.18 }}
+                    className="absolute inset-0 flex flex-col justify-center p-3.5"
+                  >
+                    {/* The mark, blown up and bled off the trailing edge
+                        as a watermark. Decorative, so it is hidden from
+                        assistive tech and never takes the pointer. */}
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute flex h-[118px] w-[118px] items-center justify-center"
+                      style={{
+                        color: "var(--accent-secondary)",
+                        opacity: 0.09,
+                        right: -20,
+                        bottom: -18,
+                      }}
+                    >
+                      {ICONS[active.item.icon]}
+                    </span>
+
+                    <div className="relative flex items-center gap-2.5">
+                      <span
+                        className="flex h-4 w-4 shrink-0 items-center justify-center"
+                        style={{ color: "var(--accent-secondary)" }}
+                      >
+                        {ICONS[active.item.icon]}
+                      </span>
+                      <span className="font-mono text-[12.5px] font-medium text-[var(--text-primary)]">
+                        {active.item.name}
+                      </span>
+                    </div>
+                    <p className="relative mt-2.5 text-[12px] leading-[1.55] text-[var(--text-secondary)]">
+                      {active.item.role}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </section>
