@@ -44,7 +44,7 @@ const DEFAULT_PANE_WIDTH = 520;
  * side of it. The code pane is docked to the opposite edge and is free to
  * float over the canvas — but not over the palette, which is the one thing
  * on this screen the user cannot work without. */
-const PALETTE_RESERVE = 268;
+const PALETTE_RESERVE = 232;
 /** Floor for the squeezed pane. Below this the generated code stops being
  * readable at all, and minimizing it is the better answer. */
 const MIN_PANE_WIDTH = 300;
@@ -403,7 +403,7 @@ export default function CodeCanvasPage() {
 
   return (
     <WorkspaceGate feature="Code-Canvas">
-    <div ref={shellRef} className="relative h-full w-full overflow-hidden">
+    <div ref={shellRef} data-canvas-workspace className="relative h-full w-full overflow-hidden">
       <NodeCanvas
         ref={canvasRef}
         graph={graph}
@@ -440,8 +440,8 @@ export default function CodeCanvasPage() {
         ref={headerRef}
         className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 p-1"
       >
-        <div className="shifts-with-sidebar pointer-events-none pl-8">
-          <span aria-hidden="true" className="invisible hidden font-mono text-[13px] uppercase tracking-[0.2em] lg:block">
+        <div className="shifts-with-sidebar pointer-events-none pl-3">
+          <span aria-hidden="true" className="invisible hidden font-mono text-[12px] uppercase tracking-[0.2em] lg:block">
             Code-Canvas
           </span>
           {/* The page title is decorative — the sidebar already says which
@@ -449,15 +449,15 @@ export default function CodeCanvasPage() {
             * header would otherwise wrap into three rows and eat half of
             * a small workspace's height. Below `lg` the controls get the
             * whole header to themselves. */}
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 lg:mt-2 xl:gap-x-8">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2 lg:mt-1.5 xl:gap-x-6">
             <span
-              className="hidden font-serif text-3xl font-black tracking-tight text-[var(--text-primary)] lg:block xl:text-5xl"
+              className="hidden font-serif text-xl font-black tracking-tight text-[var(--text-primary)] lg:block xl:text-3xl"
               style={{ filter: "drop-shadow(0 2px 16px rgba(0,0,0,0.55))" }}
             >
               Code-Canvas
             </span>
-            <div className="pointer-events-auto flex flex-wrap items-center gap-3 pb-1">
-              <span className="matte flex items-center gap-3 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-2 pb-1.5">
+              <span className="rail-pill matte flex gap-2 rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
                 <span className="text-[var(--text-primary)]">{graph.nodes.length}</span> blocks
                 <span className="h-3 w-px bg-[var(--hairline)]" />
                 <span className="text-[var(--text-primary)]">{graph.edges.length}</span> wires
@@ -467,7 +467,7 @@ export default function CodeCanvasPage() {
                 type="button"
                 onClick={handleClear}
                 disabled={graph.nodes.length === 0}
-                className="matte rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
+                className="rail-pill matte inline-flex rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
               >
                 Clear
               </button>
@@ -475,13 +475,13 @@ export default function CodeCanvasPage() {
           </div>
         </div>
 
-        <div className="pointer-events-auto mb-2 ml-auto flex flex-wrap items-center justify-end gap-2 xl:gap-3">
-          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:inline-block">
+        <div className="pointer-events-auto mb-1.5 ml-auto flex flex-wrap items-center justify-end gap-1.5 xl:gap-2">
+          <span className="rail-pill matte hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
             Scroll to zoom · Drag to pan
           </span>
-          <div className="matte flex items-center gap-3 rounded-full px-4 py-2.5">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">Zoom</span>
-            <span className="w-10 shrink-0 font-mono text-[12px] font-medium text-[var(--text-primary)]">
+          <div className="rail-pill matte flex gap-2 rounded-full px-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Zoom</span>
+            <span className="w-9 shrink-0 font-mono text-[11px] font-medium text-[var(--text-primary)]">
               {Math.round(zoom * 100)}%
             </span>
           </div>
@@ -489,14 +489,14 @@ export default function CodeCanvasPage() {
             type="button"
             onClick={() => canvasRef.current?.fitToGraph()}
             disabled={graph.nodes.length === 0}
-            className="matte rounded-full px-4 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
+            className="rail-pill matte inline-flex rounded-full px-3 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
           >
             Fit
           </button>
           <button
             type="button"
             onClick={() => canvasRef.current?.resetView()}
-            className="matte rounded-full px-5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+            className="rail-pill matte inline-flex rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
           >
             Reset view
           </button>
@@ -507,7 +507,7 @@ export default function CodeCanvasPage() {
 
       {paletteDrag && (
         <div
-          className="pointer-events-none fixed z-40 flex items-center gap-2 rounded-xl px-3 py-2"
+          className="pointer-events-none fixed z-40 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
           style={{
             left: paletteDrag.x,
             top: paletteDrag.y,
@@ -520,10 +520,10 @@ export default function CodeCanvasPage() {
           }}
         >
           <span
-            className="h-2 w-2 shrink-0 rounded-full"
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{ background: NODE_TYPES[paletteDrag.kind].accent }}
           />
-          <span className="truncate font-serif text-[12px] font-semibold text-[var(--text-primary)]">
+          <span className="truncate font-serif text-[11px] font-semibold text-[var(--text-primary)]">
             {NODE_TYPES[paletteDrag.kind].label}
           </span>
         </div>
@@ -549,7 +549,7 @@ export default function CodeCanvasPage() {
         onClick={openTutorial}
         title="Show the Code-Canvas tutorial"
         aria-label="Show the Code-Canvas tutorial"
-        className="matte shifts-with-sidebar absolute bottom-6 left-2 z-20 flex h-11 w-11 items-center justify-center rounded-full font-serif text-[17px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
+        className="matte shifts-with-sidebar absolute bottom-5 left-2 z-20 flex h-9 w-9 items-center justify-center rounded-full font-serif text-[15px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
       >
         ?
       </button>

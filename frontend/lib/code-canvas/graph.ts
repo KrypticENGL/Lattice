@@ -100,7 +100,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "Names the structure — head, root, and so on. Every graph starts here.",
     category: "structure",
     accent: ACCENT.entry,
-    width: 190,
+    width: 165,
     inputs: [],
     // Multi on purpose: one pointer both names the structure *and* is what
     // operations get wired to, so it has to feed more than one wire.
@@ -113,7 +113,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "One singly-linked cell: a value and exactly one next pointer.",
     category: "structure",
     accent: ACCENT.list,
-    width: 170,
+    width: 150,
     inputs: [IN_LEFT],
     outputs: [{ id: "next", label: "next", side: "right", offset: 0.5 }],
     fields: [{ id: "value", label: "value", placeholder: "0" }],
@@ -124,7 +124,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "A cell with both prev and next — wire them in either direction.",
     category: "structure",
     accent: ACCENT.dlist,
-    width: 190,
+    width: 165,
     inputs: [IN_TOP],
     outputs: [
       { id: "prev", label: "prev", side: "left", offset: 0.5 },
@@ -138,7 +138,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "A binary node: one value, two child handles on the bottom edge.",
     category: "structure",
     accent: ACCENT.tree,
-    width: 180,
+    width: 155,
     inputs: [IN_TOP],
     outputs: [
       { id: "left", label: "left", side: "bottom", offset: 0.26 },
@@ -152,7 +152,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "A graph vertex. Its edge handle takes as many connections as you like.",
     category: "structure",
     accent: ACCENT.graph,
-    width: 170,
+    width: 150,
     inputs: [IN_LEFT],
     outputs: [{ id: "edges", label: "edges", side: "right", offset: 0.5, multi: true }],
     fields: [{ id: "value", label: "label", placeholder: "A" }],
@@ -163,7 +163,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "A vector of ints, written as a comma-separated list.",
     category: "container",
     accent: ACCENT.container,
-    width: 220,
+    width: 190,
     inputs: [IN_TOP],
     outputs: [USE_OUT],
     fields: [{ id: "items", label: "items", placeholder: "3, 7, 1, 9" }],
@@ -174,7 +174,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "LIFO container. Items are pushed left to right.",
     category: "container",
     accent: ACCENT.container,
-    width: 210,
+    width: 180,
     inputs: [IN_TOP],
     outputs: [USE_OUT],
     fields: [{ id: "items", label: "items", placeholder: "3, 7, 1" }],
@@ -185,7 +185,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "FIFO container. The first item listed is the first one out.",
     category: "container",
     accent: ACCENT.container,
-    width: 210,
+    width: 180,
     inputs: [IN_TOP],
     outputs: [USE_OUT],
     fields: [{ id: "items", label: "items", placeholder: "3, 7, 1" }],
@@ -196,7 +196,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "String→int table. One key: value pair per line.",
     category: "container",
     accent: ACCENT.container,
-    width: 230,
+    width: 200,
     inputs: [IN_TOP],
     outputs: [USE_OUT],
     fields: [{ id: "entries", label: "entries", placeholder: "alpha: 1\nbeta: 2", multiline: true }],
@@ -207,7 +207,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "A plain int you can print or search for.",
     category: "container",
     accent: ACCENT.variable,
-    width: 200,
+    width: 175,
     inputs: [],
     outputs: [{ id: "value", label: "value", side: "right", offset: 0.5, multi: true }],
     fields: [
@@ -221,7 +221,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "Walks whatever it's wired to and prints every value it visits.",
     category: "operation",
     accent: ACCENT.operation,
-    width: 200,
+    width: 175,
     inputs: [OP_DATA, OP_IN],
     outputs: [OP_OUT],
     fields: [],
@@ -232,7 +232,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "Adds a value — appends to a list, BST-inserts into a tree, pushes onto a container.",
     category: "operation",
     accent: ACCENT.operation,
-    width: 200,
+    width: 175,
     inputs: [OP_DATA, OP_IN],
     outputs: [OP_OUT],
     fields: [{ id: "value", label: "value", placeholder: "5" }],
@@ -243,7 +243,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "Looks for a value and reports whether it was found.",
     category: "operation",
     accent: ACCENT.operation,
-    width: 200,
+    width: 175,
     inputs: [OP_DATA, OP_IN],
     outputs: [OP_OUT],
     fields: [{ id: "value", label: "find", placeholder: "7" }],
@@ -254,7 +254,7 @@ export const NODE_TYPES: Record<NodeKind, NodeTypeSpec> = {
     blurb: "Prints a single value or a short message.",
     category: "operation",
     accent: ACCENT.operation,
-    width: 200,
+    width: 175,
     inputs: [OP_DATA, OP_IN],
     outputs: [OP_OUT],
     fields: [{ id: "label", label: "label", placeholder: "done" }],
@@ -292,10 +292,10 @@ export const EMPTY_GRAPH: CanvasGraph = { nodes: [], edges: [] };
 /* Geometry                                                            */
 /* ------------------------------------------------------------------ */
 
-export const NODE_HEADER_HEIGHT = 38;
-const FIELD_ROW_HEIGHT = 30;
-const MULTILINE_ROW_HEIGHT = 62;
-const BODY_PADDING = 10;
+export const NODE_HEADER_HEIGHT = 32;
+const FIELD_ROW_HEIGHT = 26;
+const MULTILINE_ROW_HEIGHT = 52;
+const BODY_PADDING = 8;
 
 /** A node card's rendered size. Shared by the renderer and the edge router
  * so a handle's drawn position and its wire's endpoint can never disagree. */

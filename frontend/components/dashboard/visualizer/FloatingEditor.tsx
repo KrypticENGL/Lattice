@@ -116,8 +116,8 @@ const DEFAULT_Y = 88;
 const PANEL_MARGIN = 16;
 // Approximate footprint of the minimized pill, used to keep it fully
 // on-screen too (it's much smaller than the expanded panel).
-const PILL_WIDTH = 140;
-const PILL_HEIGHT = 44;
+const PILL_WIDTH = 124;
+const PILL_HEIGHT = 36;
 // Matches the sidebar's collapse/expand feel (components/dashboard/Sidebar.tsx:
 // `transition-[width] duration-300 ease-out`) — every animated property below
 // uses this same duration/easing so they move in lockstep.
@@ -225,13 +225,21 @@ export default function FloatingEditor({
     sizeRef.current = size;
   }, [size]);
 
+  /** False until `applyDefaultLayout` has run once. `position` starts at a
+   * placeholder that only exists for the instant before that — reporting
+   * it would tell a listener the panel is 64px from the left edge when it
+   * is about to be right-aligned, and a listener that lays other content
+   * out around this panel would act on the wrong edge. */
+  const [laidOut, setLaidOut] = useState(false);
+
   // Drags/resizes write straight to the DOM and only commit to state on
   // pointerup, so this fires when the panel settles rather than on every
   // pointer move — which is what a listener repositioning other content
   // wants anyway.
   useEffect(() => {
+    if (!laidOut) return;
     onGeometryChange?.({ left: position.x, minimized });
-  }, [position.x, minimized, onGeometryChange]);
+  }, [laidOut, position.x, minimized, onGeometryChange]);
 
   // Clamps so a box of the given footprint stays fully within `boundsRef`,
   // per the "editor must never go out of the screen" requirement.
@@ -270,6 +278,7 @@ export default function FloatingEditor({
   const applyDefaultLayout = useCallback(() => {
     const bounds = boundsRef.current?.getBoundingClientRect();
     if (!bounds) return;
+    setLaidOut(true);
 
     // A panel the user has sized themselves keeps that size — but "their
     // layout sticks" can't mean "their layout is allowed to hang off the
@@ -856,7 +865,7 @@ export default function FloatingEditor({
           // opacity/visibility animate declaratively.
           transition: `opacity ${MINIMIZE_TRANSITION_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? "0s" : `${MINIMIZE_TRANSITION_MS}ms`}`,
         }}
-        className="glass z-20 flex cursor-grab items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-shadow active:cursor-grabbing hover:shadow-[0_0_20px_var(--accent-glow)]"
+        className="glass z-20 flex cursor-grab items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] transition-shadow active:cursor-grabbing hover:shadow-[0_0_20px_var(--accent-glow)]"
       >
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
         Editor
@@ -883,17 +892,17 @@ export default function FloatingEditor({
       >
         <div
           onPointerDown={handleHeaderPointerDown}
-          className="glass-bar flex shrink-0 cursor-grab items-center justify-between gap-3 border-b border-[var(--hairline)] px-4 py-3 active:cursor-grabbing"
+          className="glass-bar flex shrink-0 cursor-grab items-center justify-between gap-2 border-b border-[var(--hairline)] px-3 py-2 active:cursor-grabbing"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={`h-2 w-2 shrink-0 rounded-full ${effectiveStatus === "running" ? "animate-pulse" : ""}`}
               style={{ background: statusColor }}
             />
-            <span className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
+            <span className="truncate font-serif text-[12px] font-semibold text-[var(--text-primary)]">
               {readOnly ? "Generated code" : "Editor"}
             </span>
-            <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] sm:inline">
+            <span className="hidden shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] sm:inline">
               {statusLabel}
             </span>
           </div>
@@ -904,7 +913,7 @@ export default function FloatingEditor({
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
               disabled={readOnly}
               aria-label="Language"
-              className="rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
+              className="rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.id} value={l.id} disabled={!l.available}>
@@ -919,7 +928,7 @@ export default function FloatingEditor({
               onClick={handleToggleVim}
               disabled={!editorReady}
               title="Toggle Vim mode (Ctrl/Cmd+Shift+V)"
-              className="rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors disabled:opacity-40"
+              className="rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors disabled:opacity-40"
               style={{
                 background: vimEnabled ? "var(--accent-primary)" : "var(--bg-elevated)",
                 color: vimEnabled ? "var(--bg-base)" : "var(--text-secondary)",
@@ -934,7 +943,7 @@ export default function FloatingEditor({
               disabled={!editorReady}
               title="Copy code"
               aria-label="Copy code"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
                 <rect x="8" y="8" width="12" height="12" rx="1.5" />
@@ -948,7 +957,7 @@ export default function FloatingEditor({
               disabled={!editorReady || readOnly}
               title={readOnly ? "Generated from a Code-Canvas graph — not editable here" : "Save (Ctrl/Cmd+S)"}
               aria-label="Save"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 3.5h11l3.5 3.5V20a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z" />
@@ -962,7 +971,7 @@ export default function FloatingEditor({
               disabled={!editorReady || running}
               title="Run trace (Ctrl/Cmd+Enter)"
               aria-label="Run trace"
-              className="flex h-7 w-7 items-center justify-center rounded-full transition-shadow hover:shadow-[0_0_16px_var(--accent-glow)] disabled:opacity-40"
+              className="flex h-6 w-6 items-center justify-center rounded-full transition-shadow hover:shadow-[0_0_16px_var(--accent-glow)] disabled:opacity-40"
               style={{ background: "var(--accent-primary)", color: "var(--bg-base)" }}
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
@@ -975,7 +984,7 @@ export default function FloatingEditor({
               onClick={handleToggleMinimize}
               title="Minimize (Ctrl/Cmd+M)"
               aria-label="Minimize editor"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <path d="M3 8h10" />
@@ -1000,7 +1009,7 @@ export default function FloatingEditor({
               readOnly,
               domReadOnly: readOnly,
               automaticLayout: true,
-              fontSize: 13,
+              fontSize: 12,
               fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
               fontLigatures: true,
               minimap: { enabled: false },
@@ -1026,7 +1035,7 @@ export default function FloatingEditor({
         {vimEnabled && (
           <div
             ref={statusBarRef}
-            className="shrink-0 border-t border-[var(--hairline)] px-3 py-1 font-mono text-[11px] text-[var(--text-secondary)]"
+            className="shrink-0 border-t border-[var(--hairline)] px-3 py-1 font-mono text-[10px] text-[var(--text-secondary)]"
           />
         )}
 

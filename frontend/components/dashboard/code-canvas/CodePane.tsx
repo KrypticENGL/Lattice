@@ -187,7 +187,7 @@ export default function CodePane({
           // leaving — otherwise the element vanishes before it has faded.
           transition: `opacity ${MINIMIZE_MS}ms ${MINIMIZE_EASING}, visibility 0s linear ${minimized ? "0s" : `${MINIMIZE_MS}ms`}`,
         }}
-        className="matte absolute z-20 flex items-center gap-2 rounded-full px-4 py-2.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+        className="matte absolute z-20 flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
       >
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
         Code
@@ -218,10 +218,10 @@ export default function CodePane({
         className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-ew-resize transition-colors hover:bg-[var(--accent-primary)]/40"
       />
 
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--hairline)] px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--hairline)] px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "var(--accent-secondary)" }} />
-          <span className="truncate font-serif text-[13px] font-semibold text-[var(--text-primary)]">
+          <span className="truncate font-serif text-[12px] font-semibold text-[var(--text-primary)]">
             Generated code
           </span>
           <span className="hidden shrink-0 rounded-full border border-[var(--hairline)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] sm:inline">
@@ -235,7 +235,7 @@ export default function CodePane({
             onClick={handleCopy}
             title="Copy code"
             aria-label="Copy code"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
           >
             {copied ? (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -255,7 +255,7 @@ export default function CodePane({
             onClick={onOpenInVisualizer}
             disabled={handingOff}
             title="Run this graph in the Visualizer"
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider transition-shadow hover:shadow-[0_0_16px_var(--accent-glow)] disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[9px] uppercase tracking-wider transition-shadow hover:shadow-[0_0_16px_var(--accent-glow)] disabled:opacity-50"
             style={{ background: "var(--accent-primary)", color: "var(--bg-base)" }}
           >
             <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
@@ -269,7 +269,7 @@ export default function CodePane({
             onClick={() => onMinimizedChange(true)}
             title="Minimize"
             aria-label="Minimize the code pane"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M3 8h10" />
@@ -289,7 +289,7 @@ export default function CodePane({
             readOnly: true,
             domReadOnly: true,
             automaticLayout: true,
-            fontSize: 12.5,
+            fontSize: 11.5,
             fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
             fontLigatures: true,
             minimap: { enabled: false },
@@ -306,7 +306,7 @@ export default function CodePane({
       </div>
 
       {handoffError && (
-        <p className="shrink-0 border-t border-[var(--hairline)] px-4 py-2 font-mono text-[10px] text-[var(--accent-secondary)]">
+        <p className="shrink-0 border-t border-[var(--hairline)] px-3 py-1.5 font-mono text-[9px] text-[var(--accent-secondary)]">
           {handoffError}
         </p>
       )}
@@ -316,7 +316,7 @@ export default function CodePane({
           <button
             type="button"
             onClick={() => setNotesOpen((open) => !open)}
-            className="flex w-full items-center gap-2 px-4 py-2 text-left font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
           >
             <span
               className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px]"
@@ -341,7 +341,7 @@ export default function CodePane({
             </svg>
           </button>
           {notesOpen && (
-            <ul className="scrollbar-thin max-h-28 space-y-1 overflow-y-auto px-4 pb-3 font-mono text-[10px] leading-relaxed text-[var(--text-secondary)]">
+            <ul className="scrollbar-thin max-h-24 space-y-1 overflow-y-auto px-3 pb-2.5 font-mono text-[9px] leading-relaxed text-[var(--text-secondary)]">
               {notes.map((note, i) => (
                 <li key={i} className="flex gap-2">
                   <span className="text-[var(--accent-secondary)]">·</span>

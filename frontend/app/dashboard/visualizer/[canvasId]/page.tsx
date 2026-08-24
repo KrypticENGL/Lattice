@@ -115,9 +115,12 @@ export default function VisualizerPage() {
   // and hand the recentring effect below a new object each time.
   const diagram = useMemo(() => (currentStep ? buildDiagram(currentStep) : null), [currentStep]);
 
-  // Left edge of the editor panel, or null while it's minimized (a collapsed
-  // pill sits in the top-right corner and shouldn't reserve a column).
-  const [editorLeft, setEditorLeft] = useState<number | null>(null);
+  // Left edge of the editor panel. Three distinct states, and the
+  // difference between the first two is the whole point: `undefined` is
+  // "the panel hasn't reported in yet", `null` is "it has, and it's
+  // minimized" (a collapsed pill sits in the top-right corner and
+  // shouldn't reserve a column), a number is its real edge.
+  const [editorLeft, setEditorLeft] = useState<number | null | undefined>(undefined);
   const handleEditorGeometry = useCallback(
     ({ left, minimized }: { left: number; minimized: boolean }) =>
       setEditorLeft(minimized ? null : left),
@@ -129,6 +132,15 @@ export default function VisualizerPage() {
   const centerOnDiagram = useCallback(() => {
     const nodes = diagram?.nodes;
     if (!nodes || nodes.length === 0) return false;
+    // Nothing known about the editor yet, so there is no right-hand edge to
+    // frame against. That is the normal case on load rather than an edge
+    // one: the editor only mounts once the canvas's code has arrived, and
+    // that is the same commit that restores a saved trace — so the first
+    // diagram is on screen before the panel has measured itself. Centring
+    // now would use the container's bare midpoint, which is squarely under
+    // the panel that is about to appear. Hold the camera still instead and
+    // let the effect below frame it once the real edge is known.
+    if (editorLeft === undefined) return false;
     const xs = nodes.map((n) => n.x);
     const ys = nodes.map((n) => n.y);
     const containerWidth = boundsRef.current?.getBoundingClientRect().width ?? 0;
@@ -152,6 +164,16 @@ export default function VisualizerPage() {
     centerOnDiagram();
   }, [centerOnDiagram]);
 
+  // The opening framing, run as soon as there is both something to frame
+  // and an editor edge to frame it against — whichever of the two arrives
+  // last. The per-node effect below can't do this job on its own: it fires
+  // once per *new* node, so a trace restored with the canvas gets its one
+  // chance while `editorLeft` is still unknown and is never revisited.
+  const framedRef = useRef(false);
+  useEffect(() => {
+    if (!framedRef.current && centerOnDiagram()) framedRef.current = true;
+  }, [centerOnDiagram]);
+
   // Recentre whenever a node appears that wasn't on screen the step before.
   // Keyed on node identity rather than count so a step that simultaneously
   // frees one node and allocates another still counts as new.
@@ -159,6 +181,9 @@ export default function VisualizerPage() {
   useEffect(() => {
     if (!diagram || diagram.nodes.length === 0) {
       drawnIdsRef.current = new Set();
+      // Switching canvases clears the trace before the next one loads;
+      // the drawing that follows is a new one and wants framing again.
+      framedRef.current = false;
       return;
     }
     const previous = drawnIdsRef.current;
@@ -247,7 +272,7 @@ export default function VisualizerPage() {
 
   return (
     <WorkspaceGate feature="Visualizer">
-    <div ref={boundsRef} className="relative h-full w-full overflow-hidden">
+    <div ref={boundsRef} data-canvas-workspace className="relative h-full w-full overflow-hidden">
       <InfiniteCanvas ref={canvasRef} onZoomChange={setZoom}>
         {diagram && <DiagramView diagram={diagram} zoom={zoom} />}
       </InfiniteCanvas>
@@ -256,8 +281,8 @@ export default function VisualizerPage() {
         ref={headerRef}
         className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 p-1"
       >
-        <div className="shifts-with-sidebar pointer-events-none pl-8">
-          <span aria-hidden="true" className="invisible hidden font-mono text-[13px] uppercase tracking-[0.2em] lg:block">
+        <div className="shifts-with-sidebar pointer-events-none pl-3">
+          <span aria-hidden="true" className="invisible hidden font-mono text-[12px] uppercase tracking-[0.2em] lg:block">
             Visualizer
           </span>
           {/* The page title is decorative — the sidebar already says which
@@ -265,14 +290,14 @@ export default function VisualizerPage() {
             * header would otherwise wrap into three rows and eat half of
             * a small workspace's height. Below `lg` the controls get the
             * whole header to themselves. */}
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-3 lg:mt-2 xl:gap-x-8">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2 lg:mt-1.5 xl:gap-x-6">
             <span
-              className="hidden font-serif text-3xl font-black tracking-tight text-[var(--text-primary)] lg:block xl:text-5xl"
+              className="hidden font-serif text-xl font-black tracking-tight text-[var(--text-primary)] lg:block xl:text-3xl"
               style={{ filter: "drop-shadow(0 2px 16px rgba(0,0,0,0.55))" }}
             >
               Visualizer
             </span>
-            <div className="pointer-events-auto flex flex-wrap items-center gap-3 pb-1">
+            <div className="pointer-events-auto flex flex-wrap items-center gap-2 pb-1.5">
               <TraceControls
                 status={runStatus}
                 error={runError ?? canvasError}
@@ -289,7 +314,7 @@ export default function VisualizerPage() {
                 <Link
                   href={`/dashboard/code-canvas/${generatedFrom}`}
                   title="Generated from a Code-Canvas graph — open it"
-                  className="matte flex shrink-0 items-center gap-2 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
+                  className="rail-pill matte flex shrink-0 gap-1.5 rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="6" cy="7" r="2.1" />
@@ -304,22 +329,22 @@ export default function VisualizerPage() {
           </div>
         </div>
 
-        <div className="pointer-events-auto mb-2 ml-auto flex flex-wrap items-center justify-end gap-2 xl:gap-3">
-          <span className="matte hidden rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:inline-block">
+        <div className="pointer-events-auto mb-1.5 ml-auto flex flex-wrap items-center justify-end gap-1.5 xl:gap-2">
+          <span className="rail-pill matte hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
             Scroll to zoom · Drag to pan
           </span>
-          <div className="matte flex items-center gap-3 rounded-full px-4 py-2.5">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+          <div className="rail-pill matte flex gap-2 rounded-full px-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
               Zoom
             </span>
-            <span className="w-10 shrink-0 font-mono text-[12px] font-medium text-[var(--text-primary)]">
+            <span className="w-9 shrink-0 font-mono text-[11px] font-medium text-[var(--text-primary)]">
               {Math.round(zoom * 100)}%
             </span>
           </div>
           <button
             type="button"
             onClick={handleReset}
-            className="matte rounded-full px-5 py-2.5 font-mono text-[12px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+            className="rail-pill matte inline-flex rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
           >
             Reset view
           </button>

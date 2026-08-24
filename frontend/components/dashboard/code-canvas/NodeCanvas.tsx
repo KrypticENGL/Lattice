@@ -649,7 +649,7 @@ const NodeCard = memo(function NodeCard({
   return (
     <div
       onPointerDown={(e) => onPointerDown(e, node)}
-      className="group absolute select-none rounded-2xl"
+      className="group absolute select-none rounded-xl"
       style={{
         left: node.x,
         top: node.y,
@@ -668,15 +668,15 @@ const NodeCard = memo(function NodeCard({
       }}
     >
       <div
-        className="flex items-center gap-2 rounded-t-2xl px-3"
+        className="flex items-center gap-1.5 rounded-t-xl px-2.5"
         style={{
           height: NODE_HEADER_HEIGHT,
           background: `color-mix(in srgb, ${spec.accent} 16%, transparent)`,
           borderBottom: `1px solid ${spec.fields.length ? "var(--hairline)" : "transparent"}`,
         }}
       >
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: spec.accent }} />
-        <span className="min-w-0 flex-1 truncate font-serif text-[12px] font-semibold text-[var(--text-primary)]">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: spec.accent }} />
+        <span className="min-w-0 flex-1 truncate font-serif text-[11px] font-semibold text-[var(--text-primary)]">
           {spec.label}
         </span>
         <button
@@ -684,7 +684,7 @@ const NodeCard = memo(function NodeCard({
           data-no-drag
           aria-label={`Delete ${spec.label}`}
           onClick={() => onDelete(node.id)}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] opacity-0 transition-opacity hover:bg-white/10 hover:text-[var(--text-primary)] group-hover:opacity-100"
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] opacity-0 transition-opacity hover:bg-white/10 hover:text-[var(--text-primary)] group-hover:opacity-100"
         >
           <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
             <path d="M1 1l8 8M9 1l-8 8" />
@@ -693,7 +693,7 @@ const NodeCard = memo(function NodeCard({
       </div>
 
       {spec.fields.length > 0 && (
-        <div className="flex flex-col gap-1.5 px-3 py-2">
+        <div className="flex flex-col gap-1 px-2.5 py-1.5">
           {spec.fields.map((field) =>
             field.multiline ? (
               <textarea
@@ -703,11 +703,11 @@ const NodeCard = memo(function NodeCard({
                 value={node.fields[field.id] ?? ""}
                 placeholder={field.placeholder}
                 onChange={(e) => onFieldChange(node.id, field.id, e.target.value)}
-                className="scrollbar-hide w-full resize-none rounded-lg border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/60 focus:border-[var(--accent-secondary)] focus:outline-none"
+                className="scrollbar-hide w-full resize-none rounded-md border border-[var(--hairline)] bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[10px] leading-tight text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/60 focus:border-[var(--accent-secondary)] focus:outline-none"
               />
             ) : (
-              <label key={field.id} className="flex items-center gap-2">
-                <span className="w-10 shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)]">
+              <label key={field.id} className="flex items-center gap-1.5">
+                <span className="w-10 shrink-0 font-mono text-[8px] uppercase tracking-wider text-[var(--text-secondary)]">
                   {field.label}
                 </span>
                 <input
@@ -715,7 +715,7 @@ const NodeCard = memo(function NodeCard({
                   value={node.fields[field.id] ?? ""}
                   placeholder={field.placeholder}
                   onChange={(e) => onFieldChange(node.id, field.id, e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/60 focus:border-[var(--accent-secondary)] focus:outline-none"
+                  className="min-w-0 flex-1 rounded-md border border-[var(--hairline)] bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[10px] leading-tight text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/60 focus:border-[var(--accent-secondary)] focus:outline-none"
                 />
               </label>
             ),

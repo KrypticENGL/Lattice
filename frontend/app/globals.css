@@ -445,6 +445,50 @@ body {
   }
 }
 
+/* The two full-bleed canvas workspaces (Visualizer, Code-Canvas) hang
+   their own chrome — title row, palette, help button — off the left edge,
+   and that chrome already slides clear of an expanding rail via
+   `.shifts-with-sidebar`. `main`'s gutter, sized to clear the rail
+   *expanded*, therefore buys them nothing: it strands the page title in
+   the middle of 150px of dead space and takes that strip away from the
+   canvas. Give them a gutter that clears the collapsed rail only (24px
+   inset + 60px rail + a hair of breathing room) and let the hover shift
+   do the rest. Unlayered, so it wins over `main`'s Tailwind `wide:pl-*`
+   utility regardless of specificity.
+
+   The right gutter goes away entirely. `main` mirrors its left padding on
+   the right so the ordinary dashboard pages sit centred in their frame,
+   but these two are not documents on a page — they are a canvas that runs
+   to the edge with its own panels docked against it, and 208px of empty
+   inset would push the code pane in off the frame. */
+@media (min-width: 720px) and (min-height: 520px) {
+  main:has([data-canvas-workspace]) {
+    padding-left: 68px;
+    padding-right: 0;
+  }
+}
+
+/* One height for every pill in a canvas workspace's header row.
+   ------------------------------------------------------------------
+   The row (Visualizer and Code-Canvas both) is assembled from six or
+   seven independently-styled pills, and their heights used to be an
+   accident of whatever `py-*` and font-size each one happened to carry:
+   23px for the hint, 29px for a pill with an icon in it, 30px for the
+   buttons, 34px for the trace bar. Bottom-aligned by the header's
+   `items-end`, that read as a ragged row rather than one bar — every
+   pill started at a different y.
+
+   Fixing the box height instead of the padding is what makes them line
+   up: each pill keeps its own horizontal padding and type scale, and
+   centres whatever it contains inside a shared 30px. Deliberately not
+   setting `display` — the hint pill is `hidden` below 2xl, and this is
+   unlayered CSS that would win over that utility and force it back on
+   screen. Pills bring their own `flex`/`inline-flex`. */
+.rail-pill {
+  height: 30px;
+  align-items: center;
+}
+
 /* Freeform gradient + grain — the page backdrop inside the framed box.
    Strictly grayscale, scaling from true black to near-white: color is
    reserved for interactive/accent elements. */

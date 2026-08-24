@@ -9,13 +9,13 @@ function BlockChip({ kind }: { kind: NodeKind }) {
   const spec = NODE_TYPES[kind];
   return (
     <span
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
       style={{
         background: `color-mix(in srgb, ${spec.accent} 20%, transparent)`,
         border: `1px solid color-mix(in srgb, ${spec.accent} 45%, transparent)`,
       }}
     >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: spec.accent }} />
+      <span className="h-1 w-1 rounded-full" style={{ background: spec.accent }} />
     </span>
   );
 }
@@ -42,16 +42,16 @@ export default function NodePalette({
   return (
     <div
       data-tour="palette"
-      className="matte shifts-with-sidebar pointer-events-auto absolute bottom-20 left-2 z-20 flex max-h-[min(560px,calc(100%-12rem))] w-[236px] flex-col overflow-hidden rounded-2xl"
+      className="matte shifts-with-sidebar pointer-events-auto absolute bottom-16 left-2 z-20 flex max-h-[min(480px,calc(100%-11rem))] w-[200px] flex-col overflow-hidden rounded-xl"
       style={{ boxShadow: "0 24px 48px -24px rgba(0,0,0,0.8)" }}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--hairline)] px-4 py-3">
-        <span className="font-serif text-[13px] font-semibold text-[var(--text-primary)]">Blocks</span>
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--hairline)] px-3 py-2">
+        <span className="font-serif text-[12px] font-semibold text-[var(--text-primary)]">Blocks</span>
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
           aria-label={collapsed ? "Show blocks" : "Hide blocks"}
-          className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
+          className="flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)]"
         >
           <svg
             width="11"
@@ -70,13 +70,13 @@ export default function NodePalette({
       </div>
 
       {!collapsed && (
-        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 py-2">
           {PALETTE_GROUPS.map((group) => (
-            <div key={group.title} className="mb-3 last:mb-0">
-              <p className="px-1 pb-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+            <div key={group.title} className="mb-2 last:mb-0">
+              <p className="px-1 pb-1 font-mono text-[8px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                 {group.title}
               </p>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 {group.kinds.map((kind) => {
                   const spec = NODE_TYPES[kind];
                   return (
@@ -86,11 +86,11 @@ export default function NodePalette({
                       title={spec.blurb}
                       onPointerDown={(e) => onDragStart(kind, e)}
                       onClick={() => onAdd(kind)}
-                      className="flex w-full cursor-grab touch-none items-center gap-2.5 rounded-xl border border-transparent px-2 py-1.5 text-left transition-colors hover:border-[var(--hairline)] hover:bg-white/[0.04] active:cursor-grabbing"
+                      className="flex w-full cursor-grab touch-none items-center gap-2 rounded-lg border border-transparent px-1.5 py-1 text-left transition-colors hover:border-[var(--hairline)] hover:bg-white/[0.04] active:cursor-grabbing"
                     >
                       <BlockChip kind={kind} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-mono text-[11px] text-[var(--text-primary)]">
+                        <span className="block truncate font-mono text-[10px] text-[var(--text-primary)]">
                           {spec.label}
                         </span>
                       </span>
@@ -103,7 +103,7 @@ export default function NodePalette({
         </div>
       )}
 
-      <p className="shrink-0 border-t border-[var(--hairline)] px-4 py-2 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)]">
+      <p className="shrink-0 border-t border-[var(--hairline)] px-3 py-1.5 font-mono text-[8px] uppercase tracking-wider text-[var(--text-secondary)]">
         Drag one out, or click to drop
       </p>
     </div>

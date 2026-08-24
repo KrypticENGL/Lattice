@@ -92,9 +92,9 @@ export default function TraceControls({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <div className="matte flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5">
+        <div className="rail-pill matte flex shrink-0 gap-2 rounded-full px-3">
           <span
-            className={`h-2.5 w-2.5 shrink-0 rounded-full ${status === "running" ? "animate-pulse" : ""}`}
+            className={`h-2 w-2 shrink-0 rounded-full ${status === "running" ? "animate-pulse" : ""}`}
             style={{
               background:
                 status === "running"
@@ -106,13 +106,13 @@ export default function TraceControls({
                       : "var(--hairline-strong)",
             }}
           />
-          <span className="shrink-0 font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
             Trace
           </span>
 
           {currentStep && (
             <>
-              <span className="inline-block min-w-[9ch] shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-center font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+              <span className="inline-block min-w-[9ch] shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-center font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
                 {currentStep.event}
               </span>
 
@@ -124,12 +124,12 @@ export default function TraceControls({
                 }}
                 disabled={stepIndex <= 0}
                 aria-label="Previous step"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 ‹
               </button>
 
-              <span className="inline-block min-w-[9ch] shrink-0 text-center font-mono text-[11px] text-[var(--text-secondary)]">
+              <span className="inline-block min-w-[8ch] shrink-0 text-center font-mono text-[10px] text-[var(--text-secondary)]">
                 {stepIndex + 1}/{stepCount}
               </span>
 
@@ -141,7 +141,7 @@ export default function TraceControls({
                 }}
                 disabled={stepIndex >= stepCount - 1}
                 aria-label="Next step"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 ›
               </button>
@@ -152,7 +152,7 @@ export default function TraceControls({
                 disabled={stepCount <= 1}
                 aria-label={isPlaying ? "Pause playback" : "Play through steps"}
                 title={isPlaying ? "Pause" : "Play"}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 {isPlaying ? (
                   <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
@@ -170,14 +170,14 @@ export default function TraceControls({
         </div>
 
         {status === "running" && (
-          <span className="shrink-0 font-mono text-[11px] text-[var(--text-secondary)]">Running in sandbox…</span>
+          <span className="shrink-0 font-mono text-[10px] text-[var(--text-secondary)]">Running in sandbox…</span>
         )}
 
         {(stdout !== undefined || status === "error") && (
           <button
             type="button"
             onClick={() => setStdoutOpen(true)}
-            className="matte flex items-center gap-2 rounded-full px-3 py-2 font-mono text-[10px] uppercase tracking-wider transition-colors"
+            className="rail-pill matte flex gap-1.5 rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider transition-colors"
             style={{ color: status === "error" ? "#f87171" : "var(--text-secondary)" }}
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -189,7 +189,7 @@ export default function TraceControls({
       </div>
 
       {truncated && (
-        <span className="pl-3 font-mono text-[11px] text-[#fbbf24]">output truncated — a resource cap was hit</span>
+        <span className="pl-3 font-mono text-[10px] text-[#fbbf24]">output truncated — a resource cap was hit</span>
       )}
 
       <StdoutModal
