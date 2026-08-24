@@ -346,6 +346,27 @@ export function findPort(kind: NodeKind, portId: string): PortSpec | undefined {
   return spec.outputs.find((p) => p.id === portId) ?? spec.inputs.find((p) => p.id === portId);
 }
 
+/** The two control points of the wire between these ports. Shared by
+ * everything that needs to know where the wire actually *goes*, not just
+ * how to draw it — the bow is what separates the curve from the straight
+ * line between its endpoints, so anything deriving a position from a wire
+ * has to be working from the same numbers the path was built with. */
+function wireControls(
+  from: { x: number; y: number },
+  fromSide: PortSide,
+  to: { x: number; y: number },
+  toSide: PortSide,
+) {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const bow = Math.max(40, Math.min(160, distance * 0.45));
+  const a = portNormal(fromSide);
+  const b = portNormal(toSide);
+  return {
+    c1: { x: from.x + a.x * bow, y: from.y + a.y * bow },
+    c2: { x: to.x + b.x * bow, y: to.y + b.y * bow },
+  };
+}
+
 /** Cubic bezier between two points, bowed along each end's outward normal.
  * The control-point distance scales with separation so short wires stay
  * tight and long ones keep a readable arc. */
@@ -355,15 +376,37 @@ export function wirePath(
   to: { x: number; y: number },
   toSide: PortSide,
 ) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const distance = Math.hypot(dx, dy);
-  const bow = Math.max(40, Math.min(160, distance * 0.45));
-  const a = portNormal(fromSide);
-  const b = portNormal(toSide);
-  const c1 = { x: from.x + a.x * bow, y: from.y + a.y * bow };
-  const c2 = { x: to.x + b.x * bow, y: to.y + b.y * bow };
+  const { c1, c2 } = wireControls(from, fromSide, to, toSide);
   return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
+}
+
+/**
+ * A point that lies *on* the wire `wirePath` draws, for chrome that has to
+ * sit on the line — the wire's label and its delete button.
+ *
+ * Averaging the two endpoints instead is only correct for a wire that
+ * happens to be straight. The further the bow throws the curve off that
+ * chord, the further the midpoint drifts into empty canvas: a wire
+ * leaving a right-hand port and arriving at a port below and well to the
+ * right bellies out far enough to leave the chord midpoint some 60px from
+ * anything drawn, which reads as the button belonging to no wire at all.
+ *
+ * This is the curve evaluated at t = 0.5, which for a cubic reduces to
+ * the weighted average below. That is the parametric middle rather than
+ * the arc-length middle — they differ slightly on a lopsided curve — but
+ * it is exactly on the line, which is the property being asked for.
+ */
+export function wireMidpoint(
+  from: { x: number; y: number },
+  fromSide: PortSide,
+  to: { x: number; y: number },
+  toSide: PortSide,
+) {
+  const { c1, c2 } = wireControls(from, fromSide, to, toSide);
+  return {
+    x: (from.x + 3 * c1.x + 3 * c2.x + to.x) / 8,
+    y: (from.y + 3 * c1.y + 3 * c2.y + to.y) / 8,
+  };
 }
 
 /* ------------------------------------------------------------------ */

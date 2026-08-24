@@ -1,31 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, useMotionValue, animate as animateValue, type MotionValue } from "framer-motion";
+import {
+  animate as animateValue,
+  motion,
+  useMotionValue,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import type { Diagram, DiagramNode } from "@/lib/shape-detection";
+import { edgePath, type EdgeStyle } from "@/lib/visualizer/edge-style";
 
 const NODE_RADIUS = 22;
 const MAX_LABEL_LENGTH = 6;
 
-// A new node's entrance is staged in three beats rather than fading in
-// already at its final slot: spawn (appear somewhere on the lattice) →
-// connect (the edge to it fades in) → place (it slides into its real
-// layout position, dragging the now-attached edge along for free since
-// edges are bound to the same MotionValues). Each beat gets its own
-// duration so the sequence reads as three distinct steps instead of one
-// blur.
-const SPAWN_MS = 300;
-const CONNECT_MS = 300;
+/** How long a node takes to slide to a new layout slot when a trace step
+ * moves it. */
 const PLACE_MS = 300;
-
-/** Where a freshly-arrived node starts before sliding into place. Not tied
- * to the node's eventual layout slot — that's the whole point, so the
- * placement beat has somewhere to visibly travel from. */
-function randomSpawnPoint() {
-  const angle = Math.random() * Math.PI * 2;
-  const radius = 180 + Math.random() * 240;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
-}
 
 // Shades of orange only — from pale peach through mid amber to deep rust —
 // kept distinguishable enough to tell adjacent nodes apart without
@@ -38,6 +29,15 @@ const PALETTE = [
   "#e8993d",
   "#a85c2e",
 ];
+
+/** What the entry point of each shape is actually called, so the marker on
+ * it says "head" over a list and "root" over a tree rather than picking one
+ * word and being wrong two thirds of the time. */
+const ROOT_LABEL: Record<Diagram["kind"], string> = {
+  "linked-list": "head",
+  tree: "root",
+  graph: "start",
+};
 
 function truncateLabel(label: string) {
   return label.length > MAX_LABEL_LENGTH ? `${label.slice(0, MAX_LABEL_LENGTH - 1)}…` : label;
@@ -61,76 +61,55 @@ function DiagramNodeView({
   node,
   color,
   zoom,
+  isRoot,
+  rootLabel,
   onReady,
-  animateEntrance,
 }: {
   node: DiagramNode;
   color: string;
   zoom: number;
+  /** True for the structure's entry point — see `Diagram.roots`. */
+  isRoot: boolean;
+  rootLabel: string;
   onReady: (id: string, motion: Motion2D) => void;
-  // False for every node in the first diagram a DiagramView mount ever
-  // shows — including a canvas restored straight into the middle of a
-  // saved trace, which is a "first diagram" exactly as much as a fresh
-  // step 0 is. Those nodes are a snapshot, not an arrival: they render at
-  // their real position immediately, no spawn/connect/place. Only nodes
-  // that show up in a *later* diagram update, after something was already
-  // on screen, get the three-beat entrance.
-  animateEntrance: boolean;
 }) {
-  // Lazy initializer runs once, at this instance's construction — exactly
-  // when we want the spawn point decided, since a new DiagramNodeView
-  // instance only ever exists for a node id that's genuinely new (existing
-  // ids re-render in place rather than remounting, per the `key={node.id}`
-  // below). State rather than a ref: this project's lint forbids reading a
-  // ref's `.current` during render.
-  const [spawnPos] = useState(() => (animateEntrance ? randomSpawnPoint() : { x: node.x, y: node.y }));
-  const cx = useMotionValue(spawnPos.x);
-  const cy = useMotionValue(spawnPos.y);
+  // A node starts life at the position the layout computed for it, and
+  // that is the only position it is ever drawn at. It used to spawn at a
+  // random point on the lattice and slide in, which was meant to make an
+  // arrival legible but did the opposite: on a canvas restored into the
+  // middle of a saved trace *every* node is new, so the whole structure
+  // assembled itself out of scattered debris, and any node whose entrance
+  // was interrupted simply stayed where it had been flung. A drawing
+  // should read correctly in its first painted frame.
+  const cx = useMotionValue(node.x);
+  const cy = useMotionValue(node.y);
   const pinnedRef = useRef(false);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
 
-  // spawn → connect → placed for an animated arrival; a snapshot node
-  // (animateEntrance false) starts life already "placed" — it registers
-  // immediately below instead of waiting out a spawn beat it doesn't play.
-  const [phase, setPhase] = useState<"spawn" | "connect" | "placed">(animateEntrance ? "spawn" : "placed");
-
+  // Registering with the parent is what makes this node's edges eligible
+  // to render — DiagramView only draws an edge once both of its endpoints
+  // have reported a position. Immediate, with no beat to wait out: the
+  // node is already where it belongs, so its edges are correct too.
   useEffect(() => {
-    if (!animateEntrance) {
-      onReady(node.id, { cx, cy });
-      return;
-    }
-    const timer = setTimeout(() => setPhase("connect"), SPAWN_MS);
-    return () => clearTimeout(timer);
+    onReady(node.id, { cx, cy });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Registering with the parent is what makes this node's edges eligible
-  // to render (DiagramView only draws an edge once both endpoints have a
-  // motion), so deferring it to the "connect" phase is what makes the
-  // connection appear *after* the spawn fade rather than alongside it.
+  // Animate toward a freshly computed layout position — an ordinary
+  // relayout tween when a new trace step moves this node. Skipped once the
+  // user has dragged it (pinnedRef), so a manual placement sticks for the
+  // rest of the run instead of snapping back on the next step. On mount
+  // this resolves to a tween from the node's position to itself, which
+  // costs nothing and is what keeps the first frame correct.
   useEffect(() => {
-    if (phase !== "connect") return;
-    onReady(node.id, { cx, cy });
-    const timer = setTimeout(() => setPhase("placed"), CONNECT_MS);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
-  // Animate toward the freshly computed layout position — on first
-  // reaching "placed" this is the slide from the random spawn point into
-  // the node's real slot; on every later change (new trace step, new run)
-  // it's an ordinary relayout tween. Skipped once the user has dragged
-  // this node (pinnedRef), so a manual placement sticks for the rest of
-  // the run instead of snapping back on the next step.
-  useEffect(() => {
-    if (phase !== "placed" || pinnedRef.current) return;
+    if (pinnedRef.current) return;
     const cxControls = animateValue(cx, node.x, { duration: PLACE_MS / 1000 });
     const cyControls = animateValue(cy, node.y, { duration: PLACE_MS / 1000 });
     return () => {
       cxControls.stop();
       cyControls.stop();
     };
-  }, [phase, node.x, node.y, cx, cy]);
+  }, [node.x, node.y, cx, cy]);
 
   function handlePointerDown(e: React.PointerEvent<SVGCircleElement>) {
     if (e.button !== 0) return;
@@ -151,13 +130,40 @@ function DiagramNodeView({
   }
 
   return (
-    <g>
-      <motion.circle
-        cx={cx}
-        cy={cy}
-        initial={{ opacity: 0, r: 0 }}
-        animate={{ opacity: 1, r: NODE_RADIUS }}
-        transition={{ duration: 0.3 }}
+    // One fade for the whole node, and static geometry underneath it. The
+    // circle used to animate its own radius up from zero, which meant an
+    // entrance that never finished — a tab backgrounded mid-tween throttles
+    // rAF and freezes it — left a node stranded at whatever fraction of its
+    // size it had reached. Anything that has to be interruptible should
+    // resolve to the correct drawing with the animation removed, so only
+    // opacity moves and the shape is right from the first frame.
+    <motion.g
+      style={{ x: cx, y: cy }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* The entry point, ringed and named. Drawn before the node itself
+        * so the halo sits behind it, and non-interactive so it never
+        * steals the drag from the circle it is marking. */}
+      {isRoot && (
+        <g pointerEvents="none">
+          <circle r={NODE_RADIUS + 6} fill="none" stroke="var(--accent-primary)" strokeWidth={1.5} opacity={0.85} />
+          <text
+            y={-(NODE_RADIUS + 15)}
+            textAnchor="middle"
+            fontFamily="var(--font-mono)"
+            fontSize={9}
+            letterSpacing="0.18em"
+            fill="var(--accent-primary)"
+          >
+            {rootLabel.toUpperCase()}
+          </text>
+        </g>
+      )}
+
+      <circle
+        r={NODE_RADIUS}
         fill={color}
         className="cursor-grab active:cursor-grabbing"
         style={{ pointerEvents: "all", touchAction: "none" }}
@@ -166,12 +172,7 @@ function DiagramNodeView({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       />
-      <motion.text
-        x={cx}
-        y={cy}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+      <text
         textAnchor="middle"
         dominantBaseline="central"
         fontFamily="var(--font-mono)"
@@ -180,8 +181,8 @@ function DiagramNodeView({
         pointerEvents="none"
       >
         {truncateLabel(node.label)}
-      </motion.text>
-    </g>
+      </text>
+    </motion.g>
   );
 }
 
@@ -197,24 +198,19 @@ function DiagramNodeView({
  * standard trick for drawing freely around a (0, 0) anchor without sizing
  * to content — width/height of exactly 0 would disable rendering
  * entirely per the SVG spec, so it has to be non-zero. */
-export default function DiagramView({ diagram, zoom = 1 }: { diagram: Diagram; zoom?: number }) {
+export default function DiagramView({
+  diagram,
+  zoom = 1,
+  edgeStyle = "curved",
+}: {
+  diagram: Diagram;
+  zoom?: number;
+  edgeStyle?: EdgeStyle;
+}) {
   // Populated by each DiagramNodeView reporting its own motion values on
   // mount — real React state (not a mutated-in-place ref/memo) so edges
   // reading it below re-render correctly once a node registers.
   const [nodeMotions, setNodeMotions] = useState<Map<string, Motion2D>>(new Map());
-
-  // Flips once, the first time a diagram with any nodes renders, and
-  // stays flipped — read during render by every DiagramNodeView's
-  // mount-time decision (see `animateEntrance` below). Set directly in the
-  // render body rather than an effect: React's own sanctioned pattern for
-  // deriving state from the latest render's input (it bails out and
-  // re-renders immediately instead of committing a stale frame), which
-  // avoids both an extra committed+painted frame an effect would cost and
-  // the lint ban on touching a ref during render.
-  const [hasShownDiagram, setHasShownDiagram] = useState(false);
-  if (!hasShownDiagram && diagram.nodes.length > 0) {
-    setHasShownDiagram(true);
-  }
 
   const handleReady = useCallback((id: string, motion: Motion2D) => {
     setNodeMotions((prev) => {
@@ -225,11 +221,23 @@ export default function DiagramView({ diagram, zoom = 1 }: { diagram: Diagram; z
     });
   }, []);
 
+  const roots = new Set(diagram.roots);
+
   return (
     <svg width={1} height={1} className="overflow-visible" style={{ position: "absolute", left: 0, top: 0 }}>
       <defs>
-        <marker id="diagram-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-secondary)" />
+        {/* `context-stroke` makes the head take the colour of whatever
+          * path is using it, so the arrow always matches its own edge. */}
+        <marker
+          id="diagram-arrow"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="5"
+          markerHeight="5"
+          orient="auto-start-reverse"
+        >
+          <path d="M0,0 L10,5 L0,10 z" fill="context-stroke" />
         </marker>
       </defs>
 
@@ -237,9 +245,8 @@ export default function DiagramView({ diagram, zoom = 1 }: { diagram: Diagram; z
         const fromM = nodeMotions.get(e.from);
         const toM = nodeMotions.get(e.to);
         if (!fromM || !toM) return null;
-        const selfLoop = e.from === e.to;
 
-        if (selfLoop) {
+        if (e.from === e.to) {
           // A tiny fixed loop glyph, positioned via the same motion
           // values as the node itself (motion.g maps x/y to a translate
           // transform) — no separate derived value needed, so it can
@@ -259,19 +266,11 @@ export default function DiagramView({ diagram, zoom = 1 }: { diagram: Diagram; z
         }
 
         return (
-          <motion.line
+          <DiagramEdgeView
             key={`${e.from}-${e.field}-${e.to}`}
-            x1={fromM.cx}
-            y1={fromM.cy}
-            x2={toM.cx}
-            y2={toM.cy}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            stroke="var(--text-secondary)"
-            strokeWidth={1.75}
-            strokeLinecap="round"
-            markerEnd="url(#diagram-arrow)"
+            from={fromM}
+            to={toM}
+            edgeStyle={edgeStyle}
           />
         );
       })}
@@ -282,10 +281,54 @@ export default function DiagramView({ diagram, zoom = 1 }: { diagram: Diagram; z
           node={node}
           color={PALETTE[i % PALETTE.length]}
           zoom={zoom}
+          isRoot={roots.has(node.id)}
+          rootLabel={ROOT_LABEL[diagram.kind]}
           onReady={handleReady}
-          animateEntrance={hasShownDiagram}
         />
       ))}
     </svg>
+  );
+}
+
+/** One edge: the line itself, plus a dash travelling along it in the
+ * direction it points. Both share a single derived `d`, so the flow can
+ * never drift off the wire it belongs to — and because `d` is derived
+ * from the endpoints' motion values, dragging a node re-routes the edge
+ * and its animation together without a React re-render. */
+function DiagramEdgeView({
+  from,
+  to,
+  edgeStyle,
+}: {
+  from: Motion2D;
+  to: Motion2D;
+  edgeStyle: EdgeStyle;
+}) {
+  const d = useTransform([from.cx, from.cy, to.cx, to.cy], ([x1, y1, x2, y2]: number[]) =>
+    edgePath({ x: x1, y: y1 }, { x: x2, y: y2 }, edgeStyle, NODE_RADIUS),
+  );
+
+  return (
+    <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <motion.path
+        d={d}
+        fill="none"
+        stroke="var(--text-secondary)"
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        markerEnd="url(#diagram-arrow)"
+      />
+      <motion.path
+        className="wire-flow"
+        d={d}
+        fill="none"
+        stroke="var(--accent-primary)"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="none"
+      />
+    </motion.g>
   );
 }

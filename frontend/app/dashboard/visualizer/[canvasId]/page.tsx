@@ -5,6 +5,8 @@ import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboard/visualizer/InfiniteCanvas";
+import { EDGE_STYLES, type EdgeStyle } from "@/lib/visualizer/edge-style";
+import { useEdgeStyle } from "@/lib/visualizer/use-edge-style";
 import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
 import TraceControls, { type RunStatus } from "@/components/dashboard/visualizer/TraceControls";
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
@@ -21,6 +23,14 @@ const HEADER_GAP = 16;
 // autoplay can fire step changes far more rapidly than typing does.
 const STEP_SAVE_DEBOUNCE_MS = 800;
 
+/** A miniature of each route, so the control shows what it does rather
+ * than naming it. Drawn in a 16x16 box to match the other header icons. */
+const EDGE_STYLE_GLYPH: Record<EdgeStyle, string> = {
+  curved: "M2 12 Q 8 1, 14 12",
+  straight: "M2 13 L14 3",
+  rectangular: "M2 13 H8 V3 H14",
+};
+
 export default function VisualizerPage() {
   const { getToken } = useAuth();
   const { canvasId } = useParams<{ canvasId: string }>();
@@ -29,6 +39,10 @@ export default function VisualizerPage() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [topInset, setTopInset] = useState(96);
+  /** How edges are routed. A view preference about this browser, not
+   * anything about the traced structure, so it lives in browser storage
+   * rather than on the saved canvas. */
+  const [edgeStyle, handleEdgeStyle] = useEdgeStyle();
 
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
   const [runError, setRunError] = useState<string | null>(null);
@@ -274,7 +288,7 @@ export default function VisualizerPage() {
     <WorkspaceGate feature="Visualizer">
     <div ref={boundsRef} data-canvas-workspace className="relative h-full w-full overflow-hidden">
       <InfiniteCanvas ref={canvasRef} onZoomChange={setZoom}>
-        {diagram && <DiagramView diagram={diagram} zoom={zoom} />}
+        {diagram && <DiagramView diagram={diagram} zoom={zoom} edgeStyle={edgeStyle} />}
       </InfiniteCanvas>
 
       <div
@@ -333,6 +347,34 @@ export default function VisualizerPage() {
           <span className="rail-pill matte hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
             Scroll to zoom · Drag to pan
           </span>
+          {/* Icon-only, and it has to be: spelled out, three labels plus a
+            * caption ran the header wide enough to wrap onto a second row,
+            * which pushes `topInset` down and takes the height straight out
+            * of the canvas. Each glyph draws the route it selects. */}
+          <div className="rail-pill matte flex gap-0.5 rounded-full px-1" role="group" aria-label="Line style">
+            {EDGE_STYLES.map((option) => {
+              const active = option.id === edgeStyle;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleEdgeStyle(option.id)}
+                  title={`${option.label} — ${option.hint}`}
+                  aria-label={`${option.label} lines`}
+                  aria-pressed={active}
+                  className="flex h-6 w-6 items-center justify-center rounded-full transition-colors"
+                  style={{
+                    background: active ? "var(--accent-primary)" : "transparent",
+                    color: active ? "var(--bg-base)" : "var(--text-secondary)",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={EDGE_STYLE_GLYPH[option.id]} />
+                  </svg>
+                </button>
+              );
+            })}
+          </div>
           <div className="rail-pill matte flex gap-2 rounded-full px-3">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
               Zoom

@@ -16,6 +16,7 @@ import {
   findPort,
   nodeSize,
   portPosition,
+  wireMidpoint,
   wirePath,
   type CanvasEdge,
   type CanvasGraph,
@@ -474,7 +475,7 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
       drawn.push({
         edge,
         d: wirePath(a, fromPort.side, b, toPort.side),
-        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        mid: wireMidpoint(a, fromPort.side, b, toPort.side),
         color: NODE_TYPES[from.kind].accent,
         label: fromPort.label,
       });

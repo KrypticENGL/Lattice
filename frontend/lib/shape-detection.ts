@@ -47,6 +47,14 @@ export type Diagram = {
   kind: "linked-list" | "tree" | "graph";
   nodes: DiagramNode[];
   edges: DiagramEdge[];
+  /** The structure's entry point(s) — a list's head, a tree's root, a
+   * graph's anchor. The renderer marks these, because "where does this
+   * thing start" is the first question anybody asks of a diagram and the
+   * layout is the only place that still knows the answer: by the time a
+   * drawing is a bag of nodes and edges, the head is just whichever
+   * circle happens to have no arrow pointing at it, which is a property
+   * a cycle doesn't have at all. */
+  roots: string[];
 };
 
 const NODE_SPACING_X = 110;
@@ -361,6 +369,11 @@ function layoutLinkedList(
     kind: "linked-list",
     nodes,
     edges: edges.filter((e) => seen.has(e.from) && seen.has(e.to)),
+    // The main chain's first node, and only that one. An unlinked
+    // fragment also starts a chain of its own here, but it is a node
+    // waiting to be spliced in — calling it a head would announce a
+    // second list that doesn't exist.
+    roots: main.length > 0 ? [main[0]] : [],
   };
 }
 
@@ -401,7 +414,7 @@ function layoutTree(
     const pos = positions.get(id) ?? { x: 0, y: 0 };
     return { id, x: pos.x - rootPos.x, y: pos.y - rootPos.y, label: pickLabel(heap[id]), type: heap[id].type };
   });
-  return { kind: "tree", nodes, edges };
+  return { kind: "tree", nodes, edges, roots: [root] };
 }
 
 /** Rings the component out from `anchor` by BFS distance rather than
@@ -490,5 +503,5 @@ function layoutGraph(
     const pos = positions.get(id) ?? { x: 0, y: 0 };
     return { id, x: pos.x, y: pos.y, label: pickLabel(heap[id]), type: heap[id].type };
   });
-  return { kind: "graph", nodes, edges };
+  return { kind: "graph", nodes, edges, roots: [anchorId] };
 }

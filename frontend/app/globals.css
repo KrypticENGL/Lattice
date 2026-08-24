@@ -468,6 +468,42 @@ body {
   }
 }
 
+/* Direction of travel, shown rather than merely indicated.
+   ------------------------------------------------------------------
+   An arrowhead says which way a pointer points; it does not say that
+   anything moves along it. A short dash marching from the source node
+   to the target does, and it costs one animated property the compositor
+   already knows how to handle on its own.
+
+   The dash pattern and the keyframe distance are the same 24 units on
+   purpose: shifting the pattern by exactly its own period lands it back
+   where it started, so the loop is seamless with no jump at the wrap.
+   The offset goes *negative*, which walks the pattern forward along the
+   path — and since every edge path is authored from source to target,
+   forward is the same direction the arrowhead points. Reverse the sign
+   and the diagram would animate backwards up its own pointers.
+
+   Purely decorative, so it is the first thing to go when the viewer has
+   asked for less motion. */
+@keyframes lattice-wire-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.wire-flow {
+  stroke-dasharray: 5 19;
+  stroke-dashoffset: 0;
+  animation: lattice-wire-flow 1.15s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wire-flow {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* One height for every pill in a canvas workspace's header row.
    ------------------------------------------------------------------
    The row (Visualizer and Code-Canvas both) is assembled from six or
