@@ -114,8 +114,9 @@ Lattice/
 | **Rust** | 1.85+ (Cargo edition 2024) | the Axum backend |
 | **Docker** | any recent engine | running traces — without it `/api/execute` returns 503 |
 | **Python 3** | 3.10+ | running the tracer test suite locally (optional) |
-| **Clerk account** | — | auth (free tier is fine) |
-| **Postgres** | hosted Supabase, or any Postgres | canvases — the backend refuses to start without it |
+
+Deploying rather than running locally? You'll also want a Clerk project for
+auth and a Postgres database for saved canvases — see step 3.
 
 ### 1. Clone and install
 
@@ -147,25 +148,30 @@ sudo usermod -aG docker "$USER"   # then start a FRESH shell
 
 ### 3. Environment
 
+**Installing locally?** Put `LOCAL` in place of the auth key and the database
+URL. Nothing else to sign up for — that is the whole configuration step.
+
 `backend/.env` (copy from `backend/.env.example`):
 
 ```ini
-CLERK_SECRET_KEY=sk_test_...
-DATABASE_URL=postgresql://postgres.<ref>:<url-encoded-password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+CLERK_SECRET_KEY=LOCAL
+DATABASE_URL=LOCAL
 ```
-
-> Percent-encode the database password. Supabase generates passwords
-> containing `#`, `&`, `%`, `@`, `/` — left raw they split the URL at the
-> wrong place, and the failure surfaces as a confusing
-> `failed to lookup address information`.
 
 `frontend/.env.local`:
 
 ```ini
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=LOCAL
+CLERK_SECRET_KEY=LOCAL
 # BACKEND_URL=http://127.0.0.1:3001   # optional; this is the default
 ```
+
+For a real deployment, swap both for the values from your own Clerk project
+and your own Postgres. If that database is a hosted Supabase one,
+percent-encode the password before pasting it into the URL — Supabase
+generates passwords containing `#`, `&`, `%`, `@`, `/`, and left raw they
+split the URL at the wrong place, surfacing as a confusing
+`failed to lookup address information`.
 
 Migrations run automatically on backend startup — there's no separate
 migrate step.
