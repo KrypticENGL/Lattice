@@ -140,8 +140,8 @@ async fn main() {
     // don't degrade gracefully without a database the way /api/execute
     // degrades to a 503 without Docker.
     let database_url = std::env::var("DATABASE_URL").expect(
-        "DATABASE_URL must be set (see backend/.env.example) — e.g. `docker compose up -d` \
-         for local Postgres, then postgres://lattice:lattice@localhost:5432/lattice",
+        "DATABASE_URL must be set (see backend/.env.example) — the Supabase connection \
+         string from Project Settings -> Database, with the password percent-encoded",
     );
     let pool = PgPoolOptions::new()
         .max_connections(5)
