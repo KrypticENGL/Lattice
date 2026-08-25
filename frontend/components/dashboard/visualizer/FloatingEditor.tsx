@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type { VimAdapterInstance } from "monaco-vim";
 import type * as Monaco from "monaco-editor";
 import { defineLatticeTheme, LATTICE_THEME } from "@/lib/monaco-theme";
+import { registerLatticeCompletions } from "@/lib/monaco-completions";
 
 // monaco-editor touches `window` while it's being imported, which crashes
 // SSR ("ReferenceError: window is not defined") if it's pulled in
@@ -95,6 +97,31 @@ int main() {
 }`,
 };
 
+/** Extensions the file picker offers, and what each one means. Headers map
+ * to cpp so a dropped `.hpp` doesn't come in as plain text. */
+const EXTENSION_LANGUAGES: Record<string, Language> = {
+  c: "cpp", cc: "cpp", cpp: "cpp", cxx: "cpp", h: "cpp", hpp: "cpp", hxx: "cpp",
+  js: "javascript", mjs: "javascript", cjs: "javascript", jsx: "javascript",
+  ts: "typescript", tsx: "typescript",
+  py: "python",
+  rs: "rust",
+};
+
+/** Extra extensions the picker accepts without claiming to know the
+ * language — a `.txt` of C++ is a perfectly reasonable thing to upload. */
+const EXTRA_UPLOAD_EXTENSIONS = [".txt", ".text"];
+
+const UPLOAD_ACCEPT = [
+  ...Object.keys(EXTENSION_LANGUAGES).map((ext) => `.${ext}`),
+  ...EXTRA_UPLOAD_EXTENSIONS,
+].join(",");
+
+/** Refuses anything that isn't plausibly a source file someone means to
+ * trace. Monaco itself copes with far more, but a multi-megabyte paste is
+ * never going to produce a useful trace (§6.3 caps a run at 5000 steps) and
+ * it would sit in `localStorage` afterwards, where quota is real. */
+const MAX_UPLOAD_BYTES = 1024 * 1024;
+
 function storageKey(language: Language) {
   return `lattice:visualizer:code:${language}`;
 }
@@ -124,7 +151,7 @@ const PILL_HEIGHT = 36;
 const MINIMIZE_TRANSITION_MS = 300;
 const MINIMIZE_EASING = "ease-out";
 
-type Status = "idle" | "running" | "saved" | "copied";
+type Status = "idle" | "running" | "saved" | "copied" | "loaded" | "rejected";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), Math.max(min, max));
@@ -141,6 +168,7 @@ export default function FloatingEditor({
   initialLanguage,
   onSourceChange,
   readOnly = false,
+  generatedFrom = null,
 }: {
   boundsRef: RefObject<HTMLDivElement | null>;
   /** Reserved space (px) at the top of `boundsRef` — e.g. the height of a
@@ -186,6 +214,12 @@ export default function FloatingEditor({
    * canvases — and labels the panel. Running still works: it's the whole
    * point of sending a graph here. */
   readOnly?: boolean;
+  /** Id of the Code-Canvas graph this code was generated from, or null for
+   * a hand-written canvas. Non-null puts a "Canvas" pill in the header
+   * linking back to that graph. It lives here rather than in the page's
+   * top bar because it describes *this code*, and the header is already
+   * where everything about the buffer (language, save, run) lives. */
+  generatedFrom?: string | null;
 }) {
   const [language, setLanguage] = useState<Language>(initialLanguage ?? "cpp");
   const [minimized, setMinimized] = useState(false);
@@ -196,6 +230,10 @@ export default function FloatingEditor({
   // source that was *executed*, so once the buffer diverges from it the
   // highlight would point at the wrong line. Cleared on the next run.
   const [sourceStale, setSourceStale] = useState(false);
+  // Why the last upload was refused, shown in place of the status label.
+  // Held separately from `status` because the "rejected" flash needs to say
+  // which of the three checks failed, or the user is left guessing.
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [position, setPosition] = useState({ x: DEFAULT_X, y: DEFAULT_Y });
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
 
@@ -208,6 +246,7 @@ export default function FloatingEditor({
   const statusBarRef = useRef<HTMLDivElement>(null);
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const positionRef = useRef(position);
   const sizeRef = useRef(size);
@@ -380,6 +419,85 @@ export default function FloatingEditor({
     const code = editorRef.current?.getValue() ?? "";
     navigator.clipboard.writeText(code).then(() => flashStatus("copied", 1200));
   }, [flashStatus]);
+
+  const rejectUpload = useCallback(
+    (reason: string) => {
+      setUploadError(reason);
+      flashStatus("rejected", 2600);
+    },
+    [flashStatus],
+  );
+
+  const handleUploadClick = useCallback(() => {
+    // Resetting here rather than after the read: picking the *same* file
+    // twice in a row fires no change event unless the value is cleared
+    // first, and doing it on open covers a cancelled picker too.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      const editor = editorRef.current;
+      if (!file || !editor) return;
+
+      if (file.size > MAX_UPLOAD_BYTES) {
+        rejectUpload(`Too large (max ${MAX_UPLOAD_BYTES / 1024 / 1024}MB)`);
+        return;
+      }
+
+      let text: string;
+      try {
+        text = await file.text();
+      } catch {
+        rejectUpload("Couldn't read that file");
+        return;
+      }
+
+      // A NUL byte means this isn't text at all — an .o or an image someone
+      // renamed. Monaco would happily render the mojibake; nothing good
+      // comes of letting it into the buffer or into localStorage.
+      if (text.includes("\u0000")) {
+        rejectUpload("Not a text file");
+        return;
+      }
+
+      const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const detected = EXTENSION_LANGUAGES[extension];
+
+      // A known extension for a language with no tracer yet is a positive
+      // signal the file can't be traced here, so it's refused. An extension
+      // we don't recognise (.txt, or none at all) is no evidence either
+      // way — that content loads under whatever language is selected.
+      if (detected && !LANGUAGES.find((l) => l.id === detected)?.available) {
+        rejectUpload(`No ${LANGUAGES.find((l) => l.id === detected)?.label} tracer yet`);
+        return;
+      }
+
+      if (detected && detected !== language) {
+        // Same courtesy handleLanguageChange pays: the buffer being replaced
+        // belongs to the outgoing language, so park it under that key
+        // instead of letting the upload discard it.
+        try {
+          window.localStorage.setItem(storageKey(language), editor.getValue());
+        } catch {
+          // localStorage unavailable — outgoing snapshot is best-effort
+        }
+        setLanguage(detected);
+      }
+
+      // Goes through setValue rather than any bespoke path, so the existing
+      // content listener sees it: that's what drives the debounced
+      // localStorage write and the canvas autosave via onSourceChange.
+      editor.setValue(text);
+      editor.setPosition({ lineNumber: 1, column: 1 });
+      editor.focus();
+      setUploadError(null);
+      flashStatus("loaded", 1400);
+    },
+    [flashStatus, language, rejectUpload],
+  );
 
   // Minimizing/maximizing keeps the *right* edge fixed (the panel is
   // right-docked, per applyDefaultLayout above), so it visually collapses
@@ -785,6 +903,10 @@ export default function FloatingEditor({
   // panel appears on a route change.
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     defineLatticeTheme(monaco);
+    // Same reasoning as the theme: both are global to the monaco singleton
+    // and both are cheap, idempotent registrations that want to be in place
+    // before the first model exists.
+    registerLatticeCompletions(monaco);
   }, []);
 
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
@@ -830,9 +952,11 @@ export default function FloatingEditor({
   const statusColor =
     effectiveStatus === "running"
       ? "var(--accent-primary)"
-      : effectiveStatus === "saved" || effectiveStatus === "copied"
-        ? "var(--accent-secondary)"
-        : "var(--hairline-strong)";
+      : effectiveStatus === "rejected"
+        ? "#f87171"
+        : effectiveStatus === "saved" || effectiveStatus === "copied" || effectiveStatus === "loaded"
+          ? "var(--accent-secondary)"
+          : "var(--hairline-strong)";
   const statusLabel =
     effectiveStatus === "running"
       ? "Tracing…"
@@ -840,7 +964,11 @@ export default function FloatingEditor({
         ? "Saved"
         : effectiveStatus === "copied"
           ? "Copied"
-          : "Idle";
+          : effectiveStatus === "loaded"
+            ? "File loaded"
+            : effectiveStatus === "rejected"
+              ? (uploadError ?? "Can't load that file")
+              : "Idle";
 
   return (
     <>
@@ -908,6 +1036,22 @@ export default function FloatingEditor({
           </div>
 
           <div className="flex shrink-0 items-center gap-2" data-no-drag>
+            {generatedFrom && (
+              <Link
+                href={`/dashboard/code-canvas/${generatedFrom}`}
+                title="Generated from a Code-Canvas graph — open it"
+                className="flex items-center gap-1.5 rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="6" cy="7" r="2.1" />
+                  <circle cx="18" cy="7" r="2.1" />
+                  <circle cx="12" cy="18" r="2.1" />
+                  <path d="M7.7 8.6L10.5 16M16.3 8.6L13.5 16M8.1 7h7.8" />
+                </svg>
+                Canvas
+              </Link>
+            )}
+
             <select
               value={language}
               onChange={(e) => handleLanguageChange(e.target.value as Language)}
@@ -935,6 +1079,30 @@ export default function FloatingEditor({
               }}
             >
               Vim
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={UPLOAD_ACCEPT}
+              onChange={handleFileChange}
+              className="hidden"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+
+            <button
+              type="button"
+              onClick={handleUploadClick}
+              disabled={!editorReady || readOnly}
+              title={readOnly ? "Generated from a Code-Canvas graph — not editable here" : "Upload a source file"}
+              aria-label="Upload a source file"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--text-primary)] disabled:opacity-40"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 15.5V4M8 7.5L12 3.5l4 4" />
+                <path d="M4.5 15v4.5a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V15" />
+              </svg>
             </button>
 
             <button
@@ -1018,6 +1186,18 @@ export default function FloatingEditor({
               cursorBlinking: "smooth",
               padding: { top: 12, bottom: 12 },
               overviewRulerBorder: false,
+              // Suggestions (see lib/monaco-completions.ts). Off inside
+              // comments and strings, where the completions on offer are
+              // keywords and snippets that have no business there.
+              quickSuggestions: { other: true, comments: false, strings: false },
+              // Monaco defaults this to "off", which leaves the snippets
+              // reachable only through the suggest widget. On, Tab expands
+              // the prefix directly — the way every other editor behaves.
+              tabCompletion: "on",
+              // Explicit rather than inherited: the keyword lists are static,
+              // so identifiers the user has actually written are the other
+              // half of what makes the widget useful.
+              wordBasedSuggestions: "currentDocument",
               lineNumbersMinChars: 3,
               // Widened from Monaco's 10px default so the execution arrow
               // (.lattice-active-line-gutter) has room to sit between the
