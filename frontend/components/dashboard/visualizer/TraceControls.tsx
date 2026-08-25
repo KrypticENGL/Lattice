@@ -90,9 +90,9 @@ export default function TraceControls({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="relative">
       <div className="flex items-center gap-2">
-        <div className="rail-pill matte flex shrink-0 gap-2 rounded-full px-3">
+        <div className="rail-pill glass-flat flex shrink-0 gap-2 rounded-full px-3">
           <span
             className={`h-2 w-2 shrink-0 rounded-full ${status === "running" ? "animate-pulse" : ""}`}
             style={{
@@ -169,15 +169,11 @@ export default function TraceControls({
           )}
         </div>
 
-        {status === "running" && (
-          <span className="shrink-0 font-mono text-[10px] text-[var(--text-secondary)]">Running in sandbox…</span>
-        )}
-
         {(stdout !== undefined || status === "error") && (
           <button
             type="button"
             onClick={() => setStdoutOpen(true)}
-            className="rail-pill matte flex gap-1.5 rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider transition-colors"
+            className="rail-pill glass-flat flex gap-1.5 rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider transition-colors"
             style={{ color: status === "error" ? "#f87171" : "var(--text-secondary)" }}
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -188,8 +184,15 @@ export default function TraceControls({
         )}
       </div>
 
-      {truncated && (
-        <span className="pl-3 font-mono text-[10px] text-[#fbbf24]">output truncated — a resource cap was hit</span>
+      {/* Status chatter hangs below the row and out of flow: it appears and
+        * disappears with the run, and in flow it would either widen the pill
+        * row (wrapping the sibling controls next to it) or grow this block
+        * taller, shifting the whole header under it. */}
+      {(status === "running" || truncated) && (
+        <div className="pointer-events-none absolute left-3 top-full flex flex-col gap-0.5 whitespace-nowrap pt-1 font-mono text-[10px] leading-tight">
+          {status === "running" && <span className="text-[var(--text-secondary)]">Running in sandbox…</span>}
+          {truncated && <span className="text-[#fbbf24]">output truncated — a resource cap was hit</span>}
+        </div>
       )}
 
       <StdoutModal

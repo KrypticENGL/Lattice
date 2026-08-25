@@ -46,7 +46,7 @@ export default function CanvasNameField({
             setEditing(false);
           }
         }}
-        className="rail-pill matte w-44 shrink-0 rounded-full px-3 font-mono text-[11px] font-medium text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
+        className="rail-pill glass-flat w-44 shrink-0 rounded-full px-3 font-mono text-[11px] font-medium text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
       />
     );
   }
@@ -62,7 +62,7 @@ export default function CanvasNameField({
         setEditing(true);
       }}
       title="Rename canvas"
-      className="rail-pill matte flex shrink-0 gap-1.5 rounded-full px-3 font-mono text-[11px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+      className="rail-pill glass-flat flex shrink-0 gap-1.5 rounded-full px-3 font-mono text-[11px] font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
     >
       <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M11 2l3 3-8 8H3v-3l8-8z" />

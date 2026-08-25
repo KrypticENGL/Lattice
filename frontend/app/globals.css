@@ -47,6 +47,21 @@
   --hairline: rgba(230, 237, 243, 0.12);
   --hairline-strong: rgba(230, 237, 243, 0.22);
 
+  /* The `.glass-flat` material's shadow stack: a specular rim along the
+     top edge, a dark seat under it, faint side bevels, and a soft drop
+     shadow. Broken out as a variable because several elements need to
+     stack something *on top* of it — a selection ring on a Code-Canvas
+     node, a hover glow on a memory card — and `box-shadow` has no way to
+     add to an existing value. Restating the five shadows at each call
+     site is how a material quietly drifts apart, so they compose against
+     this instead: `box-shadow: <ring>, var(--glass-flat-shadow)`. */
+  --glass-flat-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px 0 0 rgba(0, 0, 0, 0.15),
+    0 10px 20px -14px rgba(0, 0, 0, 0.7);
+
   --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
@@ -284,6 +299,22 @@ body {
   pointer-events: none;
 }
 
+/* Positioning caveat for every material class below (and `.glass` above).
+   ------------------------------------------------------------------
+   They all set `position: relative`, because their specular rim and
+   sheen are `position: absolute; inset: 0` pseudo-elements and need the
+   host to be a containing block. Tailwind v4 compiles this file into the
+   same `@layer utilities` it puts its own utilities in, and emits it
+   afterwards — so at the equal specificity of two single-class rules
+   these win on source order, and `class="glass-flat absolute"` does
+   *not* come out absolute. The class list is a set, not an order, so
+   rewriting it changes nothing.
+
+   An absolutely (or fixed) positioned host must therefore restate its
+   own `position` inline, where it outranks both. `absolute` is just as
+   good a containing block as `relative`, so the material is unaffected.
+   See the Code-Canvas node in NodeCanvas.tsx for the one live case. */
+
 /* The same material, painted rather than composited.
    ------------------------------------------------------------------
    Only two things in `.glass` are expensive to *scroll*, and neither of
@@ -312,12 +343,7 @@ body {
   isolation: isolate;
   background: color-mix(in srgb, var(--bg-surface) 74%, transparent);
   border: 1px solid var(--hairline);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    inset 1px 0 0 rgba(255, 255, 255, 0.05),
-    inset -1px 0 0 rgba(0, 0, 0, 0.15),
-    0 10px 20px -14px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--glass-flat-shadow);
 }
 
 /* Deliberately no per-pill grain.
