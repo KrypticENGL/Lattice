@@ -12,6 +12,21 @@
  * adding one entry here plus its emitter in codegen.
  */
 
+import {
+  cubicMidpoint,
+  orthogonalRoute,
+  polyline,
+  polylineMidpoint,
+  step,
+  type EdgeStyle,
+  type Point,
+} from "@/lib/edge-style";
+
+/** How far a "straight" wire runs out of its port before heading for the
+ * target. Capped short: the point is to show which handle a wire belongs
+ * to, not to bend the route. */
+const STRAIGHT_STUB = 18;
+
 export type NodeKind =
   | "entry"
   | "list"
@@ -346,37 +361,67 @@ export function findPort(kind: NodeKind, portId: string): PortSpec | undefined {
   return spec.outputs.find((p) => p.id === portId) ?? spec.inputs.find((p) => p.id === portId);
 }
 
-/** The two control points of the wire between these ports. Shared by
- * everything that needs to know where the wire actually *goes*, not just
- * how to draw it — the bow is what separates the curve from the straight
- * line between its endpoints, so anything deriving a position from a wire
- * has to be working from the same numbers the path was built with. */
-function wireControls(
+/** Which axis a wire leaves (or arrives at) a port on. */
+function portAxis(side: PortSide): "x" | "y" {
+  return side === "left" || side === "right" ? "x" : "y";
+}
+
+/** The shape of the wire between two ports, in the chosen style, as
+ * either a bezier or a polyline. Everything that needs to know where a
+ * wire *goes* — the path that draws it, the midpoint its chrome sits on —
+ * derives from this one function, so the drawn line and anything placed
+ * on it can never be computed from different numbers.
+ *
+ * Unlike the Visualizer's circle-to-circle router (lib/edge-style.ts),
+ * every route here has to leave and arrive square-on to a named side of a
+ * card. A wire that cut diagonally out of a card's edge would not read as
+ * belonging to the port it starts at, and ports on the same card sit only
+ * a few pixels apart. */
+function wireGeometry(
   from: { x: number; y: number },
   fromSide: PortSide,
   to: { x: number; y: number },
   toSide: PortSide,
-) {
-  const distance = Math.hypot(to.x - from.x, to.y - from.y);
-  const bow = Math.max(40, Math.min(160, distance * 0.45));
+  style: EdgeStyle,
+): { kind: "bezier"; c1: Point; c2: Point } | { kind: "poly"; points: Point[] } {
   const a = portNormal(fromSide);
   const b = portNormal(toSide);
+
+  if (style === "rectangular") {
+    return { kind: "poly", points: orthogonalRoute(from, portAxis(fromSide), a, to, portAxis(toSide), b) };
+  }
+
+  if (style === "straight") {
+    // Still stubbed off each port rather than a single diagonal: the stub
+    // is what keeps the wire visibly attached to *this* handle rather than
+    // to whichever of the card's ports it happens to pass nearest.
+    const stub = Math.min(STRAIGHT_STUB, Math.max(8, Math.hypot(to.x - from.x, to.y - from.y) / 4));
+    return { kind: "poly", points: [from, step(from, a, stub), step(to, b, stub), to] };
+  }
+
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const bow = Math.max(40, Math.min(160, distance * 0.45));
   return {
+    kind: "bezier",
     c1: { x: from.x + a.x * bow, y: from.y + a.y * bow },
     c2: { x: to.x + b.x * bow, y: to.y + b.y * bow },
   };
 }
 
-/** Cubic bezier between two points, bowed along each end's outward normal.
- * The control-point distance scales with separation so short wires stay
- * tight and long ones keep a readable arc. */
+/** The wire between two ports, in the chosen style. Curved is a cubic
+ * bowed along each end's outward normal, with the control-point distance
+ * scaling with separation so short wires stay tight and long ones keep a
+ * readable arc. */
 export function wirePath(
   from: { x: number; y: number },
   fromSide: PortSide,
   to: { x: number; y: number },
   toSide: PortSide,
+  style: EdgeStyle = "curved",
 ) {
-  const { c1, c2 } = wireControls(from, fromSide, to, toSide);
+  const geometry = wireGeometry(from, fromSide, to, toSide, style);
+  if (geometry.kind === "poly") return polyline(geometry.points);
+  const { c1, c2 } = geometry;
   return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
 }
 
@@ -385,28 +430,23 @@ export function wirePath(
  * sit on the line — the wire's label and its delete button.
  *
  * Averaging the two endpoints instead is only correct for a wire that
- * happens to be straight. The further the bow throws the curve off that
- * chord, the further the midpoint drifts into empty canvas: a wire
- * leaving a right-hand port and arriving at a port below and well to the
- * right bellies out far enough to leave the chord midpoint some 60px from
+ * happens to be straight. The further a route departs from that chord,
+ * the further the midpoint drifts into empty canvas: a curved wire
+ * leaving a right-hand port and arriving below and well to the right
+ * bellies out far enough to leave the chord midpoint some 60px from
  * anything drawn, which reads as the button belonging to no wire at all.
- *
- * This is the curve evaluated at t = 0.5, which for a cubic reduces to
- * the weighted average below. That is the parametric middle rather than
- * the arc-length middle — they differ slightly on a lopsided curve — but
- * it is exactly on the line, which is the property being asked for.
  */
 export function wireMidpoint(
   from: { x: number; y: number },
   fromSide: PortSide,
   to: { x: number; y: number },
   toSide: PortSide,
-) {
-  const { c1, c2 } = wireControls(from, fromSide, to, toSide);
-  return {
-    x: (from.x + 3 * c1.x + 3 * c2.x + to.x) / 8,
-    y: (from.y + 3 * c1.y + 3 * c2.y + to.y) / 8,
-  };
+  style: EdgeStyle = "curved",
+): Point {
+  const geometry = wireGeometry(from, fromSide, to, toSide, style);
+  return geometry.kind === "poly"
+    ? polylineMidpoint(geometry.points)
+    : cubicMidpoint(from, geometry.c1, geometry.c2, to);
 }
 
 /* ------------------------------------------------------------------ */
@@ -512,13 +552,56 @@ export function parseGraph(raw: unknown): CanvasGraph | null {
  * existing card. Clicking three blocks in a row from the palette should
  * give three readable blocks, not one stack of three.
  */
-export function freeSpotNear(graph: CanvasGraph, kind: NodeKind, x: number, y: number) {
-  const STEP = 30;
+/** Which way to look when the requested spot is taken, nearest first: the
+ * four sides before the four corners, and right/down before left/up so a
+ * run of blocks reads in the same direction as the code they describe. */
+const SPAWN_DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+  [0, -1],
+  [1, 1],
+  [-1, 1],
+  [1, -1],
+  [-1, -1],
+];
+
+/** How far out the search is willing to go — 6 rings x 8 directions is 48
+ * candidate slots, which is more blocks than anyone has clustered on one
+ * screen. */
+const SPAWN_RINGS = 6;
+
+/** The area a spawned block has to land inside, in world coordinates. */
+export type SpawnBounds = { minX: number; minY: number; maxX: number; maxY: number };
+
+/**
+ * The nearest free slot to (x, y), searched outward in rings and kept
+ * inside `bounds`.
+ *
+ * This used to step `+30, +30` up to forty times, which is a single ray
+ * heading down and to the right: click the same block repeatedly and each
+ * new node landed further below the last until they were off the bottom of
+ * the screen entirely. Rings keep every result close to the point that was
+ * asked for, and `bounds` makes staying on screen a guarantee rather than
+ * a consequence — a candidate that would hang off the visible area (or sit
+ * under the palette or the code pane) is simply not a candidate.
+ *
+ * Each ring is a whole node further out rather than a fixed 30px, so the
+ * first ring already clears a same-sized neighbour instead of nudging a
+ * few pixels into its side and having to try again.
+ */
+export function freeSpotNear(
+  graph: CanvasGraph,
+  kind: NodeKind,
+  x: number,
+  y: number,
+  bounds?: SpawnBounds,
+) {
   const GAP = 16;
   const size = nodeSize(kind);
-  let spot = { x, y };
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const clash = graph.nodes.some((other) => {
+
+  const taken = (spot: { x: number; y: number }) =>
+    graph.nodes.some((other) => {
       const box = nodeSize(other.kind);
       return (
         spot.x < other.x + box.width + GAP &&
@@ -527,10 +610,49 @@ export function freeSpotNear(graph: CanvasGraph, kind: NodeKind, x: number, y: n
         spot.y + size.height + GAP > other.y
       );
     });
-    if (!clash) return spot;
-    spot = { x: spot.x + STEP, y: spot.y + STEP };
+
+  /** Whether the whole block — not just its top-left corner — is inside
+   * the visible area. */
+  const inView = (spot: { x: number; y: number }) =>
+    !bounds ||
+    (spot.x >= bounds.minX &&
+      spot.y >= bounds.minY &&
+      spot.x + size.width <= bounds.maxX &&
+      spot.y + size.height <= bounds.maxY);
+
+  /** Nearest point to `spot` that is fully in view. `Math.min` is applied
+   * after `Math.max` so that a viewport too small to hold the block at all
+   * still resolves to its top-left corner rather than to a negative box. */
+  const clamped = (spot: { x: number; y: number }) => {
+    if (!bounds) return spot;
+    return {
+      x: Math.round(
+        Math.max(bounds.minX, Math.min(spot.x, bounds.maxX - size.width)),
+      ),
+      y: Math.round(
+        Math.max(bounds.minY, Math.min(spot.y, bounds.maxY - size.height)),
+      ),
+    };
+  };
+
+  const origin = clamped({ x, y });
+  if (!taken(origin)) return origin;
+
+  for (let ring = 1; ring <= SPAWN_RINGS; ring++) {
+    for (const [dx, dy] of SPAWN_DIRECTIONS) {
+      const spot = {
+        x: Math.round(origin.x + dx * ring * (size.width + GAP)),
+        y: Math.round(origin.y + dy * ring * (size.height + GAP)),
+      };
+      if (inView(spot) && !taken(spot)) return spot;
+    }
   }
-  return spot;
+
+  // Every slot around the origin that is *visible* is occupied. Overlapping
+  // is the lesser evil: the caller's promise to the user is that a new
+  // block never lands somewhere they'd have to go hunting for it, and this
+  // one is at least on screen, selected, and animating.
+  return origin;
 }
 
 /** A tiny worked example — a three-cell list behind a `head` pointer, with

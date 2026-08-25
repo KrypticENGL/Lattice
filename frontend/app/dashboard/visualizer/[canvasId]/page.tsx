@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import InfiniteCanvas, { type InfiniteCanvasHandle } from "@/components/dashboard/visualizer/InfiniteCanvas";
-import { EDGE_STYLES, type EdgeStyle } from "@/lib/visualizer/edge-style";
-import { useEdgeStyle } from "@/lib/visualizer/use-edge-style";
+import EdgeStyleControl from "@/components/dashboard/EdgeStyleControl";
+import { useEdgeStyle } from "@/lib/use-edge-style";
 import FloatingEditor, { type Language } from "@/components/dashboard/visualizer/FloatingEditor";
 import TraceControls, { type RunStatus } from "@/components/dashboard/visualizer/TraceControls";
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
@@ -22,14 +21,6 @@ const HEADER_GAP = 16;
 // FloatingEditor's own 500ms code-autosave debounce, since scrubbing/
 // autoplay can fire step changes far more rapidly than typing does.
 const STEP_SAVE_DEBOUNCE_MS = 800;
-
-/** A miniature of each route, so the control shows what it does rather
- * than naming it. Drawn in a 16x16 box to match the other header icons. */
-const EDGE_STYLE_GLYPH: Record<EdgeStyle, string> = {
-  curved: "M2 12 Q 8 1, 14 12",
-  straight: "M2 13 L14 3",
-  rectangular: "M2 13 H8 V3 H14",
-};
 
 export default function VisualizerPage() {
   const { getToken } = useAuth();
@@ -324,58 +315,16 @@ export default function VisualizerPage() {
                 compilerOutput={compilerOutput}
               />
               <CanvasNameField name={canvasName} onRename={handleRenameCanvas} />
-              {generatedFrom && (
-                <Link
-                  href={`/dashboard/code-canvas/${generatedFrom}`}
-                  title="Generated from a Code-Canvas graph — open it"
-                  className="rail-pill matte flex shrink-0 gap-1.5 rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="6" cy="7" r="2.1" />
-                    <circle cx="18" cy="7" r="2.1" />
-                    <circle cx="12" cy="18" r="2.1" />
-                    <path d="M7.7 8.6L10.5 16M16.3 8.6L13.5 16M8.1 7h7.8" />
-                  </svg>
-                  From Code-Canvas
-                </Link>
-              )}
             </div>
           </div>
         </div>
 
         <div className="pointer-events-auto mb-1.5 ml-auto flex flex-wrap items-center justify-end gap-1.5 xl:gap-2">
-          <span className="rail-pill matte hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
+          <span className="rail-pill glass-flat hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
             Scroll to zoom · Drag to pan
           </span>
-          {/* Icon-only, and it has to be: spelled out, three labels plus a
-            * caption ran the header wide enough to wrap onto a second row,
-            * which pushes `topInset` down and takes the height straight out
-            * of the canvas. Each glyph draws the route it selects. */}
-          <div className="rail-pill matte flex gap-0.5 rounded-full px-1" role="group" aria-label="Line style">
-            {EDGE_STYLES.map((option) => {
-              const active = option.id === edgeStyle;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => handleEdgeStyle(option.id)}
-                  title={`${option.label} — ${option.hint}`}
-                  aria-label={`${option.label} lines`}
-                  aria-pressed={active}
-                  className="flex h-6 w-6 items-center justify-center rounded-full transition-colors"
-                  style={{
-                    background: active ? "var(--accent-primary)" : "transparent",
-                    color: active ? "var(--bg-base)" : "var(--text-secondary)",
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-                    <path d={EDGE_STYLE_GLYPH[option.id]} />
-                  </svg>
-                </button>
-              );
-            })}
-          </div>
-          <div className="rail-pill matte flex gap-2 rounded-full px-3">
+          <EdgeStyleControl value={edgeStyle} onChange={handleEdgeStyle} className="hidden lg:flex" />
+          <div className="rail-pill glass-flat flex gap-2 rounded-full px-3">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
               Zoom
             </span>
@@ -386,7 +335,7 @@ export default function VisualizerPage() {
           <button
             type="button"
             onClick={handleReset}
-            className="rail-pill matte inline-flex rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+            className="rail-pill glass-flat inline-flex rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
           >
             Reset view
           </button>
@@ -422,6 +371,10 @@ export default function VisualizerPage() {
         initialLanguage={initialLanguage}
         onSourceChange={handleSourceChange}
         readOnly={generatedFrom !== null}
+        // The link back to the source graph rides in the editor's header
+        // rather than the page's top bar — it's about this code, and the
+        // top bar is for the canvas as a whole.
+        generatedFrom={generatedFrom}
       />
       )}
     </div>

@@ -9,6 +9,8 @@ import CodePane from "@/components/dashboard/code-canvas/CodePane";
 import Tutorial, { TUTORIAL_STORAGE_KEY } from "@/components/dashboard/code-canvas/Tutorial";
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
 import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
+import EdgeStyleControl from "@/components/dashboard/EdgeStyleControl";
+import { useEdgeStyle } from "@/lib/use-edge-style";
 import {
   connect,
   connectionError,
@@ -71,6 +73,10 @@ export default function CodeCanvasPage() {
   const [selection, setSelection] = useState<Selection>(null);
   const [zoom, setZoom] = useState(1);
   const [topInset, setTopInset] = useState(96);
+  /** How wires are routed. Shared with the Visualizer — it is a
+   * preference about how this person likes lines drawn, not about
+   * either workspace in particular. */
+  const [edgeStyle, handleEdgeStyle] = useEdgeStyle();
   /** Measured width of the workspace, so the code pane can be held back
    * from the palette rather than sliding over it on a narrow screen. */
   const [shellWidth, setShellWidth] = useState(0);
@@ -216,22 +222,67 @@ export default function CodeCanvasPage() {
   // follows pointerup doesn't *also* drop a block in the middle.
   const paletteDraggedRef = useRef(false);
 
+  /** The block that most recently arrived, so it can play its entrance.
+   * Never cleared: the animation runs when the node mounts and a
+   * re-render will not restart it, so a stale id here does nothing. */
+  const [spawnedId, setSpawnedId] = useState<string | null>(null);
+
+  /** The block a run of palette clicks is clustering around — the first one
+   * of the run. Every later click packs into the rings surrounding it, so a
+   * handful of blocks added in a row end up as one tidy group instead of
+   * being scattered or piled on the same spot.
+   *
+   * A run ends by itself: if this block has been deleted, or the user has
+   * panned or zoomed until it is no longer on screen, the next click falls
+   * back to the middle of the view and starts a new cluster there. */
+  const [spawnAnchorId, setSpawnAnchorId] = useState<string | null>(null);
+
   const handleAddNode = useCallback(
     (kind: NodeKind) => {
       if (paletteDraggedRef.current) return;
+      const bounds = canvasRef.current?.viewportBounds();
+
+      // Anchor the search on the block this run started from, so the new
+      // one packs in beside it. Only if it is still there and still on
+      // screen — otherwise this is the start of a fresh cluster and the
+      // middle of the current view is the right place for it.
+      const anchor = graph.nodes.find((n) => n.id === spawnAnchorId);
+      const anchorVisible =
+        anchor !== undefined &&
+        (!bounds ||
+          (anchor.x >= bounds.minX &&
+            anchor.y >= bounds.minY &&
+            anchor.x <= bounds.maxX &&
+            anchor.y <= bounds.maxY));
+
+      // Centred on the visible middle by this block's own size. It used to
+      // subtract a hard-coded 90x40, which is only half of one of the
+      // several sizes `nodeSize` returns, so every other kind landed
+      // off-centre by the difference.
+      const { width, height } = nodeSize(kind);
       const at = canvasRef.current?.viewportCenter() ?? { x: 0, y: 0 };
-      const spot = freeSpotNear(graph, kind, Math.round(at.x - 90), Math.round(at.y - 40));
+      const origin = anchorVisible
+        ? { x: anchor.x, y: anchor.y }
+        : { x: Math.round(at.x - width / 2), y: Math.round(at.y - height / 2) };
+
+      const spot = freeSpotNear(graph, kind, origin.x, origin.y, bounds);
       const node = createNode(kind, spot.x, spot.y);
       setGraph((current) => ({ ...current, nodes: [...current.nodes, node] }));
       setSelection({ type: "node", id: node.id });
+      setSpawnedId(node.id);
+      if (!anchorVisible) setSpawnAnchorId(node.id);
     },
-    [graph],
+    [graph, spawnAnchorId],
   );
 
   const handleDropNode = useCallback((kind: NodeKind, x: number, y: number) => {
     const node = createNode(kind, x, y);
     setGraph((current) => ({ ...current, nodes: [...current.nodes, node] }));
     setSelection({ type: "node", id: node.id });
+    setSpawnedId(node.id);
+    // Dropping a block by hand is the clearest possible statement of where
+    // the next few belong, so it takes over as the cluster's anchor.
+    setSpawnAnchorId(node.id);
   }, []);
 
   const handlePaletteDragStart = useCallback(
@@ -406,10 +457,12 @@ export default function CodeCanvasPage() {
     <div ref={shellRef} data-canvas-workspace className="relative h-full w-full overflow-hidden">
       <NodeCanvas
         ref={canvasRef}
+        spawnedId={spawnedId}
         graph={graph}
         selection={selection}
         rightInset={rightInset}
         topInset={topInset}
+        edgeStyle={edgeStyle}
         onSelect={setSelection}
         onNodeMove={handleNodeMove}
         onFieldChange={handleFieldChange}
@@ -457,7 +510,7 @@ export default function CodeCanvasPage() {
               Code-Canvas
             </span>
             <div className="pointer-events-auto flex flex-wrap items-center gap-2 pb-1.5">
-              <span className="rail-pill matte flex gap-2 rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+              <span className="rail-pill glass-flat flex gap-2 rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
                 <span className="text-[var(--text-primary)]">{graph.nodes.length}</span> blocks
                 <span className="h-3 w-px bg-[var(--hairline)]" />
                 <span className="text-[var(--text-primary)]">{graph.edges.length}</span> wires
@@ -467,7 +520,7 @@ export default function CodeCanvasPage() {
                 type="button"
                 onClick={handleClear}
                 disabled={graph.nodes.length === 0}
-                className="rail-pill matte inline-flex rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
+                className="rail-pill glass-flat inline-flex rounded-full px-3 font-mono text-[10px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
               >
                 Clear
               </button>
@@ -476,10 +529,11 @@ export default function CodeCanvasPage() {
         </div>
 
         <div className="pointer-events-auto mb-1.5 ml-auto flex flex-wrap items-center justify-end gap-1.5 xl:gap-2">
-          <span className="rail-pill matte hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
+          <span className="rail-pill glass-flat hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
             Scroll to zoom · Drag to pan
           </span>
-          <div className="rail-pill matte flex gap-2 rounded-full px-3">
+          <EdgeStyleControl value={edgeStyle} onChange={handleEdgeStyle} className="hidden lg:flex" />
+          <div className="rail-pill glass-flat flex gap-2 rounded-full px-3">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Zoom</span>
             <span className="w-9 shrink-0 font-mono text-[11px] font-medium text-[var(--text-primary)]">
               {Math.round(zoom * 100)}%
@@ -489,14 +543,14 @@ export default function CodeCanvasPage() {
             type="button"
             onClick={() => canvasRef.current?.fitToGraph()}
             disabled={graph.nodes.length === 0}
-            className="rail-pill matte inline-flex rounded-full px-3 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
+            className="rail-pill glass-flat inline-flex rounded-full px-3 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)] disabled:opacity-40"
           >
             Fit
           </button>
           <button
             type="button"
             onClick={() => canvasRef.current?.resetView()}
-            className="rail-pill matte inline-flex rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
+            className="rail-pill glass-flat inline-flex rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
           >
             Reset view
           </button>

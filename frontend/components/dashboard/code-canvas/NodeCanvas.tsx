@@ -23,6 +23,7 @@ import {
   type CanvasNode,
   type PortSpec,
 } from "@/lib/code-canvas/graph";
+import type { EdgeStyle } from "@/lib/edge-style";
 
 /** Matches InfiniteCanvas so the two workspaces zoom with the same feel. */
 const MIN_SCALE = 0.3;
@@ -31,6 +32,15 @@ const BASE_STEP = 28;
 /** Right-hand space the code pane occupies, so "reset view" frames the
  * graph in the gap the user can actually see rather than under the panel. */
 const DEFAULT_RIGHT_INSET = 560;
+/** Left-hand space the block palette occupies (200px wide at left-2, plus
+ * a little air). The palette only covers the lower part of that column, so
+ * reserving the whole strip is deliberately conservative — a block half
+ * behind the palette is as good as invisible, and losing a bit of usable
+ * width costs nothing when the alternative is a node the user can't see. */
+const DEFAULT_LEFT_INSET = 216;
+/** Breathing room between a spawned block and the edge of the visible
+ * area, so "just inside the viewport" doesn't mean "flush against it". */
+const SPAWN_MARGIN = 24;
 
 export type Selection = { type: "node" | "edge"; id: string } | null;
 
@@ -44,6 +54,15 @@ export type NodeCanvasHandle = {
   /** Where a palette click should drop a new node: the middle of the
    * visible (un-covered) area, in world space. */
   viewportCenter: (rightInset?: number) => { x: number; y: number };
+  /** The visible, un-covered area in world space, inset by a margin — the
+   * box a newly spawned block must land inside. Everything outside this is
+   * either off-screen or underneath the palette or the code pane. */
+  viewportBounds: (rightInset?: number) => {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  };
 };
 
 type View = { x: number; y: number; scale: number };
@@ -53,6 +72,12 @@ type Props = {
   selection: Selection;
   rightInset?: number;
   topInset?: number;
+  /** How wires are routed — see lib/edge-style.ts. */
+  edgeStyle?: EdgeStyle;
+  /** The node that was just added, so it can play its entrance. Only ever
+   * one: an id that has already animated stays here harmlessly, since a
+   * CSS animation runs on mount and a re-render doesn't restart it. */
+  spawnedId?: string | null;
   onSelect: (selection: Selection) => void;
   onNodeMove: (id: string, x: number, y: number) => void;
   onFieldChange: (id: string, field: string, value: string) => void;
@@ -72,6 +97,7 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
     selection,
     rightInset = DEFAULT_RIGHT_INSET,
     topInset = 0,
+    edgeStyle = "curved",
     onSelect,
     onNodeMove,
     onFieldChange,
@@ -79,6 +105,7 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
     onDeleteNode,
     onDeleteEdge,
     dropping = false,
+    spawnedId = null,
     onZoomChange,
     onRejectConnection,
   },
@@ -182,6 +209,30 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
     [rightInset, topInset],
   );
 
+  const viewportBounds = useCallback(
+    (inset = rightInset) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      const width = rect?.width ?? window.innerWidth;
+      const height = rect?.height ?? window.innerHeight;
+      const { x, y, scale } = view.current;
+      // Screen-space edges of the area the user can actually see into,
+      // then the same inverse transform screenToWorld uses. The margin is
+      // applied in screen pixels before the divide, so it stays a constant
+      // visual gap rather than shrinking as you zoom in.
+      const left = DEFAULT_LEFT_INSET + SPAWN_MARGIN;
+      const right = Math.max(left + 240, width - inset - SPAWN_MARGIN);
+      const top = topInset + SPAWN_MARGIN;
+      const bottom = Math.max(top + 160, height - SPAWN_MARGIN);
+      return {
+        minX: (left - x) / scale,
+        maxX: (right - x) / scale,
+        minY: (top - y) / scale,
+        maxY: (bottom - y) / scale,
+      };
+    },
+    [rightInset, topInset],
+  );
+
   const frame = useCallback(
     (bounds: { minX: number; minY: number; maxX: number; maxY: number } | null) => {
       const rect = containerRef.current?.getBoundingClientRect();
@@ -236,8 +287,9 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
       fitToGraph: () => frame(graphBounds()),
       screenToWorld,
       viewportCenter,
+      viewportBounds,
     }),
-    [frame, graphBounds, screenToWorld, viewportCenter],
+    [frame, graphBounds, screenToWorld, viewportCenter, viewportBounds],
   );
 
   useEffect(() => {
@@ -474,14 +526,14 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
       const b = portPosition(to, toPort);
       drawn.push({
         edge,
-        d: wirePath(a, fromPort.side, b, toPort.side),
-        mid: wireMidpoint(a, fromPort.side, b, toPort.side),
+        d: wirePath(a, fromPort.side, b, toPort.side, edgeStyle),
+        mid: wireMidpoint(a, fromPort.side, b, toPort.side, edgeStyle),
         color: NODE_TYPES[from.kind].accent,
         label: fromPort.label,
       });
     }
     return drawn;
-  }, [graph.edges, nodeById]);
+  }, [graph.edges, nodeById, edgeStyle]);
 
   const pendingWire = useMemo(() => {
     if (!pending) return null;
@@ -491,10 +543,10 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
     if (!port) return null;
     const a = portPosition(node, port);
     return {
-      d: wirePath(a, port.side, { x: pending.x, y: pending.y }, "left"),
+      d: wirePath(a, port.side, { x: pending.x, y: pending.y }, "left", edgeStyle),
       color: NODE_TYPES[node.kind].accent,
     };
-  }, [nodeById, pending]);
+  }, [nodeById, pending, edgeStyle]);
 
   return (
     <div
@@ -556,9 +608,24 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
                   stroke={color}
                   strokeWidth={active ? 2.6 : 1.8}
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                   markerEnd="url(#lattice-wire-arrow)"
                   opacity={active ? 1 : 0.75}
                   style={{ transition: "stroke-width 120ms ease-out, opacity 120ms ease-out" }}
+                />
+                {/* The dash that travels the wire, showing which way the
+                  * data actually flows rather than only which end the
+                  * arrow is on. Same `d` as the line under it, so it can
+                  * never drift off the wire it belongs to. */}
+                <path
+                  className="wire-flow"
+                  d={d}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={active ? 3.2 : 2.4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  pointerEvents="none"
                 />
                 {active && (
                   <g
@@ -607,6 +674,7 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
             key={node.id}
             node={node}
             selected={selection?.type === "node" && selection.id === node.id}
+            spawned={node.id === spawnedId}
             wiring={!!pending}
             highlighted={pending?.overNodeId === node.id}
             onPointerDown={handleNodePointerDown}
@@ -627,6 +695,7 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
 const NodeCard = memo(function NodeCard({
   node,
   selected,
+  spawned,
   wiring,
   highlighted,
   onPointerDown,
@@ -636,6 +705,8 @@ const NodeCard = memo(function NodeCard({
 }: {
   node: CanvasNode;
   selected: boolean;
+  /** Just added from the palette — plays the arrival animation once. */
+  spawned: boolean;
   wiring: boolean;
   highlighted: boolean;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>, node: CanvasNode) => void;
@@ -650,20 +721,33 @@ const NodeCard = memo(function NodeCard({
   return (
     <div
       onPointerDown={(e) => onPointerDown(e, node)}
-      className="group absolute select-none rounded-xl"
+      className={`group glass-flat absolute select-none rounded-xl${spawned ? " node-spawn" : ""}`}
       style={{
+        // Restated inline because `.glass-flat` carries `position: relative`
+        // and is emitted after Tailwind's own utilities in the same layer,
+        // so it beats `absolute` on source order (see the positioning
+        // caveat in globals.css). Without this the node lays out in normal
+        // flow and *then* shifts by left/top, drifting away from the
+        // (node.x, node.y) the wire router draws to.
+        position: "absolute",
         left: node.x,
         top: node.y,
         width,
         height,
         cursor: "grab",
-        background: "var(--bg-surface)",
-        border: `1px solid ${selected ? spec.accent : "var(--hairline)"}`,
+        // `.glass-flat` owns the fill, the border width and the whole
+        // shadow stack; only the two things that vary per node are set
+        // here. `borderColor` rather than `border` on purpose — the
+        // shorthand would reset the width and style the material set.
+        borderColor: selected ? spec.accent : undefined,
+        // Selection and wiring rings stack *in front of* the material
+        // rather than replacing it, which is what keeps the specular rim
+        // and the seat shadow on a node while it is selected.
         boxShadow: selected
-          ? `0 0 0 1px ${spec.accent}, 0 18px 40px -20px rgba(0,0,0,0.9)`
+          ? `0 0 0 1px ${spec.accent}, 0 18px 40px -20px rgba(0,0,0,0.9), var(--glass-flat-shadow)`
           : highlighted
-            ? `0 0 0 2px ${spec.accent}`
-            : "0 14px 32px -22px rgba(0,0,0,0.85)",
+            ? `0 0 0 2px ${spec.accent}, var(--glass-flat-shadow)`
+            : undefined,
         opacity: wiring && !canAccept ? 0.55 : 1,
         transition: "box-shadow 140ms ease-out, opacity 140ms ease-out",
       }}

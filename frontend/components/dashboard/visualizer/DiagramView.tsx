@@ -9,7 +9,7 @@ import {
   type MotionValue,
 } from "framer-motion";
 import type { Diagram, DiagramNode } from "@/lib/shape-detection";
-import { edgePath, type EdgeStyle } from "@/lib/visualizer/edge-style";
+import { circleEdgePath, type EdgeStyle } from "@/lib/edge-style";
 
 const NODE_RADIUS = 22;
 const MAX_LABEL_LENGTH = 6;
@@ -305,7 +305,7 @@ function DiagramEdgeView({
   edgeStyle: EdgeStyle;
 }) {
   const d = useTransform([from.cx, from.cy, to.cx, to.cy], ([x1, y1, x2, y2]: number[]) =>
-    edgePath({ x: x1, y: y1 }, { x: x2, y: y2 }, edgeStyle, NODE_RADIUS),
+    circleEdgePath({ x: x1, y: y1 }, { x: x2, y: y2 }, edgeStyle, NODE_RADIUS),
   );
 
   return (
