@@ -38,6 +38,11 @@ const DEFAULT_RIGHT_INSET = 560;
  * behind the palette is as good as invisible, and losing a bit of usable
  * width costs nothing when the alternative is a node the user can't see. */
 const DEFAULT_LEFT_INSET = 216;
+/** Share of the header band in which canvas content is hidden outright.
+ * Below it the content ramps back to fully drawn by the bottom of the
+ * band, so a block sliding up under the header dissolves rather than
+ * disappearing at a hard line. */
+const HEADER_FADE_SOLID = 0.5;
 /** Breathing room between a spawned block and the edge of the visible
  * area, so "just inside the viewport" doesn't mean "flush against it". */
 const SPAWN_MARGIN = 24;
@@ -548,6 +553,23 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
     };
   }, [nodeById, pending, edgeStyle]);
 
+  // The header floats over the canvas with nothing behind it, so a block
+  // that drifts up underneath it competes with the title and the pills for
+  // the same pixels. Rather than give the header a panel of its own — which
+  // would cost the canvas that strip permanently — the canvas fades its own
+  // contents out inside the band the header occupies. Blocks stay where they
+  // are and stay draggable; they just stop being painted over the text.
+  const headerFade = useMemo(() => {
+    if (topInset <= 0) return undefined;
+    const solid = Math.round(topInset * HEADER_FADE_SOLID);
+    const mid = Math.round(solid + (topInset - solid) / 2);
+    return (
+      "linear-gradient(to bottom," +
+      ` transparent 0px, transparent ${solid}px,` +
+      ` rgba(0,0,0,0.4) ${mid}px, #000 ${topInset}px)`
+    );
+  }, [topInset]);
+
   return (
     <div
       ref={containerRef}
@@ -562,127 +584,137 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
         <div className="pointer-events-none absolute inset-3 rounded-3xl border-2 border-dashed border-[var(--accent-primary)]/60" />
       )}
 
+      {/* Un-transformed, so the fade stays pinned to the header rather than
+        * panning and scaling with the graph underneath it. Transparent to
+        * the pointer, since it covers the whole canvas and a press on empty
+        * space has to reach the container to pan and to clear the selection;
+        * the layer below turns hit-testing back on for the graph itself. */}
       <div
-        ref={worldRef}
-        className="absolute left-0 top-0"
-        style={{ transformOrigin: "0 0", willChange: "transform" }}
+        className="pointer-events-none absolute inset-0"
+        style={{ maskImage: headerFade, WebkitMaskImage: headerFade }}
       >
-        <svg
-          width="1"
-          height="1"
-          className="absolute left-0 top-0"
-          style={{ overflow: "visible", pointerEvents: "none" }}
+        <div
+          ref={worldRef}
+          className="pointer-events-auto absolute left-0 top-0"
+          style={{ transformOrigin: "0 0", willChange: "transform" }}
         >
-          <defs>
-            <marker
-              id="lattice-wire-arrow"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="5"
-              markerHeight="5"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
-            </marker>
-          </defs>
+          <svg
+            width="1"
+            height="1"
+            className="absolute left-0 top-0"
+            style={{ overflow: "visible", pointerEvents: "none" }}
+          >
+            <defs>
+              <marker
+                id="lattice-wire-arrow"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="5"
+                markerHeight="5"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
+              </marker>
+            </defs>
 
-          {wires.map(({ edge, d, mid, color, label }) => {
-            const active = selection?.type === "edge" && selection.id === edge.id;
-            return (
-              <g key={edge.id}>
-                <path
-                  d={d}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={18}
-                  style={{ pointerEvents: "stroke", cursor: "pointer" }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    onSelect({ type: "edge", id: edge.id });
-                  }}
-                />
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={active ? 2.6 : 1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  markerEnd="url(#lattice-wire-arrow)"
-                  opacity={active ? 1 : 0.75}
-                  style={{ transition: "stroke-width 120ms ease-out, opacity 120ms ease-out" }}
-                />
-                {/* The dash that travels the wire, showing which way the
-                  * data actually flows rather than only which end the
-                  * arrow is on. Same `d` as the line under it, so it can
-                  * never drift off the wire it belongs to. */}
-                <path
-                  className="wire-flow"
-                  d={d}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={active ? 3.2 : 2.4}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  pointerEvents="none"
-                />
-                {active && (
-                  <g
-                    transform={`translate(${mid.x}, ${mid.y})`}
-                    style={{ pointerEvents: "auto", cursor: "pointer" }}
+            {wires.map(({ edge, d, mid, color, label }) => {
+              const active = selection?.type === "edge" && selection.id === edge.id;
+              return (
+                <g key={edge.id}>
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={18}
+                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
                     onPointerDown={(e) => {
                       e.stopPropagation();
-                      onDeleteEdge(edge.id);
+                      onSelect({ type: "edge", id: edge.id });
                     }}
-                  >
-                    <text
-                      y={-14}
-                      textAnchor="middle"
-                      fill="var(--text-secondary)"
-                      style={{ font: "500 10px var(--font-geist-mono), monospace", letterSpacing: "0.08em" }}
+                  />
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={active ? 2.6 : 1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    markerEnd="url(#lattice-wire-arrow)"
+                    opacity={active ? 1 : 0.75}
+                    style={{ transition: "stroke-width 120ms ease-out, opacity 120ms ease-out" }}
+                  />
+                  {/* The dash that travels the wire, showing which way the
+                    * data actually flows rather than only which end the
+                    * arrow is on. Same `d` as the line under it, so it can
+                    * never drift off the wire it belongs to. */}
+                  <path
+                    className="wire-flow"
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={active ? 3.2 : 2.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    pointerEvents="none"
+                  />
+                  {active && (
+                    <g
+                      transform={`translate(${mid.x}, ${mid.y})`}
+                      style={{ pointerEvents: "auto", cursor: "pointer" }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        onDeleteEdge(edge.id);
+                      }}
                     >
-                      {label.toUpperCase()}
-                    </text>
-                    <circle r={9} fill="var(--bg-elevated)" stroke={color} strokeWidth={1.2} />
-                    <path
-                      d="M -3 -3 L 3 3 M 3 -3 L -3 3"
-                      stroke="var(--text-primary)"
-                      strokeWidth={1.6}
-                      strokeLinecap="round"
-                    />
-                  </g>
-                )}
-              </g>
-            );
-          })}
+                      <text
+                        y={-14}
+                        textAnchor="middle"
+                        fill="var(--text-secondary)"
+                        style={{ font: "500 10px var(--font-geist-mono), monospace", letterSpacing: "0.08em" }}
+                      >
+                        {label.toUpperCase()}
+                      </text>
+                      <circle r={9} fill="var(--bg-elevated)" stroke={color} strokeWidth={1.2} />
+                      <path
+                        d="M -3 -3 L 3 3 M 3 -3 L -3 3"
+                        stroke="var(--text-primary)"
+                        strokeWidth={1.6}
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  )}
+                </g>
+              );
+            })}
 
-          {pendingWire && (
-            <path
-              d={pendingWire.d}
-              fill="none"
-              stroke={pendingWire.color}
-              strokeWidth={2}
-              strokeDasharray="6 5"
-              strokeLinecap="round"
+            {pendingWire && (
+              <path
+                d={pendingWire.d}
+                fill="none"
+                stroke={pendingWire.color}
+                strokeWidth={2}
+                strokeDasharray="6 5"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+
+          {graph.nodes.map((node) => (
+            <NodeCard
+              key={node.id}
+              node={node}
+              selected={selection?.type === "node" && selection.id === node.id}
+              spawned={node.id === spawnedId}
+              wiring={!!pending}
+              highlighted={pending?.overNodeId === node.id}
+              onPointerDown={handleNodePointerDown}
+              onPortPointerDown={handlePortPointerDown}
+              onFieldChange={onFieldChange}
+              onDelete={onDeleteNode}
             />
-          )}
-        </svg>
-
-        {graph.nodes.map((node) => (
-          <NodeCard
-            key={node.id}
-            node={node}
-            selected={selection?.type === "node" && selection.id === node.id}
-            spawned={node.id === spawnedId}
-            wiring={!!pending}
-            highlighted={pending?.overNodeId === node.id}
-            onPointerDown={handleNodePointerDown}
-            onPortPointerDown={handlePortPointerDown}
-            onFieldChange={onFieldChange}
-            onDelete={onDeleteNode}
-          />
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
