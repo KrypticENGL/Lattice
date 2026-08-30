@@ -38,11 +38,12 @@ const DEFAULT_RIGHT_INSET = 560;
  * behind the palette is as good as invisible, and losing a bit of usable
  * width costs nothing when the alternative is a node the user can't see. */
 const DEFAULT_LEFT_INSET = 216;
-/** Share of the header band in which canvas content is hidden outright.
- * Below it the content ramps back to fully drawn by the bottom of the
- * band, so a block sliding up under the header dissolves rather than
- * disappearing at a hard line. */
-const HEADER_FADE_SOLID = 0.5;
+/** How far below the header the canvas takes to come back to fully drawn.
+ * The band itself is hidden outright — the pills sit at its bottom edge,
+ * so anything still half-painted there is exactly what makes them hard to
+ * read — and this is the run-off underneath, long enough that a block
+ * sliding up into it dissolves rather than meeting a hard line. */
+const HEADER_FADE_LENGTH = 72;
 /** Breathing room between a spawned block and the edge of the visible
  * area, so "just inside the viewport" doesn't mean "flush against it". */
 const SPAWN_MARGIN = 24;
@@ -561,12 +562,15 @@ export default forwardRef<NodeCanvasHandle, Props>(function NodeCanvas(
   // are and stay draggable; they just stop being painted over the text.
   const headerFade = useMemo(() => {
     if (topInset <= 0) return undefined;
-    const solid = Math.round(topInset * HEADER_FADE_SOLID);
-    const mid = Math.round(solid + (topInset - solid) / 2);
+    const mid = Math.round(topInset + HEADER_FADE_LENGTH / 2);
+    const end = topInset + HEADER_FADE_LENGTH;
+    // The middle stop bends the ramp: a plain two-stop gradient reads as a
+    // visible grey edge sweeping down the block, where this lets it come
+    // back slowly and then commit.
     return (
       "linear-gradient(to bottom," +
-      ` transparent 0px, transparent ${solid}px,` +
-      ` rgba(0,0,0,0.4) ${mid}px, #000 ${topInset}px)`
+      ` transparent 0px, transparent ${topInset}px,` +
+      ` rgba(0,0,0,0.35) ${mid}px, #000 ${end}px)`
     );
   }, [topInset]);
 
