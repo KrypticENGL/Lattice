@@ -286,6 +286,14 @@ input[type="search"]::-webkit-search-results-decoration {
    as a second panel: a thinner tint, a brighter top highlight to catch the
    edge, and a short sheen falling off over the bar's own height.
 
+   The tint is deliberately faint. What makes the bar read as Liquid Glass is
+   the optics, not the fill: a heavy blur with the saturation and brightness
+   pushed past the source (glass concentrates the light it bends), a bright
+   specular rim along the top edge, a darker one along the bottom where the
+   slab's thickness shadows itself, and a touch of the same brightening at
+   the left/right rims where a real edge would refract. Raise the tint and
+   all of that reads as paint instead.
+
    The blur is kept even though a `.glass` ancestor establishes a backdrop
    root (so this mostly resamples the panel's own sheen and noise rather than
    the page behind it) — it softens those layers under the toolbar, and it
@@ -293,10 +301,12 @@ input[type="search"]::-webkit-search-results-decoration {
 .glass-bar {
   position: relative;
   isolation: isolate;
-  background: color-mix(in srgb, var(--bg-elevated) 46%, transparent);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: color-mix(in srgb, var(--bg-elevated) 20%, transparent);
+  backdrop-filter: blur(24px) saturate(200%) brightness(1.18);
+  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
 }
 
 .glass-bar::after {
@@ -304,12 +314,40 @@ input[type="search"]::-webkit-search-results-decoration {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--text-primary) 9%, transparent),
-    transparent 70%
-  );
+  background:
+    /* Specular bloom hanging off the top rim, gone by mid-bar. */
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0.03) 40%,
+      transparent 72%
+    ),
+    /* Refraction at the two side rims, so the strip has visible thickness. */
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.06),
+      transparent 10%,
+      transparent 90%,
+      rgba(255, 255, 255, 0.045)
+    ),
+    /* The last of the tint, kept only so the label holds its contrast. */
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--text-primary) 6%, transparent),
+      transparent 78%
+    );
   pointer-events: none;
+}
+
+/* The code surface of an editor sitting inside a `.glass` panel. Monaco
+   paints no background of its own (see lib/monaco-theme.ts), so this is the
+   only layer between the code and the panel's frost — thin enough that the
+   canvas still moves behind the text, opaque enough that the syntax colours
+   hold their contrast over it. Editors on an opaque shell (Code-Canvas's
+   `.matte` pane, the simulator's column) keep a solid `--bg-surface` fill on
+   their wrapper instead and are unaffected. */
+.glass-editor {
+  background: color-mix(in srgb, var(--bg-surface) 38%, transparent);
 }
 
 /* Positioning caveat for every material class below (and `.glass` above).

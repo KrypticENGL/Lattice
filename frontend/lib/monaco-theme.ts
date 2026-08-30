@@ -25,7 +25,14 @@ export function defineLatticeTheme(monaco: typeof Monaco) {
       { token: "number", foreground: "fbbf24" },
     ],
     colors: {
-      "editor.background": "#161b22",
+      // Fully transparent, so the *container* owns the fill rather than
+      // Monaco. Editors on an opaque shell restate `--bg-surface` on their
+      // wrapper and look exactly as they did; the Visualizer's floating
+      // editor uses `.glass-editor` instead and lets the panel's frost —
+      // and the canvas behind it — read through the code.
+      // Widget colours below stay opaque on purpose: the suggest popup has
+      // to be readable over whatever it covers.
+      "editor.background": "#00000000",
       "editor.foreground": "#e6edf3",
       "editorLineNumber.foreground": "#7d859080",
       "editorLineNumber.activeForeground": "#e6edf3",

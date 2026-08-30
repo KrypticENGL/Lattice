@@ -18,7 +18,7 @@ import { registerLatticeCompletions } from "@/lib/monaco-completions";
 const Editor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[var(--bg-surface)] font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+    <div className="glass-editor flex h-full w-full items-center justify-center font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
       Loading editor…
     </div>
   ),
@@ -1161,7 +1161,7 @@ export default function FloatingEditor({
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 bg-[var(--bg-surface)]">
+        <div className="glass-editor relative min-h-0 flex-1">
           <Editor
             height="100%"
             language={language}
@@ -1205,7 +1205,7 @@ export default function FloatingEditor({
               lineDecorationsWidth: 18,
             }}
             loading={
-              <div className="flex h-full w-full items-center justify-center bg-[var(--bg-surface)] font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+              <div className="glass-editor flex h-full w-full items-center justify-center font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
                 Loading editor…
               </div>
             }
