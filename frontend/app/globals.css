@@ -120,6 +120,19 @@ body {
   color: var(--text-primary);
 }
 
+/* `type="search"` inputs, stripped back to a plain field.
+   WebKit draws its own clear button inside the input — a second, unstyled
+   affordance sitting next to the one the search pill draws itself, in a
+   shape that belongs to the browser rather than to this chrome. The
+   inner spin/decoration boxes go for the same reason. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Hide scrollbars everywhere while keeping scroll functional */
 .scrollbar-hide {
   scrollbar-width: none;

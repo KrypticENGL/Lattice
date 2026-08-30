@@ -138,59 +138,6 @@ export type NotificationItem = {
   time: string;
 };
 
-export type SavedPost = {
-  id: string;
-  title: string;
-  excerpt: string;
-  author: string;
-  readTime: string;
-  savedAt: string;
-  accent: string;
-};
-
-export const SAVED_POSTS: SavedPost[] = [
-  {
-    id: "sp1",
-    title: "Debugging cyclic references in a linked list",
-    excerpt:
-      "Floyd's cycle detection isn't just an interview trick — here's how it saved me three hours chasing a phantom bug in production.",
-    author: "Priya N.",
-    readTime: "6 min read",
-    savedAt: "2 days ago",
-    accent: "var(--accent-secondary)",
-  },
-  {
-    id: "sp2",
-    title: "Why does my BST rotation break the invariant?",
-    excerpt:
-      "The parent pointer is the part everyone forgets. A step-by-step trace of a single left rotation that finally made it click.",
-    author: "Marcus O.",
-    readTime: "4 min read",
-    savedAt: "4 days ago",
-    accent: "#c2703d",
-  },
-  {
-    id: "sp3",
-    title: "Visualizing Dijkstra without a priority queue",
-    excerpt:
-      "Same algorithm, dumber data structure — walking through the O(V^2) array version to build intuition before optimizing.",
-    author: "Elena V.",
-    readTime: "8 min read",
-    savedAt: "1 week ago",
-    accent: "#e8993d",
-  },
-  {
-    id: "sp4",
-    title: "Ring buffer wrap-around explained",
-    excerpt:
-      "Modulo indexing, drawn out node by node, so the wrap-around stops feeling like magic.",
-    author: "Diego R.",
-    readTime: "5 min read",
-    savedAt: "2 weeks ago",
-    accent: "var(--accent-primary)",
-  },
-];
-
 export const NOTIFICATIONS: NotificationItem[] = [
   {
     id: "n1",

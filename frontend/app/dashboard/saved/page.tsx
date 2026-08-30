@@ -1,9 +1,9 @@
-import SavedPostsGrid from "@/components/dashboard/SavedPostsGrid";
+import SavedPosts from "@/components/dashboard/posts/SavedPosts";
 
 export default function SavedPage() {
   return (
     <div className="mx-auto flex min-h-full max-w-6xl flex-col gap-5">
-      <div>
+      <div className="mx-auto w-full max-w-2xl">
         <span className="font-mono text-[13px] uppercase tracking-[0.2em] text-[var(--text-secondary)]">
           Saved
         </span>
@@ -15,7 +15,7 @@ export default function SavedPage() {
         </p>
       </div>
 
-      <SavedPostsGrid />
+      <SavedPosts />
     </div>
   );
 }
