@@ -10,6 +10,8 @@ import Tutorial, { TUTORIAL_STORAGE_KEY } from "@/components/dashboard/code-canv
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
 import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
 import EdgeStyleControl from "@/components/dashboard/EdgeStyleControl";
+import LatticeFileControls from "@/components/dashboard/code-canvas/LatticeFileControls";
+import type { LatticeFile } from "@/lib/lattice-file/format";
 import { useEdgeStyle } from "@/lib/use-edge-style";
 import {
   connect,
@@ -336,6 +338,20 @@ export default function CodeCanvasPage() {
     setSelection(null);
   }, []);
 
+  /** Bumped when a whole graph is swapped in from a `.lattice` file, so
+   * the view can be framed around it. Not called inline at the click:
+   * `fitToGraph` measures the blocks that are actually rendered, and at
+   * that moment those are still the outgoing graph's. Bumping a counter
+   * and fitting from an effect runs it after React has committed the new
+   * ones. */
+  const [fitRequest, setFitRequest] = useState(0);
+
+  useEffect(() => {
+    if (fitRequest === 0) return;
+    canvasRef.current?.fitToGraph();
+  }, [fitRequest]);
+
+
   // Delete/Backspace removes whatever is selected — but never while a node's
   // own value field has focus, where those keys mean "edit text".
   useEffect(() => {
@@ -441,6 +457,25 @@ export default function CodeCanvasPage() {
     },
     [graphId, getToken],
   );
+  const handleImportLattice = useCallback(
+    (file: LatticeFile) => {
+      setGraph(file.graph);
+      setSelection(null);
+      // The file's name comes with it, and renaming goes through the same
+      // path the name field uses so the change is persisted rather than
+      // living only on screen until the next load.
+      handleRenameGraph(file.name);
+      setFitRequest((n) => n + 1);
+    },
+    [handleRenameGraph],
+  );
+
+  /** What `Export` writes as the file's code half: whatever the graph
+   * generates right now, notes included. */
+  const latticeCode = useMemo(
+    () => ({ language: "cpp" as const, source: generated.code, notes: generated.notes }),
+    [generated],
+  );
 
   // The user's chosen pane width, capped by whatever the workspace can
   // actually spare next to the palette. Zero means "not measured yet", in
@@ -524,6 +559,13 @@ export default function CodeCanvasPage() {
               >
                 Clear
               </button>
+              <LatticeFileControls
+                name={graphName ?? "Untitled canvas"}
+                graph={graph}
+                code={latticeCode}
+                onImport={handleImportLattice}
+                onNotify={flash}
+              />
             </div>
           </div>
         </div>
