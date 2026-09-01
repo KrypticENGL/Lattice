@@ -41,6 +41,18 @@ export function defineLatticeTheme(monaco: typeof Monaco) {
       "editorCursor.foreground": "#00e5ff",
       "editor.lineHighlightBackground": "#21262d80",
       "editorIndentGuide.background": "#7d859026",
+      // Monaco outlines whatever it considers focused with this colour,
+      // and `vs-dark` leaves it VS Code blue (#007fd4) — which is the one
+      // colour on screen that belongs to no part of this palette. It goes
+      // unnoticed in ordinary editing (the outline sits on elements that
+      // rarely take focus) and then Vim mode, which drives focus through
+      // the container rather than the hidden textarea, paints a blue box
+      // around the whole editor. Set to the same hairline the panels are
+      // drawn with, so a focus ring reads as one more edge of the chrome
+      // rather than as an alert. `#00000000` here would remove the ring
+      // outright — deliberately not that, because it is the only focus
+      // affordance a keyboard user gets on some of these widgets.
+      focusBorder: "#e6edf31f",
       "editorWidget.background": "#21262d",
       "editorWidget.border": "#7d859033",
       "editorSuggestWidget.background": "#21262d",

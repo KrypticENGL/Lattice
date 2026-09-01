@@ -163,7 +163,7 @@ pub async fn execute(
         }
     }
 
-    let config = match req.language.as_str() {
+    let mut config = match req.language.as_str() {
         "cpp" | "c++" => SandboxConfig::cpp(),
         other => {
             return bad_request(&format!(
@@ -171,6 +171,7 @@ pub async fn execute(
             ));
         }
     };
+    config.emit_all_steps = req.full_steps;
 
     let Some(docker_arc) = state.docker.clone() else {
         return (

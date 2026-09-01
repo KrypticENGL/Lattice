@@ -45,6 +45,10 @@ pub struct SandboxConfig {
     /// resource-monitor endpoint uses to compute a user's total memory
     /// quota.
     pub memory_bytes: i64,
+    /// Hand the tracer `LATTICE_EMIT_ALL_STEPS=1`, dropping its
+    /// heap-changed filter so every stepped line is emitted. See
+    /// `ExecuteRequest::full_steps` for why a caller would want that.
+    pub emit_all_steps: bool,
 }
 
 impl SandboxConfig {
@@ -57,6 +61,9 @@ impl SandboxConfig {
             output_byte_cap: 5 * 1024 * 1024,
             cpu_nano_cpus: 500_000_000,        // 0.5 CPU
             memory_bytes: 256 * 1024 * 1024,   // 256 MB
+            // Off by default: the filtered stream is the one the
+            // Visualizer wants, and it is much the smaller of the two.
+            emit_all_steps: false,
         }
     }
 
@@ -158,6 +165,12 @@ pub async fn run_cpp_trace(
     let body = ContainerCreateBody {
         image: Some(config.image.clone()),
         user: Some("1000:1000".to_string()),
+        // Read by gdb_hook.py. Passed as an env var rather than a CLI flag
+        // to match how the tracer already reads it (and how its own tests
+        // set it), so nothing inside the image has to change.
+        env: config
+            .emit_all_steps
+            .then(|| vec!["LATTICE_EMIT_ALL_STEPS=1".to_string()]),
         attach_stdin: Some(true),
         attach_stdout: Some(true),
         attach_stderr: Some(true),

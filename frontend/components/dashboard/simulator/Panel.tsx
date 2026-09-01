@@ -13,6 +13,7 @@ export default function Panel({
   label,
   hint,
   accessory,
+  overlay,
   children,
   className = "",
 }: {
@@ -21,6 +22,14 @@ export default function Panel({
   hint?: ReactNode;
   /** Full-width row under the header — a scope switcher, a legend. */
   accessory?: ReactNode;
+  /** A layer painted over the whole card, header included — for a panel
+   * that needs to signal something about itself rather than about one row
+   * in it. Rendered last and clipped by the card's own radius; give it
+   * `pointer-events-none` unless it is meant to be clicked. Kept as a slot
+   * here rather than left to callers because `.glass` already spends both
+   * of its pseudo-elements (noise, sheen), so there is nowhere else to put
+   * one without fighting the material. */
+  overlay?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -34,6 +43,7 @@ export default function Panel({
       </div>
       {accessory}
       <div className="scrollbar-thin min-h-0 flex-1 overflow-auto">{children}</div>
+      {overlay}
     </div>
   );
 }

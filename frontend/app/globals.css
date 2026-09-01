@@ -545,6 +545,53 @@ input[type="search"]::-webkit-search-results-decoration {
   }
 }
 
+/* The Simulator runs to both edges, on the canvas workspaces' terms.
+   ------------------------------------------------------------------
+   `main`'s gutters are sized for a document: the left one clears the rail
+   *expanded* so nothing is ever covered, and the right one mirrors it so
+   the page sits centred in its frame. Neither is what this page wants. It
+   is four panels that should reach the frame, and 208px of
+   guaranteed-empty inset on each side is the difference between the
+   memory diagram having room for a pointer chain and not.
+
+   So it takes the canvas workspaces' deal instead. The right gutter goes
+   entirely, landing that edge 24px from the screen — the shell's own
+   `p-6`, and the same edge the Visualizer's canvas runs to. The left one
+   drops to clearing the rail *collapsed*, which is only safe because the
+   page opts into `.shifts-with-sidebar` for the other half of that
+   bargain: an expanding rail pushes the whole column aside rather than
+   sliding over the editor.
+
+   84px, not the 68px the canvas workspaces use: 60px of rail plus the
+   same 24px the shell already leaves on the right. `main`'s box starts at
+   the rail's own left edge, so the rail eats the first 60px of this
+   padding and what is left over is the visible gap — which makes the
+   panels sit 24px clear of the rail and 24px clear of the right edge of
+   the screen. The canvases can afford the tighter 68px because their
+   left-hand chrome floats over a surface that is happy to be crowded;
+   these are four hard-edged cards, and an 8px gutter on one side against
+   24px on the other reads as a mistake rather than as a tighter fit.
+
+   The hover shift is unaffected: `.shifts-with-sidebar` adds exactly the
+   rail's growth (132px), so the 24px gap survives the rail opening.
+
+   That shift costs a reflow the Visualizer's does not — there, only a
+   floating title block moves and the canvas underneath is happy to be
+   covered; here the whole grid narrows for the 300ms the rail is open,
+   and Monaco relays out with it. That is the price of the editor starting
+   at the rail instead of 208px away from it, and it is only paid while
+   someone is deliberately holding the pointer on the navigation.
+
+   Unlayered, so both declarations win over `main`'s Tailwind `wide:p*-*`
+   utilities regardless of specificity. Same query as the `wide` variant
+   those utilities use, so the padding never half-applies. */
+@media (min-width: 720px) and (min-height: 520px) {
+  main:has([data-workspace-full-width]) {
+    padding-left: 84px;
+    padding-right: 0;
+  }
+}
+
 /* Direction of travel, shown rather than merely indicated.
    ------------------------------------------------------------------
    An arrowhead says which way a pointer points; it does not say that
@@ -790,5 +837,58 @@ input[type="search"]::-webkit-search-results-decoration {
        rather than fading. Opacity has to be restated here: the base rule
        starts at 0 and relies on the animation to reveal it. */
     animation: lattice-skeleton-in 1ms linear 150ms forwards;
+  }
+}
+
+/* The Simulator's stdout card, flashed when the program prints.
+   ------------------------------------------------------------------
+   stdout is the smallest card on the page and the only one nobody is
+   looking at while it changes — the eye is on the code, or on the stack.
+   The flash is there to pull it over for one beat, not to decorate.
+
+   Painted by a dedicated overlay element rather than by animating the
+   card's own `background`. `.glass` spends both of its pseudo-elements
+   already (noise, sheen), and animating the card directly means naming
+   its resting colour in the 100% keyframe — which is a copy of a value
+   defined somewhere else, and pops the moment either one is edited. An
+   overlay that rests at `opacity: 0` has no resting colour to duplicate:
+   the animation ends where the element already lives, so the handoff is
+   exact no matter what the card underneath is made of.
+
+   The wash covers the transcript rather than sitting behind it. Fading
+   from 20% and gone inside half a second, it reads as the panel lighting
+   up rather than as the text changing colour, and putting it behind the
+   content would mean giving the content its own stacking context to sit
+   in — more machinery than a half-second tint is worth. */
+@keyframes lattice-stdout-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.stdout-flash-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  /* The resting state, and the state the animation lands back on. */
+  opacity: 0;
+}
+
+.stdout-flash {
+  animation: lattice-stdout-flash 480ms ease-out;
+}
+
+/* A flashing panel is the one thing someone with a motion sensitivity
+   would most want stopped, but the *notification* still has to land — so
+   it holds the lit state briefly and cuts, with no fade to track. */
+@media (prefers-reduced-motion: reduce) {
+  .stdout-flash {
+    animation: lattice-stdout-flash 480ms steps(2, jump-none);
   }
 }

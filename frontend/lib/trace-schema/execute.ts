@@ -13,12 +13,20 @@ export class ExecuteRequestError extends Error {}
  *
  * `canvasId`, when given, tells the backend to write this run's results
  * (trace, compile status) onto that canvas — see `lib/canvases.ts`.
+ *
+ * `fullSteps` asks for an event per stepped line instead of only the ones
+ * that change the heap. The Simulator wants it (its call-stack and locals
+ * panels change on precisely the steps the default filter drops — a
+ * recursion that never allocates otherwise arrives as one flat event); the
+ * Visualizer does not, because its diagram only redraws when the heap
+ * does. Off by default, so the bigger payload is opt-in.
  */
 export async function runTrace(
   language: string,
   source: string,
   token: string | null,
   canvasId?: string,
+  fullSteps = false,
 ): Promise<ExecuteResponse> {
   const res = await fetch("/api/execute", {
     method: "POST",
@@ -26,7 +34,7 @@ export async function runTrace(
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ language, source, canvas_id: canvasId }),
+    body: JSON.stringify({ language, source, canvas_id: canvasId, full_steps: fullSteps }),
   });
 
   const body = await res.json().catch(() => null);

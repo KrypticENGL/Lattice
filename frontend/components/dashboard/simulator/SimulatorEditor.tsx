@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { BeforeMount, OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
+import type { VimAdapterInstance } from "monaco-vim";
 import { defineLatticeTheme, LATTICE_THEME } from "@/lib/monaco-theme";
 import { registerLatticeCompletions } from "@/lib/monaco-completions";
-import { SIMULATOR_PROGRAMS } from "@/lib/simulator/programs";
 
 // Same reason as FloatingEditor and CodePane: monaco-editor touches
 // `window` at import time, so it can never be part of the server bundle.
@@ -23,6 +23,23 @@ function EditorLoading() {
   );
 }
 
+/** The buffer survives a reload the way the Visualizer's does. Its own key,
+ * not shared with `lattice:visualizer:code:cpp` — two editors on two pages
+ * that silently overwrote each other's work would be worse than neither
+ * persisting at all. */
+const STORAGE_KEY = "lattice:simulator:code:cpp";
+const SAVE_DEBOUNCE_MS = 500;
+
+/** An empty `main`, not a program. The Simulator traces whatever you write;
+ * seeding it with an algorithm would just be something to delete first. */
+const STARTER = `#include <cstdio>
+
+int main() {
+    
+    return 0;
+}
+`;
+
 const STATUS_COLOR: Record<string, string> = {
   idle: "var(--text-secondary)",
   running: "var(--accent-secondary)",
@@ -37,9 +54,9 @@ const STATUS_COLOR: Record<string, string> = {
  * Everything that makes that editor feel like this app is shared rather
  * than re-invented — `LATTICE_THEME` applied in `beforeMount` (never
  * `onMount`, which costs a painted frame of white), the `.glass` shell
- * with a `.glass-bar` toolbar, and the `lattice-active-line` decoration
- * set through a decorations *collection* so the highlight tracks the text
- * when lines are inserted above it.
+ * with a `.glass-bar` toolbar, the `lattice-active-line` decoration set
+ * through a decorations *collection* so the highlight tracks the text when
+ * lines are inserted above it, and Vim mode on the same Ctrl/Cmd+Shift+V.
  *
  * It is docked instead of draggable because there is a second column here
  * that must not be covered: on the Visualizer the editor floats over an
@@ -47,39 +64,51 @@ const STATUS_COLOR: Record<string, string> = {
  * of that applies to a fixed two-column reading layout.
  */
 export default function SimulatorEditor({
-  programId,
   source,
   onSourceChange,
-  onProgramChange,
   activeLine,
   status,
   statusLabel,
   stale,
+  error,
+  truncated,
   onRun,
-  onRestore,
-  console: consoleText,
 }: {
-  programId: string;
   source: string;
   onSourceChange: (source: string) => void;
-  onProgramChange: (id: string) => void;
   /** Line the current step just executed, or null for "nothing running". */
   activeLine: number | null;
   status: "idle" | "running" | "done" | "error";
   statusLabel: string;
-  /** The buffer has been edited away from the sample the trace was built
+  /** The buffer has been edited away from the source the trace was built
    * from, so the highlight would be pointing at the wrong statement. */
   stale: boolean;
+  /** Why the last run failed — a compiler diagnostic, or a request error. */
+  error: string | null;
+  /** The run hit the backend's step cap and stops early. */
+  truncated: boolean;
   onRun: () => void;
-  onRestore: () => void;
-  /** Everything the program has printed up to the current step. */
-  console: string;
 }) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof Monaco | null>(null);
   const decorationsRef = useRef<Monaco.editor.IEditorDecorationsCollection | null>(null);
+  const vimModeRef = useRef<VimAdapterInstance | null>(null);
+  const statusBarRef = useRef<HTMLDivElement>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editorReady, setEditorReady] = useState(false);
+  const [vimEnabled, setVimEnabled] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const handleToggleVim = useCallback(() => setVimEnabled((v) => !v), []);
+
+  // Monaco keybindings are registered once on mount, so they must reach
+  // their handlers through a ref — `onRun` gets a new identity on every
+  // keystroke (it closes over the source), and a command bound to the
+  // first one would run whatever was in the buffer at mount forever.
+  const handlersRef = useRef({ run: onRun, toggleVim: handleToggleVim });
+  useEffect(() => {
+    handlersRef.current = { run: onRun, toggleVim: handleToggleVim };
+  }, [onRun, handleToggleVim]);
 
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     defineLatticeTheme(monaco);
@@ -94,8 +123,82 @@ export default function SimulatorEditor({
     editorRef.current = editor;
     monacoRef.current = monaco;
     decorationsRef.current = editor.createDecorationsCollection([]);
+
+    // Hand the restored draft (or the starter) up immediately. The page
+    // owns `source` but the editor is uncontrolled, so without this the
+    // first Run before any keystroke would submit an empty buffer.
+    onSourceChange(editor.getValue());
+
+    // Registered on the editor, not on `window`: Monaco consumes keys
+    // aimed at it, so the page-level handler never sees this one.
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => handlersRef.current.run());
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyV,
+      () => handlersRef.current.toggleVim(),
+    );
+
     setEditorReady(true);
+  }, [onSourceChange]);
+
+  const handleChange = useCallback(
+    (value: string | undefined) => {
+      const code = value ?? "";
+      onSourceChange(code);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, code);
+        } catch {
+          // localStorage unavailable (private mode, quota) — persistence
+          // is a convenience, and the buffer on screen is unaffected.
+        }
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [onSourceChange],
+  );
+
+  // Flush the pending draft on the way out, so navigating away inside the
+  // debounce window doesn't lose the last half-second of typing.
+  useEffect(() => {
+    const flush = () => {
+      if (!saveTimerRef.current) return;
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      try {
+        const code = editorRef.current?.getValue();
+        if (code !== undefined) window.localStorage.setItem(STORAGE_KEY, code);
+      } catch {
+        // Best-effort, same as above.
+      }
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!editorReady || !editorRef.current || !vimEnabled) return;
+    // monaco-vim touches `window` at module-evaluation time, same as
+    // monaco-editor itself — importing it dynamically here (rather than
+    // statically at the top of the file) keeps it out of the SSR bundle.
+    //
+    // No `defineEx` here on purpose: `:w` is registered on monaco-vim's
+    // *shared global* Vim object, so binding it would clobber the
+    // FloatingEditor's save for the rest of the session. Edits here are
+    // already persisted on their own, so the default no-op is honest.
+    let cancelled = false;
+    import("monaco-vim").then(({ initVimMode }) => {
+      if (cancelled || !editorRef.current) return;
+      vimModeRef.current = initVimMode(editorRef.current, statusBarRef.current ?? undefined);
+    });
+    return () => {
+      cancelled = true;
+      vimModeRef.current?.dispose();
+      vimModeRef.current = null;
+    };
+  }, [vimEnabled, editorReady]);
 
   // The execution marker. A decorations collection rather than the
   // deprecated `deltaDecorations`, so Monaco tracks the range through
@@ -138,10 +241,8 @@ export default function SimulatorEditor({
       });
   }, [source]);
 
-  const program = SIMULATOR_PROGRAMS.find((p) => p.id === programId) ?? SIMULATOR_PROGRAMS[0];
-
   return (
-    <div className="glass flex min-h-[24rem] flex-col overflow-hidden rounded-2xl lg:min-h-0">
+    <div className="glass flex min-h-[24rem] flex-1 flex-col overflow-hidden rounded-2xl lg:min-h-0">
       <div className="glass-bar flex shrink-0 items-center justify-between gap-2 border-b border-[var(--hairline)] px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span
@@ -149,7 +250,7 @@ export default function SimulatorEditor({
             style={{ background: STATUS_COLOR[status] }}
           />
           <span className="truncate font-serif text-[12px] font-semibold text-[var(--text-primary)]">
-            {program.file}
+            main.cpp
           </span>
           <span className="hidden shrink-0 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] sm:inline">
             {statusLabel}
@@ -157,22 +258,24 @@ export default function SimulatorEditor({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <select
-            value={programId}
-            onChange={(e) => onProgramChange(e.target.value)}
-            aria-label="Sample program"
-            className="max-w-[10rem] rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
-          >
-            {SIMULATOR_PROGRAMS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
           <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)]">
             C++
           </span>
+
+          <button
+            type="button"
+            onClick={handleToggleVim}
+            disabled={!editorReady}
+            title="Toggle Vim mode (Ctrl/Cmd+Shift+V)"
+            aria-pressed={vimEnabled}
+            className="rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors disabled:opacity-40"
+            style={{
+              background: vimEnabled ? "var(--accent-primary)" : "var(--bg-elevated)",
+              color: vimEnabled ? "var(--bg-base)" : "var(--text-secondary)",
+            }}
+          >
+            Vim
+          </button>
 
           <button
             type="button"
@@ -210,17 +313,21 @@ export default function SimulatorEditor({
         </div>
       </div>
 
-      {/* The editor takes every pixel the column has left over — the
-        * console below it is sized by its own content, and the toolbars
-        * are `shrink-0`, so this is the one flexible band. */}
+      {/* The editor takes every pixel the card has left over — the toolbar
+        * above and every band below it are `shrink-0`, so this is the one
+        * flexible row. */}
       <div className="relative min-h-0 flex-1 bg-[var(--bg-surface)]">
         <Editor
-          key={programId}
           height="100%"
           language="cpp"
           theme={LATTICE_THEME}
-          defaultValue={source}
-          onChange={(value) => onSourceChange(value ?? "")}
+          // Uncontrolled, and mounted only on the client (`ssr: false`), so
+          // reading localStorage inline here can't cause a hydration
+          // mismatch and can't be undone by a later state round-trip.
+          defaultValue={
+            (typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY)) || STARTER
+          }
+          onChange={handleChange}
           beforeMount={handleBeforeMount}
           onMount={handleMount}
           options={{
@@ -243,36 +350,39 @@ export default function SimulatorEditor({
         />
       </div>
 
+      {vimEnabled && (
+        <div
+          ref={statusBarRef}
+          className="shrink-0 border-t border-[var(--hairline)] px-3 py-1 font-mono text-[10px] text-[var(--text-secondary)]"
+        />
+      )}
+
       {stale && (
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--hairline)] bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)] px-3 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-t border-[var(--hairline)] bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)] px-3 py-1.5">
           <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--accent-secondary)]">
-            Edited &mdash; trace no longer matches this buffer
+            Edited &mdash; run again to trace this buffer
           </span>
-          <button
-            type="button"
-            onClick={onRestore}
-            className="shrink-0 rounded-full border border-[var(--hairline-strong)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
-          >
-            Restore sample
-          </button>
         </div>
       )}
 
-      <div className="flex h-[4.5rem] shrink-0 flex-col border-t border-[var(--hairline)] bg-[var(--bg-base)]/40">
-        <div className="flex shrink-0 items-center gap-2 px-3 pt-1.5">
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-            stdout
+      {truncated && (
+        <div className="flex shrink-0 items-center gap-2 border-t border-[var(--hairline)] bg-[color-mix(in_srgb,var(--accent-primary)_12%,transparent)] px-3 py-1.5">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--accent-secondary)]">
+            Truncated &mdash; the run hit the step limit
           </span>
-          <span className="h-px flex-1 bg-[var(--hairline)]" />
         </div>
-        <pre className="scrollbar-thin min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 py-1 font-mono text-[11px] leading-5 text-[var(--text-primary)]">
-          {consoleText || (
-            <span className="text-[var(--text-secondary)]">
-              {status === "idle" ? "Run the trace to see output." : "—"}
-            </span>
-          )}
-        </pre>
-      </div>
+      )}
+
+      {status === "error" && error && (
+        <div className="shrink-0 border-t border-[var(--hairline)] bg-[color-mix(in_srgb,#f87171_12%,transparent)] px-3 py-1.5">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-[#f87171]">
+            Failed
+          </span>
+          <pre className="scrollbar-thin mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-4 text-[var(--text-primary)]">
+            {error}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

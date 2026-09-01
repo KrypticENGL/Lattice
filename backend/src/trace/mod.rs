@@ -140,6 +140,24 @@ pub struct ExecuteRequest {
     /// not attached to any saved canvas.
     #[serde(default)]
     pub canvas_id: Option<uuid::Uuid>,
+    /// Emit an event for *every* stepped source line, rather than only the
+    /// ones that change the heap.
+    ///
+    /// The default filter exists for the Visualizer, whose diagram redraws
+    /// only when the heap does — there, a step that just moves the program
+    /// counter is a step that draws the same picture again. The Simulator
+    /// asks for the unfiltered stream because it renders a call stack and
+    /// a locals table too, and those change on exactly the steps the
+    /// filter throws away: a recursion that never allocates collapses to
+    /// nothing under it (verified — `main -> total -> total -> total`
+    /// arrives as a single depth-1 event with the filter on).
+    ///
+    /// Costs output, not tracing: the tracer already walks frames and heap
+    /// on every step to compute the signature it filters by, so this only
+    /// changes how much of that work is kept. `step_cap` is unchanged and
+    /// still counts executed lines, so the ceiling on work is the same.
+    #[serde(default)]
+    pub full_steps: bool,
 }
 
 /// `POST /api/execute` success response body (§11).

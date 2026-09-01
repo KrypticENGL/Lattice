@@ -3,10 +3,9 @@
  *
  * Front-end only, deliberately: there is no `posts` table and no
  * `/api/posts` behind this yet (the backend's migrations stop at
- * canvases). The page is built against this module the way the
- * Simulator is built against `lib/simulator/programs.ts` — real shapes,
- * canned source — so that wiring a server underneath it later replaces
- * one import and touches no component.
+ * canvases). The page is built against this module — real shapes, canned
+ * content — so that wiring a server underneath it later replaces one
+ * import and touches no component.
  *
  * Every post carries a `Diagram` rather than an image URL. That is the
  * same structure `buildDiagram` produces from a real trace, so
