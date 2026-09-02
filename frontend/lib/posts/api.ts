@@ -32,7 +32,10 @@ export type NewPost = {
   body: string[];
   tags?: string[];
   accent?: string;
-  canvas: CanvasAttachment;
+  /** At least one. The server rejects a post with nothing attached — a
+   * trace nobody can look at is a blog entry, and this feed is for the
+   * drawings. */
+  canvases: CanvasAttachment[];
 };
 
 /** The author name and handle are deliberately absent: the server takes

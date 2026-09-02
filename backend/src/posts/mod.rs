@@ -1,7 +1,7 @@
 //! The community feed, stored in MongoDB (§ crate::mongo).
 //!
 //! A post is one document holding everything the feed renders: the prose,
-//! the canvas attachment it was built around, and the reactions it has
+//! the canvas attachments it was built around, and the reactions it has
 //! collected. Likes, saves and comments are embedded rather than kept in
 //! their own collections because they are only ever read *with* the post
 //! and only ever written one at a time — the join a relational schema
@@ -45,11 +45,21 @@ pub struct Post {
     pub read_time: String,
     pub tags: Vec<String>,
     pub accent: String,
-    /// The canvas the post is built around — diagram, graph and the
-    /// metadata naming the run. Opaque here: it is rendered by the same
-    /// frontend geometry the Visualizer uses, and nothing on this side
-    /// needs to look inside it.
-    pub canvas: Document,
+    /// The canvases the post is built around — each one a diagram, a
+    /// graph and the metadata naming the run. Opaque here: they are
+    /// rendered by the same frontend geometry the Visualizer uses, and
+    /// nothing on this side needs to look inside them.
+    ///
+    /// A post always has at least one (see `api::posts::create`); a post
+    /// with nothing attached is prose, and this feed is for traces.
+    #[serde(default)]
+    pub canvases: Vec<Document>,
+    /// What `canvases` used to be, before a post could carry more than
+    /// one. Read-only and never written: it exists so documents stored
+    /// under the old shape still load, and `view` folds it into the array
+    /// above. Drop it once nothing in the database has it.
+    #[serde(default, skip_serializing)]
+    pub canvas: Option<Document>,
     #[serde(default)]
     pub liked_by: Vec<String>,
     #[serde(default)]
@@ -85,7 +95,9 @@ pub struct PostView {
     pub read_time: String,
     pub tags: Vec<String>,
     pub accent: String,
-    pub canvas: Document,
+    /// Newest-first is meaningless here — this is the order the author
+    /// attached them, which is the order the carousel steps through.
+    pub canvases: Vec<Document>,
     /// Everyone's likes, including the caller's — a count, never the list.
     pub likes: usize,
     pub liked: bool,
@@ -118,7 +130,12 @@ impl Post {
             read_time: self.read_time,
             tags: self.tags,
             accent: self.accent,
-            canvas: self.canvas,
+            // One shape out, whichever shape went in.
+            canvases: if self.canvases.is_empty() {
+                self.canvas.into_iter().collect()
+            } else {
+                self.canvases
+            },
             likes: self.liked_by.len(),
             liked: self.liked_by.iter().any(|u| u == viewer),
             saved: self.saved_by.iter().any(|u| u == viewer),
@@ -170,7 +187,7 @@ pub struct NewPost {
     pub read_time: String,
     pub tags: Vec<String>,
     pub accent: String,
-    pub canvas: Document,
+    pub canvases: Vec<Document>,
 }
 
 pub async fn create(db: &Database, owner_id: &str, new: NewPost) -> Result<PostView> {
@@ -186,7 +203,8 @@ pub async fn create(db: &Database, owner_id: &str, new: NewPost) -> Result<PostV
         read_time: new.read_time,
         tags: new.tags,
         accent: new.accent,
-        canvas: new.canvas,
+        canvases: new.canvases,
+        canvas: None,
         liked_by: Vec::new(),
         saved_by: Vec::new(),
         comments: Vec::new(),

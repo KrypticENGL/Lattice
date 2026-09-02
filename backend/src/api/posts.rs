@@ -65,10 +65,18 @@ pub struct CreateRequest {
     accent: Option<String>,
     #[serde(default)]
     read_time: Option<String>,
-    /// The canvas attachment — diagram, graph, and the metadata naming the
-    /// run. Opaque to this backend (see `posts::Post::canvas`).
-    canvas: serde_json::Value,
+    /// The canvas attachments — each a diagram, a graph, and the metadata
+    /// naming the run. Opaque to this backend (see `posts::Post::canvases`).
+    canvases: Vec<serde_json::Value>,
 }
+
+/// How many canvases one post may carry.
+///
+/// Not a storage limit — each attachment is a few kB and MongoDB's ceiling
+/// is 16MB — but a reading one. A carousel is something you click through,
+/// and past about this many the post has stopped being "here is a thing I
+/// traced" and become an album.
+const MAX_CANVASES: usize = 8;
 
 pub async fn create(
     State(state): State<AppState>,
@@ -91,10 +99,22 @@ pub async fn create(
         return bad_request("that post is too long");
     }
 
-    let canvas = match mongodb::bson::to_document(&req.canvas) {
-        Ok(canvas) => canvas,
-        Err(e) => return bad_request(&format!("that canvas attachment can't be stored: {e}")),
-    };
+    // The attachment is the post. A trace nobody can look at is a blog
+    // entry, and this feed is for the drawings — so this is a rejection,
+    // not a default.
+    if req.canvases.is_empty() {
+        return bad_request("a post needs at least one canvas attached");
+    }
+    if req.canvases.len() > MAX_CANVASES {
+        return bad_request(&format!("a post can carry at most {MAX_CANVASES} canvases"));
+    }
+    let mut canvases = Vec::with_capacity(req.canvases.len());
+    for canvas in &req.canvases {
+        match mongodb::bson::to_document(canvas) {
+            Ok(doc) => canvases.push(doc),
+            Err(e) => return bad_request(&format!("that canvas attachment can't be stored: {e}")),
+        }
+    }
 
     // Author name and handle come from the verified token, never from the
     // request body — otherwise anyone could publish under anyone's name.
@@ -124,7 +144,7 @@ pub async fn create(
         handle: format!("@{}", handle.trim_start_matches('@')),
         tags: req.tags.into_iter().filter(|t| !t.trim().is_empty()).take(6).collect(),
         accent: req.accent.unwrap_or_else(|| "#f0803c".to_string()),
-        canvas,
+        canvases,
     };
 
     if let Err(e) = crate::users::ensure(&state.pool, &jwt.sub).await {

@@ -13,6 +13,7 @@
 
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { generateCpp } from "../lib/code-canvas/codegen";
 import { POSTS } from "../lib/posts/data";
 
 /** Turns a hand-written label like "2 days ago" into a real instant.
@@ -51,7 +52,20 @@ const documents = POSTS.map((post) => {
     read_time: post.readTime,
     tags: post.tags,
     accent: post.accent,
-    canvas: post.canvas,
+    // An array now that a post can carry several. The seeds each have
+    // one; the shape is what matters, so nothing downstream needs a
+    // special case for them.
+    canvases: [
+      {
+        ...post.canvas,
+        // Both derived rather than hand-written — see `SeedAttachment`.
+        // The code is compiled from the graph here because a seed has no
+        // run behind it; a real attachment stores the source that its
+        // trace actually executed.
+        source: "code-canvas" as const,
+        code: generateCpp(post.canvas.graph).code,
+      },
+    ],
     // Likes are a set of user ids now, so a seeded count becomes that many
     // placeholder ids. They belong to nobody real, which is the point: a
     // signed-in reader's own like is added alongside them and can be taken

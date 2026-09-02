@@ -24,8 +24,10 @@ function haystack(post: Post): string {
     post.author,
     post.handle,
     ...post.tags,
-    post.canvas.name,
-    post.canvas.stepLabel,
+    // Every attachment's name and step, so a post is findable by any of
+    // the canvases on it rather than only by whichever one is first.
+    ...post.canvases.map((canvas) => canvas.name),
+    ...post.canvases.map((canvas) => canvas.stepLabel),
   ]
     .join(" ")
     .toLowerCase();

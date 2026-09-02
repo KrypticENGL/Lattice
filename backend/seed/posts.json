@@ -10,7 +10,7 @@
     ],
     "author": "Priya N.",
     "handle": "@priyan",
-    "published_at": "2026-08-31T13:11:07.717Z",
+    "published_at": "2026-08-31T21:41:27.925Z",
     "read_time": "6 min read",
     "tags": [
       "linked-list",
@@ -18,198 +18,202 @@
       "pointers"
     ],
     "accent": "var(--accent-secondary)",
-    "canvas": {
-      "canvasId": "c-cyclic-list",
-      "name": "LinkedList<int> — cycle",
-      "language": "cpp",
-      "stepLabel": "Step 14 of 22",
-      "diagram": {
-        "kind": "linked-list",
-        "nodes": [
-          {
-            "id": "n0",
-            "x": 0,
-            "y": 0,
-            "label": "3",
-            "type": "Node"
-          },
-          {
-            "id": "n1",
-            "x": 110,
-            "y": 0,
-            "label": "9",
-            "type": "Node"
-          },
-          {
-            "id": "n2",
-            "x": 220,
-            "y": 0,
-            "label": "14",
-            "type": "Node"
-          },
-          {
-            "id": "n3",
-            "x": 310,
-            "y": 95,
-            "label": "27",
-            "type": "Node"
-          },
-          {
-            "id": "n4",
-            "x": 200,
-            "y": 135,
-            "label": "41",
-            "type": "Node"
-          }
-        ],
-        "edges": [
-          {
-            "from": "n0",
-            "to": "n1",
-            "field": "next"
-          },
-          {
-            "from": "n1",
-            "to": "n2",
-            "field": "next"
-          },
-          {
-            "from": "n2",
-            "to": "n3",
-            "field": "next"
-          },
-          {
-            "from": "n3",
-            "to": "n4",
-            "field": "next"
-          },
-          {
-            "from": "n4",
-            "to": "n2",
-            "field": "next"
-          }
-        ],
-        "roots": [
-          "n0"
-        ]
-      },
-      "graph": {
-        "nodes": [
-          {
-            "id": "head",
-            "kind": "entry",
-            "x": 0,
-            "y": 40,
-            "fields": {
-              "name": "head"
+    "canvases": [
+      {
+        "canvasId": "c-cyclic-list",
+        "name": "LinkedList<int> — cycle",
+        "language": "cpp",
+        "stepLabel": "Step 14 of 22",
+        "diagram": {
+          "kind": "linked-list",
+          "nodes": [
+            {
+              "id": "n0",
+              "x": 0,
+              "y": 0,
+              "label": "3",
+              "type": "Node"
+            },
+            {
+              "id": "n1",
+              "x": 110,
+              "y": 0,
+              "label": "9",
+              "type": "Node"
+            },
+            {
+              "id": "n2",
+              "x": 220,
+              "y": 0,
+              "label": "14",
+              "type": "Node"
+            },
+            {
+              "id": "n3",
+              "x": 310,
+              "y": 95,
+              "label": "27",
+              "type": "Node"
+            },
+            {
+              "id": "n4",
+              "x": 200,
+              "y": 135,
+              "label": "41",
+              "type": "Node"
             }
-          },
-          {
-            "id": "c0",
-            "kind": "list",
-            "x": 280,
-            "y": 30,
-            "fields": {
-              "value": "3"
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "field": "next"
+            },
+            {
+              "from": "n1",
+              "to": "n2",
+              "field": "next"
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "field": "next"
+            },
+            {
+              "from": "n3",
+              "to": "n4",
+              "field": "next"
+            },
+            {
+              "from": "n4",
+              "to": "n2",
+              "field": "next"
             }
-          },
-          {
-            "id": "c1",
-            "kind": "list",
-            "x": 510,
-            "y": 30,
-            "fields": {
-              "value": "9"
+          ],
+          "roots": [
+            "n0"
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "head",
+              "kind": "entry",
+              "x": 0,
+              "y": 40,
+              "fields": {
+                "name": "head"
+              }
+            },
+            {
+              "id": "c0",
+              "kind": "list",
+              "x": 280,
+              "y": 30,
+              "fields": {
+                "value": "3"
+              }
+            },
+            {
+              "id": "c1",
+              "kind": "list",
+              "x": 510,
+              "y": 30,
+              "fields": {
+                "value": "9"
+              }
+            },
+            {
+              "id": "c2",
+              "kind": "list",
+              "x": 740,
+              "y": 30,
+              "fields": {
+                "value": "14"
+              }
+            },
+            {
+              "id": "c3",
+              "kind": "list",
+              "x": 930,
+              "y": 190,
+              "fields": {
+                "value": "27"
+              }
+            },
+            {
+              "id": "c4",
+              "kind": "list",
+              "x": 700,
+              "y": 320,
+              "fields": {
+                "value": "41"
+              }
+            },
+            {
+              "id": "walk",
+              "kind": "traverse",
+              "x": 300,
+              "y": 300,
+              "fields": {}
             }
-          },
-          {
-            "id": "c2",
-            "kind": "list",
-            "x": 740,
-            "y": 30,
-            "fields": {
-              "value": "14"
+          ],
+          "edges": [
+            {
+              "id": "head.target-c0.in",
+              "from": "head",
+              "fromPort": "target",
+              "to": "c0",
+              "toPort": "in"
+            },
+            {
+              "id": "c0.next-c1.in",
+              "from": "c0",
+              "fromPort": "next",
+              "to": "c1",
+              "toPort": "in"
+            },
+            {
+              "id": "c1.next-c2.in",
+              "from": "c1",
+              "fromPort": "next",
+              "to": "c2",
+              "toPort": "in"
+            },
+            {
+              "id": "c2.next-c3.in",
+              "from": "c2",
+              "fromPort": "next",
+              "to": "c3",
+              "toPort": "in"
+            },
+            {
+              "id": "c3.next-c4.in",
+              "from": "c3",
+              "fromPort": "next",
+              "to": "c4",
+              "toPort": "in"
+            },
+            {
+              "id": "c4.next-c2.in",
+              "from": "c4",
+              "fromPort": "next",
+              "to": "c2",
+              "toPort": "in"
+            },
+            {
+              "id": "head.target-walk.data",
+              "from": "head",
+              "fromPort": "target",
+              "to": "walk",
+              "toPort": "data"
             }
-          },
-          {
-            "id": "c3",
-            "kind": "list",
-            "x": 930,
-            "y": 190,
-            "fields": {
-              "value": "27"
-            }
-          },
-          {
-            "id": "c4",
-            "kind": "list",
-            "x": 700,
-            "y": 320,
-            "fields": {
-              "value": "41"
-            }
-          },
-          {
-            "id": "walk",
-            "kind": "traverse",
-            "x": 300,
-            "y": 300,
-            "fields": {}
-          }
-        ],
-        "edges": [
-          {
-            "id": "head.target-c0.in",
-            "from": "head",
-            "fromPort": "target",
-            "to": "c0",
-            "toPort": "in"
-          },
-          {
-            "id": "c0.next-c1.in",
-            "from": "c0",
-            "fromPort": "next",
-            "to": "c1",
-            "toPort": "in"
-          },
-          {
-            "id": "c1.next-c2.in",
-            "from": "c1",
-            "fromPort": "next",
-            "to": "c2",
-            "toPort": "in"
-          },
-          {
-            "id": "c2.next-c3.in",
-            "from": "c2",
-            "fromPort": "next",
-            "to": "c3",
-            "toPort": "in"
-          },
-          {
-            "id": "c3.next-c4.in",
-            "from": "c3",
-            "fromPort": "next",
-            "to": "c4",
-            "toPort": "in"
-          },
-          {
-            "id": "c4.next-c2.in",
-            "from": "c4",
-            "fromPort": "next",
-            "to": "c2",
-            "toPort": "in"
-          },
-          {
-            "id": "head.target-walk.data",
-            "from": "head",
-            "fromPort": "target",
-            "to": "walk",
-            "toPort": "data"
-          }
-        ]
+          ]
+        },
+        "source": "code-canvas",
+        "code": "// Generated by Lattice Code-Canvas — edit the graph, not this file.\n\n#include <cstdio>\n\nstruct Node {\n    int val;\n    Node* next;\n    Node(int v) : val(v), next(nullptr) {}\n};\n\nint main() {\n    // Nodes\n    Node* n1 = new Node(3);\n    Node* n2 = new Node(9);\n    Node* n3 = new Node(14);\n    Node* n4 = new Node(27);\n    Node* n5 = new Node(41);\n\n    // Connections\n    n1->next = n2;\n    n2->next = n3;\n    n3->next = n4;\n    n4->next = n5;\n    n5->next = n3;\n\n    // Entry points\n    Node* head = n1;\n\n    // Operations\n    {\n        for (Node* cur = head; cur != nullptr; cur = cur->next) printf(\"%d \", cur->val);\n        printf(\"\\n\");\n    }\n\n    return 0;\n}\n"
       }
-    },
+    ],
     "liked_by": [
       "seed:p1:0",
       "seed:p1:1",
@@ -347,18 +351,18 @@
         "author": "Marcus O.",
         "author_id": null,
         "body": "The pointer swap finally clicked once I stepped it rather than read it. Thanks for posting the canvas and not just the code.",
-        "created_at": "2026-09-01T13:11:07.717Z"
+        "created_at": "2026-09-01T21:41:27.926Z"
       },
       {
         "id": "p1c2",
         "author": "Sam K.",
         "author_id": null,
         "body": "Worth adding that the tortoise and hare meet inside the cycle, not at its entrance — finding the entrance needs the second walk from the head.",
-        "created_at": "2026-09-01T15:11:07.717Z"
+        "created_at": "2026-09-01T23:41:27.926Z"
       }
     ],
-    "created_at": "2026-08-31T13:11:07.717Z",
-    "updated_at": "2026-08-31T13:11:07.717Z"
+    "created_at": "2026-08-31T21:41:27.925Z",
+    "updated_at": "2026-08-31T21:41:27.925Z"
   },
   {
     "id": "p2",
@@ -371,7 +375,7 @@
     ],
     "author": "Marcus O.",
     "handle": "@marcuso",
-    "published_at": "2026-08-29T13:11:07.717Z",
+    "published_at": "2026-08-29T21:41:27.926Z",
     "read_time": "4 min read",
     "tags": [
       "tree",
@@ -379,244 +383,248 @@
       "invariants"
     ],
     "accent": "#c2703d",
-    "canvas": {
-      "canvasId": "c-bst-rotate",
-      "name": "TreeNode — left rotation",
-      "language": "cpp",
-      "stepLabel": "Step 8 of 19",
-      "diagram": {
-        "kind": "tree",
-        "nodes": [
-          {
-            "id": "n0",
-            "x": 0,
-            "y": 0,
-            "label": "30",
-            "type": "TreeNode"
-          },
-          {
-            "id": "n1",
-            "x": -90,
-            "y": 100,
-            "label": "20",
-            "type": "TreeNode"
-          },
-          {
-            "id": "n2",
-            "x": 90,
-            "y": 100,
-            "label": "45",
-            "type": "TreeNode"
-          },
-          {
-            "id": "n3",
-            "x": -135,
-            "y": 200,
-            "label": "10",
-            "type": "TreeNode"
-          },
-          {
-            "id": "n4",
-            "x": -45,
-            "y": 200,
-            "label": "25",
-            "type": "TreeNode"
-          },
-          {
-            "id": "n5",
-            "x": 45,
-            "y": 200,
-            "label": "40",
-            "type": "TreeNode"
-          },
-          {
-            "id": "n6",
-            "x": 135,
-            "y": 200,
-            "label": "60",
-            "type": "TreeNode"
-          }
-        ],
-        "edges": [
-          {
-            "from": "n0",
-            "to": "n1",
-            "field": "left"
-          },
-          {
-            "from": "n0",
-            "to": "n2",
-            "field": "right"
-          },
-          {
-            "from": "n1",
-            "to": "n3",
-            "field": "left"
-          },
-          {
-            "from": "n1",
-            "to": "n4",
-            "field": "right"
-          },
-          {
-            "from": "n2",
-            "to": "n5",
-            "field": "left"
-          },
-          {
-            "from": "n2",
-            "to": "n6",
-            "field": "right"
-          }
-        ],
-        "roots": [
-          "n0"
-        ]
-      },
-      "graph": {
-        "nodes": [
-          {
-            "id": "root",
-            "kind": "entry",
-            "x": 250,
-            "y": -150,
-            "fields": {
-              "name": "root"
+    "canvases": [
+      {
+        "canvasId": "c-bst-rotate",
+        "name": "TreeNode — left rotation",
+        "language": "cpp",
+        "stepLabel": "Step 8 of 19",
+        "diagram": {
+          "kind": "tree",
+          "nodes": [
+            {
+              "id": "n0",
+              "x": 0,
+              "y": 0,
+              "label": "30",
+              "type": "TreeNode"
+            },
+            {
+              "id": "n1",
+              "x": -90,
+              "y": 100,
+              "label": "20",
+              "type": "TreeNode"
+            },
+            {
+              "id": "n2",
+              "x": 90,
+              "y": 100,
+              "label": "45",
+              "type": "TreeNode"
+            },
+            {
+              "id": "n3",
+              "x": -135,
+              "y": 200,
+              "label": "10",
+              "type": "TreeNode"
+            },
+            {
+              "id": "n4",
+              "x": -45,
+              "y": 200,
+              "label": "25",
+              "type": "TreeNode"
+            },
+            {
+              "id": "n5",
+              "x": 45,
+              "y": 200,
+              "label": "40",
+              "type": "TreeNode"
+            },
+            {
+              "id": "n6",
+              "x": 135,
+              "y": 200,
+              "label": "60",
+              "type": "TreeNode"
             }
-          },
-          {
-            "id": "t0",
-            "kind": "tree",
-            "x": 300,
-            "y": 0,
-            "fields": {
-              "value": "30"
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "field": "left"
+            },
+            {
+              "from": "n0",
+              "to": "n2",
+              "field": "right"
+            },
+            {
+              "from": "n1",
+              "to": "n3",
+              "field": "left"
+            },
+            {
+              "from": "n1",
+              "to": "n4",
+              "field": "right"
+            },
+            {
+              "from": "n2",
+              "to": "n5",
+              "field": "left"
+            },
+            {
+              "from": "n2",
+              "to": "n6",
+              "field": "right"
             }
-          },
-          {
-            "id": "t1",
-            "kind": "tree",
-            "x": 100,
-            "y": 170,
-            "fields": {
-              "value": "20"
+          ],
+          "roots": [
+            "n0"
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "root",
+              "kind": "entry",
+              "x": 250,
+              "y": -150,
+              "fields": {
+                "name": "root"
+              }
+            },
+            {
+              "id": "t0",
+              "kind": "tree",
+              "x": 300,
+              "y": 0,
+              "fields": {
+                "value": "30"
+              }
+            },
+            {
+              "id": "t1",
+              "kind": "tree",
+              "x": 100,
+              "y": 170,
+              "fields": {
+                "value": "20"
+              }
+            },
+            {
+              "id": "t2",
+              "kind": "tree",
+              "x": 500,
+              "y": 170,
+              "fields": {
+                "value": "45"
+              }
+            },
+            {
+              "id": "t3",
+              "kind": "tree",
+              "x": -20,
+              "y": 340,
+              "fields": {
+                "value": "10"
+              }
+            },
+            {
+              "id": "t4",
+              "kind": "tree",
+              "x": 190,
+              "y": 340,
+              "fields": {
+                "value": "25"
+              }
+            },
+            {
+              "id": "t5",
+              "kind": "tree",
+              "x": 400,
+              "y": 340,
+              "fields": {
+                "value": "40"
+              }
+            },
+            {
+              "id": "t6",
+              "kind": "tree",
+              "x": 610,
+              "y": 340,
+              "fields": {
+                "value": "60"
+              }
+            },
+            {
+              "id": "find",
+              "kind": "search",
+              "x": 830,
+              "y": 150,
+              "fields": {
+                "value": "25"
+              }
             }
-          },
-          {
-            "id": "t2",
-            "kind": "tree",
-            "x": 500,
-            "y": 170,
-            "fields": {
-              "value": "45"
+          ],
+          "edges": [
+            {
+              "id": "root.target-t0.in",
+              "from": "root",
+              "fromPort": "target",
+              "to": "t0",
+              "toPort": "in"
+            },
+            {
+              "id": "t0.left-t1.in",
+              "from": "t0",
+              "fromPort": "left",
+              "to": "t1",
+              "toPort": "in"
+            },
+            {
+              "id": "t0.right-t2.in",
+              "from": "t0",
+              "fromPort": "right",
+              "to": "t2",
+              "toPort": "in"
+            },
+            {
+              "id": "t1.left-t3.in",
+              "from": "t1",
+              "fromPort": "left",
+              "to": "t3",
+              "toPort": "in"
+            },
+            {
+              "id": "t1.right-t4.in",
+              "from": "t1",
+              "fromPort": "right",
+              "to": "t4",
+              "toPort": "in"
+            },
+            {
+              "id": "t2.left-t5.in",
+              "from": "t2",
+              "fromPort": "left",
+              "to": "t5",
+              "toPort": "in"
+            },
+            {
+              "id": "t2.right-t6.in",
+              "from": "t2",
+              "fromPort": "right",
+              "to": "t6",
+              "toPort": "in"
+            },
+            {
+              "id": "root.target-find.data",
+              "from": "root",
+              "fromPort": "target",
+              "to": "find",
+              "toPort": "data"
             }
-          },
-          {
-            "id": "t3",
-            "kind": "tree",
-            "x": -20,
-            "y": 340,
-            "fields": {
-              "value": "10"
-            }
-          },
-          {
-            "id": "t4",
-            "kind": "tree",
-            "x": 190,
-            "y": 340,
-            "fields": {
-              "value": "25"
-            }
-          },
-          {
-            "id": "t5",
-            "kind": "tree",
-            "x": 400,
-            "y": 340,
-            "fields": {
-              "value": "40"
-            }
-          },
-          {
-            "id": "t6",
-            "kind": "tree",
-            "x": 610,
-            "y": 340,
-            "fields": {
-              "value": "60"
-            }
-          },
-          {
-            "id": "find",
-            "kind": "search",
-            "x": 830,
-            "y": 150,
-            "fields": {
-              "value": "25"
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "root.target-t0.in",
-            "from": "root",
-            "fromPort": "target",
-            "to": "t0",
-            "toPort": "in"
-          },
-          {
-            "id": "t0.left-t1.in",
-            "from": "t0",
-            "fromPort": "left",
-            "to": "t1",
-            "toPort": "in"
-          },
-          {
-            "id": "t0.right-t2.in",
-            "from": "t0",
-            "fromPort": "right",
-            "to": "t2",
-            "toPort": "in"
-          },
-          {
-            "id": "t1.left-t3.in",
-            "from": "t1",
-            "fromPort": "left",
-            "to": "t3",
-            "toPort": "in"
-          },
-          {
-            "id": "t1.right-t4.in",
-            "from": "t1",
-            "fromPort": "right",
-            "to": "t4",
-            "toPort": "in"
-          },
-          {
-            "id": "t2.left-t5.in",
-            "from": "t2",
-            "fromPort": "left",
-            "to": "t5",
-            "toPort": "in"
-          },
-          {
-            "id": "t2.right-t6.in",
-            "from": "t2",
-            "fromPort": "right",
-            "to": "t6",
-            "toPort": "in"
-          },
-          {
-            "id": "root.target-find.data",
-            "from": "root",
-            "fromPort": "target",
-            "to": "find",
-            "toPort": "data"
-          }
-        ]
+          ]
+        },
+        "source": "code-canvas",
+        "code": "// Generated by Lattice Code-Canvas — edit the graph, not this file.\n\n#include <cstdio>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int v) : val(v), left(nullptr), right(nullptr) {}\n};\n\nbool bstContains(TreeNode* root, int v) {\n    while (root) {\n        if (root->val == v) return true;\n        root = v < root->val ? root->left : root->right;\n    }\n    return false;\n}\n\nint main() {\n    // Nodes\n    TreeNode* t1 = new TreeNode(30);\n    TreeNode* t2 = new TreeNode(20);\n    TreeNode* t3 = new TreeNode(45);\n    TreeNode* t4 = new TreeNode(10);\n    TreeNode* t5 = new TreeNode(25);\n    TreeNode* t6 = new TreeNode(40);\n    TreeNode* t7 = new TreeNode(60);\n\n    // Connections\n    t1->left = t2;\n    t1->right = t3;\n    t2->left = t4;\n    t2->right = t5;\n    t3->left = t6;\n    t3->right = t7;\n\n    // Entry points\n    TreeNode* root = t1;\n\n    // Operations\n    printf(\"found 25: %d\\n\", bstContains(root, 25) ? 1 : 0);\n\n    return 0;\n}\n"
       }
-    },
+    ],
     "liked_by": [
       "seed:p2:0",
       "seed:p2:1",
@@ -720,11 +728,11 @@
         "author": "Elena V.",
         "author_id": null,
         "body": "This is the diagram I needed three years ago. The parent link being invisible in most drawings is exactly why it gets dropped.",
-        "created_at": "2026-08-30T13:11:07.717Z"
+        "created_at": "2026-08-30T21:41:27.926Z"
       }
     ],
-    "created_at": "2026-08-29T13:11:07.717Z",
-    "updated_at": "2026-08-29T13:11:07.717Z"
+    "created_at": "2026-08-29T21:41:27.926Z",
+    "updated_at": "2026-08-29T21:41:27.926Z"
   },
   {
     "id": "p3",
@@ -737,7 +745,7 @@
     ],
     "author": "Elena V.",
     "handle": "@elenav",
-    "published_at": "2026-08-26T13:11:07.717Z",
+    "published_at": "2026-08-26T21:41:27.926Z",
     "read_time": "8 min read",
     "tags": [
       "graph",
@@ -745,250 +753,254 @@
       "shortest-path"
     ],
     "accent": "#e8993d",
-    "canvas": {
-      "canvasId": "c-dijkstra",
-      "name": "Graph<string> — relaxation",
-      "language": "cpp",
-      "stepLabel": "Step 31 of 64",
-      "diagram": {
-        "kind": "graph",
-        "nodes": [
-          {
-            "id": "n0",
-            "x": 0,
-            "y": -130,
-            "label": "a",
-            "type": "Node"
-          },
-          {
-            "id": "n1",
-            "x": 113,
-            "y": -65,
-            "label": "b",
-            "type": "Node"
-          },
-          {
-            "id": "n2",
-            "x": 113,
-            "y": 65,
-            "label": "c",
-            "type": "Node"
-          },
-          {
-            "id": "n3",
-            "x": 0,
-            "y": 130,
-            "label": "d",
-            "type": "Node"
-          },
-          {
-            "id": "n4",
-            "x": -113,
-            "y": 65,
-            "label": "e",
-            "type": "Node"
-          },
-          {
-            "id": "n5",
-            "x": -113,
-            "y": -65,
-            "label": "f",
-            "type": "Node"
-          }
-        ],
-        "edges": [
-          {
-            "from": "n0",
-            "to": "n1",
-            "field": "4"
-          },
-          {
-            "from": "n0",
-            "to": "n5",
-            "field": "8"
-          },
-          {
-            "from": "n1",
-            "to": "n2",
-            "field": "11"
-          },
-          {
-            "from": "n2",
-            "to": "n3",
-            "field": "7"
-          },
-          {
-            "from": "n3",
-            "to": "n4",
-            "field": "9"
-          },
-          {
-            "from": "n4",
-            "to": "n5",
-            "field": "10"
-          },
-          {
-            "from": "n1",
-            "to": "n4",
-            "field": "2"
-          },
-          {
-            "from": "n2",
-            "to": "n5",
-            "field": "6"
-          }
-        ],
-        "roots": [
-          "n0"
-        ]
-      },
-      "graph": {
-        "nodes": [
-          {
-            "id": "start",
-            "kind": "entry",
-            "x": -560,
-            "y": -33,
-            "fields": {
-              "name": "start"
+    "canvases": [
+      {
+        "canvasId": "c-dijkstra",
+        "name": "Graph<string> — relaxation",
+        "language": "cpp",
+        "stepLabel": "Step 31 of 64",
+        "diagram": {
+          "kind": "graph",
+          "nodes": [
+            {
+              "id": "n0",
+              "x": 0,
+              "y": -130,
+              "label": "a",
+              "type": "Node"
+            },
+            {
+              "id": "n1",
+              "x": 113,
+              "y": -65,
+              "label": "b",
+              "type": "Node"
+            },
+            {
+              "id": "n2",
+              "x": 113,
+              "y": 65,
+              "label": "c",
+              "type": "Node"
+            },
+            {
+              "id": "n3",
+              "x": 0,
+              "y": 130,
+              "label": "d",
+              "type": "Node"
+            },
+            {
+              "id": "n4",
+              "x": -113,
+              "y": 65,
+              "label": "e",
+              "type": "Node"
+            },
+            {
+              "id": "n5",
+              "x": -113,
+              "y": -65,
+              "label": "f",
+              "type": "Node"
             }
-          },
-          {
-            "id": "v0",
-            "kind": "graph",
-            "x": -75,
-            "y": -373,
-            "fields": {
-              "value": "a"
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "field": "4"
+            },
+            {
+              "from": "n0",
+              "to": "n5",
+              "field": "8"
+            },
+            {
+              "from": "n1",
+              "to": "n2",
+              "field": "11"
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "field": "7"
+            },
+            {
+              "from": "n3",
+              "to": "n4",
+              "field": "9"
+            },
+            {
+              "from": "n4",
+              "to": "n5",
+              "field": "10"
+            },
+            {
+              "from": "n1",
+              "to": "n4",
+              "field": "2"
+            },
+            {
+              "from": "n2",
+              "to": "n5",
+              "field": "6"
             }
-          },
-          {
-            "id": "v1",
-            "kind": "graph",
-            "x": 219,
-            "y": -203,
-            "fields": {
-              "value": "b"
+          ],
+          "roots": [
+            "n0"
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "kind": "entry",
+              "x": -560,
+              "y": -33,
+              "fields": {
+                "name": "start"
+              }
+            },
+            {
+              "id": "v0",
+              "kind": "graph",
+              "x": -75,
+              "y": -373,
+              "fields": {
+                "value": "a"
+              }
+            },
+            {
+              "id": "v1",
+              "kind": "graph",
+              "x": 219,
+              "y": -203,
+              "fields": {
+                "value": "b"
+              }
+            },
+            {
+              "id": "v2",
+              "kind": "graph",
+              "x": 219,
+              "y": 137,
+              "fields": {
+                "value": "c"
+              }
+            },
+            {
+              "id": "v3",
+              "kind": "graph",
+              "x": -75,
+              "y": 307,
+              "fields": {
+                "value": "d"
+              }
+            },
+            {
+              "id": "v4",
+              "kind": "graph",
+              "x": -369,
+              "y": 137,
+              "fields": {
+                "value": "e"
+              }
+            },
+            {
+              "id": "v5",
+              "kind": "graph",
+              "x": -369,
+              "y": -203,
+              "fields": {
+                "value": "f"
+              }
+            },
+            {
+              "id": "walk",
+              "kind": "traverse",
+              "x": -88,
+              "y": -20,
+              "fields": {}
             }
-          },
-          {
-            "id": "v2",
-            "kind": "graph",
-            "x": 219,
-            "y": 137,
-            "fields": {
-              "value": "c"
+          ],
+          "edges": [
+            {
+              "id": "start.target-v0.in",
+              "from": "start",
+              "fromPort": "target",
+              "to": "v0",
+              "toPort": "in"
+            },
+            {
+              "id": "v0.edges-v1.in",
+              "from": "v0",
+              "fromPort": "edges",
+              "to": "v1",
+              "toPort": "in"
+            },
+            {
+              "id": "v0.edges-v5.in",
+              "from": "v0",
+              "fromPort": "edges",
+              "to": "v5",
+              "toPort": "in"
+            },
+            {
+              "id": "v1.edges-v2.in",
+              "from": "v1",
+              "fromPort": "edges",
+              "to": "v2",
+              "toPort": "in"
+            },
+            {
+              "id": "v2.edges-v3.in",
+              "from": "v2",
+              "fromPort": "edges",
+              "to": "v3",
+              "toPort": "in"
+            },
+            {
+              "id": "v3.edges-v4.in",
+              "from": "v3",
+              "fromPort": "edges",
+              "to": "v4",
+              "toPort": "in"
+            },
+            {
+              "id": "v4.edges-v5.in",
+              "from": "v4",
+              "fromPort": "edges",
+              "to": "v5",
+              "toPort": "in"
+            },
+            {
+              "id": "v1.edges-v4.in",
+              "from": "v1",
+              "fromPort": "edges",
+              "to": "v4",
+              "toPort": "in"
+            },
+            {
+              "id": "v2.edges-v5.in",
+              "from": "v2",
+              "fromPort": "edges",
+              "to": "v5",
+              "toPort": "in"
+            },
+            {
+              "id": "start.target-walk.data",
+              "from": "start",
+              "fromPort": "target",
+              "to": "walk",
+              "toPort": "data"
             }
-          },
-          {
-            "id": "v3",
-            "kind": "graph",
-            "x": -75,
-            "y": 307,
-            "fields": {
-              "value": "d"
-            }
-          },
-          {
-            "id": "v4",
-            "kind": "graph",
-            "x": -369,
-            "y": 137,
-            "fields": {
-              "value": "e"
-            }
-          },
-          {
-            "id": "v5",
-            "kind": "graph",
-            "x": -369,
-            "y": -203,
-            "fields": {
-              "value": "f"
-            }
-          },
-          {
-            "id": "walk",
-            "kind": "traverse",
-            "x": -88,
-            "y": -20,
-            "fields": {}
-          }
-        ],
-        "edges": [
-          {
-            "id": "start.target-v0.in",
-            "from": "start",
-            "fromPort": "target",
-            "to": "v0",
-            "toPort": "in"
-          },
-          {
-            "id": "v0.edges-v1.in",
-            "from": "v0",
-            "fromPort": "edges",
-            "to": "v1",
-            "toPort": "in"
-          },
-          {
-            "id": "v0.edges-v5.in",
-            "from": "v0",
-            "fromPort": "edges",
-            "to": "v5",
-            "toPort": "in"
-          },
-          {
-            "id": "v1.edges-v2.in",
-            "from": "v1",
-            "fromPort": "edges",
-            "to": "v2",
-            "toPort": "in"
-          },
-          {
-            "id": "v2.edges-v3.in",
-            "from": "v2",
-            "fromPort": "edges",
-            "to": "v3",
-            "toPort": "in"
-          },
-          {
-            "id": "v3.edges-v4.in",
-            "from": "v3",
-            "fromPort": "edges",
-            "to": "v4",
-            "toPort": "in"
-          },
-          {
-            "id": "v4.edges-v5.in",
-            "from": "v4",
-            "fromPort": "edges",
-            "to": "v5",
-            "toPort": "in"
-          },
-          {
-            "id": "v1.edges-v4.in",
-            "from": "v1",
-            "fromPort": "edges",
-            "to": "v4",
-            "toPort": "in"
-          },
-          {
-            "id": "v2.edges-v5.in",
-            "from": "v2",
-            "fromPort": "edges",
-            "to": "v5",
-            "toPort": "in"
-          },
-          {
-            "id": "start.target-walk.data",
-            "from": "start",
-            "fromPort": "target",
-            "to": "walk",
-            "toPort": "data"
-          }
-        ]
+          ]
+        },
+        "source": "code-canvas",
+        "code": "// Generated by Lattice Code-Canvas — edit the graph, not this file.\n\n#include <cstdio>\n#include <queue>\n#include <string>\n#include <vector>\n\nvoid bfs(const std::vector<std::vector<int>>& adj,\n         const std::vector<std::string>& names, int start) {\n    std::vector<bool> seen(adj.size(), false);\n    std::queue<int> pending;\n    seen[start] = true;\n    pending.push(start);\n    while (!pending.empty()) {\n        int at = pending.front();\n        pending.pop();\n        printf(\"%s \", names[at].c_str());\n        for (int next : adj[at]) {\n            if (!seen[next]) { seen[next] = true; pending.push(next); }\n        }\n    }\n    printf(\"\\n\");\n}\n\nint main() {\n    // Nodes\n    std::vector<std::string> vertexNames = {\"a\", \"b\", \"c\", \"d\", \"e\", \"f\"};\n    std::vector<std::vector<int>> adj(6);\n\n    // Connections\n    adj[0].push_back(1);\n    adj[0].push_back(5);\n    adj[1].push_back(2);\n    adj[2].push_back(3);\n    adj[3].push_back(4);\n    adj[4].push_back(5);\n    adj[1].push_back(4);\n    adj[2].push_back(5);\n\n    // Entry points\n    int start = 0;\n\n    // Operations\n    bfs(adj, vertexNames, start);\n\n    return 0;\n}\n"
       }
-    },
+    ],
     "liked_by": [
       "seed:p3:0",
       "seed:p3:1",
@@ -1210,18 +1222,18 @@
         "author": "Diego R.",
         "author_id": null,
         "body": "Ran the same trace with a heap side by side and the step counts tell the story better than the big-O does.",
-        "created_at": "2026-08-28T13:11:07.717Z"
+        "created_at": "2026-08-28T21:41:27.926Z"
       },
       {
         "id": "p3c2",
         "author": "Priya N.",
         "author_id": null,
         "body": "The edge weights being on the wires rather than in a table is doing a lot of work here.",
-        "created_at": "2026-08-29T13:11:07.717Z"
+        "created_at": "2026-08-29T21:41:27.926Z"
       }
     ],
-    "created_at": "2026-08-26T13:11:07.717Z",
-    "updated_at": "2026-08-26T13:11:07.717Z"
+    "created_at": "2026-08-26T21:41:27.926Z",
+    "updated_at": "2026-08-26T21:41:27.926Z"
   },
   {
     "id": "p4",
@@ -1234,7 +1246,7 @@
     ],
     "author": "Diego R.",
     "handle": "@diegor",
-    "published_at": "2026-08-19T13:11:07.717Z",
+    "published_at": "2026-08-19T21:41:27.926Z",
     "read_time": "5 min read",
     "tags": [
       "ring-buffer",
@@ -1242,212 +1254,216 @@
       "modulo"
     ],
     "accent": "var(--accent-primary)",
-    "canvas": {
-      "canvasId": "c-ring-buffer",
-      "name": "RingBuffer<int> — wrap",
-      "language": "cpp",
-      "stepLabel": "Step 12 of 12",
-      "diagram": {
-        "kind": "graph",
-        "nodes": [
-          {
-            "id": "n0",
-            "x": 0,
-            "y": -120,
-            "label": "0",
-            "type": "Node"
-          },
-          {
-            "id": "n1",
-            "x": 104,
-            "y": -60,
-            "label": "1",
-            "type": "Node"
-          },
-          {
-            "id": "n2",
-            "x": 104,
-            "y": 60,
-            "label": "2",
-            "type": "Node"
-          },
-          {
-            "id": "n3",
-            "x": 0,
-            "y": 120,
-            "label": "3",
-            "type": "Node"
-          },
-          {
-            "id": "n4",
-            "x": -104,
-            "y": 60,
-            "label": "4",
-            "type": "Node"
-          },
-          {
-            "id": "n5",
-            "x": -104,
-            "y": -60,
-            "label": "5",
-            "type": "Node"
-          }
-        ],
-        "edges": [
-          {
-            "from": "n0",
-            "to": "n1",
-            "field": "next"
-          },
-          {
-            "from": "n1",
-            "to": "n2",
-            "field": "next"
-          },
-          {
-            "from": "n2",
-            "to": "n3",
-            "field": "next"
-          },
-          {
-            "from": "n3",
-            "to": "n4",
-            "field": "next"
-          },
-          {
-            "from": "n4",
-            "to": "n5",
-            "field": "next"
-          },
-          {
-            "from": "n5",
-            "to": "n0",
-            "field": "next"
-          }
-        ],
-        "roots": [
-          "n0"
-        ]
-      },
-      "graph": {
-        "nodes": [
-          {
-            "id": "head",
-            "kind": "entry",
-            "x": -560,
-            "y": -33,
-            "fields": {
-              "name": "head"
+    "canvases": [
+      {
+        "canvasId": "c-ring-buffer",
+        "name": "RingBuffer<int> — wrap",
+        "language": "cpp",
+        "stepLabel": "Step 12 of 12",
+        "diagram": {
+          "kind": "graph",
+          "nodes": [
+            {
+              "id": "n0",
+              "x": 0,
+              "y": -120,
+              "label": "0",
+              "type": "Node"
+            },
+            {
+              "id": "n1",
+              "x": 104,
+              "y": -60,
+              "label": "1",
+              "type": "Node"
+            },
+            {
+              "id": "n2",
+              "x": 104,
+              "y": 60,
+              "label": "2",
+              "type": "Node"
+            },
+            {
+              "id": "n3",
+              "x": 0,
+              "y": 120,
+              "label": "3",
+              "type": "Node"
+            },
+            {
+              "id": "n4",
+              "x": -104,
+              "y": 60,
+              "label": "4",
+              "type": "Node"
+            },
+            {
+              "id": "n5",
+              "x": -104,
+              "y": -60,
+              "label": "5",
+              "type": "Node"
             }
-          },
-          {
-            "id": "c0",
-            "kind": "list",
-            "x": -75,
-            "y": -333,
-            "fields": {
-              "value": "0"
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "field": "next"
+            },
+            {
+              "from": "n1",
+              "to": "n2",
+              "field": "next"
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "field": "next"
+            },
+            {
+              "from": "n3",
+              "to": "n4",
+              "field": "next"
+            },
+            {
+              "from": "n4",
+              "to": "n5",
+              "field": "next"
+            },
+            {
+              "from": "n5",
+              "to": "n0",
+              "field": "next"
             }
-          },
-          {
-            "id": "c1",
-            "kind": "list",
-            "x": 185,
-            "y": -183,
-            "fields": {
-              "value": "1"
+          ],
+          "roots": [
+            "n0"
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "head",
+              "kind": "entry",
+              "x": -560,
+              "y": -33,
+              "fields": {
+                "name": "head"
+              }
+            },
+            {
+              "id": "c0",
+              "kind": "list",
+              "x": -75,
+              "y": -333,
+              "fields": {
+                "value": "0"
+              }
+            },
+            {
+              "id": "c1",
+              "kind": "list",
+              "x": 185,
+              "y": -183,
+              "fields": {
+                "value": "1"
+              }
+            },
+            {
+              "id": "c2",
+              "kind": "list",
+              "x": 185,
+              "y": 117,
+              "fields": {
+                "value": "2"
+              }
+            },
+            {
+              "id": "c3",
+              "kind": "list",
+              "x": -75,
+              "y": 267,
+              "fields": {
+                "value": "3"
+              }
+            },
+            {
+              "id": "c4",
+              "kind": "list",
+              "x": -335,
+              "y": 117,
+              "fields": {
+                "value": "4"
+              }
+            },
+            {
+              "id": "c5",
+              "kind": "list",
+              "x": -335,
+              "y": -183,
+              "fields": {
+                "value": "5"
+              }
             }
-          },
-          {
-            "id": "c2",
-            "kind": "list",
-            "x": 185,
-            "y": 117,
-            "fields": {
-              "value": "2"
+          ],
+          "edges": [
+            {
+              "id": "head.target-c0.in",
+              "from": "head",
+              "fromPort": "target",
+              "to": "c0",
+              "toPort": "in"
+            },
+            {
+              "id": "c0.next-c1.in",
+              "from": "c0",
+              "fromPort": "next",
+              "to": "c1",
+              "toPort": "in"
+            },
+            {
+              "id": "c1.next-c2.in",
+              "from": "c1",
+              "fromPort": "next",
+              "to": "c2",
+              "toPort": "in"
+            },
+            {
+              "id": "c2.next-c3.in",
+              "from": "c2",
+              "fromPort": "next",
+              "to": "c3",
+              "toPort": "in"
+            },
+            {
+              "id": "c3.next-c4.in",
+              "from": "c3",
+              "fromPort": "next",
+              "to": "c4",
+              "toPort": "in"
+            },
+            {
+              "id": "c4.next-c5.in",
+              "from": "c4",
+              "fromPort": "next",
+              "to": "c5",
+              "toPort": "in"
+            },
+            {
+              "id": "c5.next-c0.in",
+              "from": "c5",
+              "fromPort": "next",
+              "to": "c0",
+              "toPort": "in"
             }
-          },
-          {
-            "id": "c3",
-            "kind": "list",
-            "x": -75,
-            "y": 267,
-            "fields": {
-              "value": "3"
-            }
-          },
-          {
-            "id": "c4",
-            "kind": "list",
-            "x": -335,
-            "y": 117,
-            "fields": {
-              "value": "4"
-            }
-          },
-          {
-            "id": "c5",
-            "kind": "list",
-            "x": -335,
-            "y": -183,
-            "fields": {
-              "value": "5"
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "head.target-c0.in",
-            "from": "head",
-            "fromPort": "target",
-            "to": "c0",
-            "toPort": "in"
-          },
-          {
-            "id": "c0.next-c1.in",
-            "from": "c0",
-            "fromPort": "next",
-            "to": "c1",
-            "toPort": "in"
-          },
-          {
-            "id": "c1.next-c2.in",
-            "from": "c1",
-            "fromPort": "next",
-            "to": "c2",
-            "toPort": "in"
-          },
-          {
-            "id": "c2.next-c3.in",
-            "from": "c2",
-            "fromPort": "next",
-            "to": "c3",
-            "toPort": "in"
-          },
-          {
-            "id": "c3.next-c4.in",
-            "from": "c3",
-            "fromPort": "next",
-            "to": "c4",
-            "toPort": "in"
-          },
-          {
-            "id": "c4.next-c5.in",
-            "from": "c4",
-            "fromPort": "next",
-            "to": "c5",
-            "toPort": "in"
-          },
-          {
-            "id": "c5.next-c0.in",
-            "from": "c5",
-            "fromPort": "next",
-            "to": "c0",
-            "toPort": "in"
-          }
-        ]
+          ]
+        },
+        "source": "code-canvas",
+        "code": "// Generated by Lattice Code-Canvas — edit the graph, not this file.\n\n#include <cstdio>\n\nstruct Node {\n    int val;\n    Node* next;\n    Node(int v) : val(v), next(nullptr) {}\n};\n\nint main() {\n    // Nodes\n    Node* n1 = new Node(0);\n    Node* n2 = new Node(1);\n    Node* n3 = new Node(2);\n    Node* n4 = new Node(3);\n    Node* n5 = new Node(4);\n    Node* n6 = new Node(5);\n\n    // Connections\n    n1->next = n2;\n    n2->next = n3;\n    n3->next = n4;\n    n4->next = n5;\n    n5->next = n6;\n    n6->next = n1;\n\n    // Entry points\n    Node* head = n1;\n\n    return 0;\n}\n"
       }
-    },
+    ],
     "liked_by": [
       "seed:p4:0",
       "seed:p4:1",
@@ -1528,8 +1544,8 @@
     ],
     "saved_by": [],
     "comments": [],
-    "created_at": "2026-08-19T13:11:07.717Z",
-    "updated_at": "2026-08-19T13:11:07.717Z"
+    "created_at": "2026-08-19T21:41:27.926Z",
+    "updated_at": "2026-08-19T21:41:27.926Z"
   },
   {
     "id": "p5",
@@ -1542,7 +1558,7 @@
     ],
     "author": "Sam K.",
     "handle": "@samk",
-    "published_at": "2026-08-12T13:11:07.717Z",
+    "published_at": "2026-08-12T21:41:27.927Z",
     "read_time": "7 min read",
     "tags": [
       "lru",
@@ -1550,197 +1566,201 @@
       "caching"
     ],
     "accent": "#b5651d",
-    "canvas": {
-      "canvasId": "c-lru-cache",
-      "name": "LRUCache — evict tail",
-      "language": "cpp",
-      "stepLabel": "Step 27 of 40",
-      "diagram": {
-        "kind": "linked-list",
-        "nodes": [
-          {
-            "id": "n0",
-            "x": 0,
-            "y": 0,
-            "label": "k4",
-            "type": "Node"
-          },
-          {
-            "id": "n1",
-            "x": 110,
-            "y": 0,
-            "label": "k7",
-            "type": "Node"
-          },
-          {
-            "id": "n2",
-            "x": 220,
-            "y": 0,
-            "label": "k1",
-            "type": "Node"
-          },
-          {
-            "id": "n3",
-            "x": 330,
-            "y": 0,
-            "label": "k9",
-            "type": "Node"
-          }
-        ],
-        "edges": [
-          {
-            "from": "n0",
-            "to": "n1",
-            "field": "next"
-          },
-          {
-            "from": "n1",
-            "to": "n2",
-            "field": "next"
-          },
-          {
-            "from": "n2",
-            "to": "n3",
-            "field": "next"
-          }
-        ],
-        "roots": [
-          "n0"
-        ]
-      },
-      "graph": {
-        "nodes": [
-          {
-            "id": "head",
-            "kind": "entry",
-            "x": 0,
-            "y": 0,
-            "fields": {
-              "name": "head"
+    "canvases": [
+      {
+        "canvasId": "c-lru-cache",
+        "name": "LRUCache — evict tail",
+        "language": "cpp",
+        "stepLabel": "Step 27 of 40",
+        "diagram": {
+          "kind": "linked-list",
+          "nodes": [
+            {
+              "id": "n0",
+              "x": 0,
+              "y": 0,
+              "label": "k4",
+              "type": "Node"
+            },
+            {
+              "id": "n1",
+              "x": 110,
+              "y": 0,
+              "label": "k7",
+              "type": "Node"
+            },
+            {
+              "id": "n2",
+              "x": 220,
+              "y": 0,
+              "label": "k1",
+              "type": "Node"
+            },
+            {
+              "id": "n3",
+              "x": 330,
+              "y": 0,
+              "label": "k9",
+              "type": "Node"
             }
-          },
-          {
-            "id": "d0",
-            "kind": "dlist",
-            "x": 280,
-            "y": 0,
-            "fields": {
-              "value": "4"
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "field": "next"
+            },
+            {
+              "from": "n1",
+              "to": "n2",
+              "field": "next"
+            },
+            {
+              "from": "n2",
+              "to": "n3",
+              "field": "next"
             }
-          },
-          {
-            "id": "d1",
-            "kind": "dlist",
-            "x": 510,
-            "y": 0,
-            "fields": {
-              "value": "7"
+          ],
+          "roots": [
+            "n0"
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "head",
+              "kind": "entry",
+              "x": 0,
+              "y": 0,
+              "fields": {
+                "name": "head"
+              }
+            },
+            {
+              "id": "d0",
+              "kind": "dlist",
+              "x": 280,
+              "y": 0,
+              "fields": {
+                "value": "4"
+              }
+            },
+            {
+              "id": "d1",
+              "kind": "dlist",
+              "x": 510,
+              "y": 0,
+              "fields": {
+                "value": "7"
+              }
+            },
+            {
+              "id": "d2",
+              "kind": "dlist",
+              "x": 740,
+              "y": 0,
+              "fields": {
+                "value": "1"
+              }
+            },
+            {
+              "id": "d3",
+              "kind": "dlist",
+              "x": 970,
+              "y": 0,
+              "fields": {
+                "value": "9"
+              }
+            },
+            {
+              "id": "tail",
+              "kind": "entry",
+              "x": 970,
+              "y": 200,
+              "fields": {
+                "name": "tail"
+              }
+            },
+            {
+              "id": "find",
+              "kind": "search",
+              "x": 400,
+              "y": 200,
+              "fields": {
+                "value": "1"
+              }
             }
-          },
-          {
-            "id": "d2",
-            "kind": "dlist",
-            "x": 740,
-            "y": 0,
-            "fields": {
-              "value": "1"
+          ],
+          "edges": [
+            {
+              "id": "head.target-d0.in",
+              "from": "head",
+              "fromPort": "target",
+              "to": "d0",
+              "toPort": "in"
+            },
+            {
+              "id": "d0.next-d1.in",
+              "from": "d0",
+              "fromPort": "next",
+              "to": "d1",
+              "toPort": "in"
+            },
+            {
+              "id": "d1.next-d2.in",
+              "from": "d1",
+              "fromPort": "next",
+              "to": "d2",
+              "toPort": "in"
+            },
+            {
+              "id": "d2.next-d3.in",
+              "from": "d2",
+              "fromPort": "next",
+              "to": "d3",
+              "toPort": "in"
+            },
+            {
+              "id": "d1.prev-d0.in",
+              "from": "d1",
+              "fromPort": "prev",
+              "to": "d0",
+              "toPort": "in"
+            },
+            {
+              "id": "d2.prev-d1.in",
+              "from": "d2",
+              "fromPort": "prev",
+              "to": "d1",
+              "toPort": "in"
+            },
+            {
+              "id": "d3.prev-d2.in",
+              "from": "d3",
+              "fromPort": "prev",
+              "to": "d2",
+              "toPort": "in"
+            },
+            {
+              "id": "tail.target-d3.in",
+              "from": "tail",
+              "fromPort": "target",
+              "to": "d3",
+              "toPort": "in"
+            },
+            {
+              "id": "head.target-find.data",
+              "from": "head",
+              "fromPort": "target",
+              "to": "find",
+              "toPort": "data"
             }
-          },
-          {
-            "id": "d3",
-            "kind": "dlist",
-            "x": 970,
-            "y": 0,
-            "fields": {
-              "value": "9"
-            }
-          },
-          {
-            "id": "tail",
-            "kind": "entry",
-            "x": 970,
-            "y": 200,
-            "fields": {
-              "name": "tail"
-            }
-          },
-          {
-            "id": "find",
-            "kind": "search",
-            "x": 400,
-            "y": 200,
-            "fields": {
-              "value": "1"
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "head.target-d0.in",
-            "from": "head",
-            "fromPort": "target",
-            "to": "d0",
-            "toPort": "in"
-          },
-          {
-            "id": "d0.next-d1.in",
-            "from": "d0",
-            "fromPort": "next",
-            "to": "d1",
-            "toPort": "in"
-          },
-          {
-            "id": "d1.next-d2.in",
-            "from": "d1",
-            "fromPort": "next",
-            "to": "d2",
-            "toPort": "in"
-          },
-          {
-            "id": "d2.next-d3.in",
-            "from": "d2",
-            "fromPort": "next",
-            "to": "d3",
-            "toPort": "in"
-          },
-          {
-            "id": "d1.prev-d0.in",
-            "from": "d1",
-            "fromPort": "prev",
-            "to": "d0",
-            "toPort": "in"
-          },
-          {
-            "id": "d2.prev-d1.in",
-            "from": "d2",
-            "fromPort": "prev",
-            "to": "d1",
-            "toPort": "in"
-          },
-          {
-            "id": "d3.prev-d2.in",
-            "from": "d3",
-            "fromPort": "prev",
-            "to": "d2",
-            "toPort": "in"
-          },
-          {
-            "id": "tail.target-d3.in",
-            "from": "tail",
-            "fromPort": "target",
-            "to": "d3",
-            "toPort": "in"
-          },
-          {
-            "id": "head.target-find.data",
-            "from": "head",
-            "fromPort": "target",
-            "to": "find",
-            "toPort": "data"
-          }
-        ]
+          ]
+        },
+        "source": "code-canvas",
+        "code": "// Generated by Lattice Code-Canvas — edit the graph, not this file.\n\n#include <cstdio>\n\nstruct DNode {\n    int val;\n    DNode* prev;\n    DNode* next;\n    DNode(int v) : val(v), prev(nullptr), next(nullptr) {}\n};\n\nint main() {\n    // Nodes\n    DNode* d1 = new DNode(4);\n    DNode* d2 = new DNode(7);\n    DNode* d3 = new DNode(1);\n    DNode* d4 = new DNode(9);\n\n    // Connections\n    d1->next = d2;\n    d2->next = d3;\n    d3->next = d4;\n    d2->prev = d1;\n    d3->prev = d2;\n    d4->prev = d3;\n\n    // Entry points\n    DNode* head = d1;\n    DNode* tail = d4;\n\n    // Operations\n    {\n        DNode* cur = head;\n        while (cur != nullptr && cur->val != 1) cur = cur->next;\n        printf(\"found 1: %d\\n\", cur != nullptr ? 1 : 0);\n    }\n\n    return 0;\n}\n"
       }
-    },
+    ],
     "liked_by": [
       "seed:p5:0",
       "seed:p5:1",
@@ -1893,11 +1913,11 @@
         "author": "Marcus O.",
         "author_id": null,
         "body": "Could you post the trace for evicting the tail node too? The splice is the part I keep getting wrong.",
-        "created_at": "2026-08-19T13:11:07.717Z"
+        "created_at": "2026-08-19T21:41:27.927Z"
       }
     ],
-    "created_at": "2026-08-12T13:11:07.717Z",
-    "updated_at": "2026-08-12T13:11:07.717Z"
+    "created_at": "2026-08-12T21:41:27.927Z",
+    "updated_at": "2026-08-12T21:41:27.927Z"
   },
   {
     "id": "p6",
@@ -1910,7 +1930,7 @@
     ],
     "author": "Priya N.",
     "handle": "@priyan",
-    "published_at": "2026-08-03T13:11:07.717Z",
+    "published_at": "2026-08-03T21:41:27.927Z",
     "read_time": "5 min read",
     "tags": [
       "trie",
@@ -1918,256 +1938,260 @@
       "strings"
     ],
     "accent": "var(--accent-secondary)",
-    "canvas": {
-      "canvasId": "c-trie",
-      "name": "Trie — insert",
-      "language": "cpp",
-      "stepLabel": "Step 18 of 26",
-      "diagram": {
-        "kind": "tree",
-        "nodes": [
-          {
-            "id": "n0",
-            "x": 0,
-            "y": 0,
-            "label": "·",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n1",
-            "x": -70,
-            "y": 100,
-            "label": "c",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n2",
-            "x": 70,
-            "y": 100,
-            "label": "t",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n3",
-            "x": -70,
-            "y": 200,
-            "label": "a",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n4",
-            "x": 20,
-            "y": 200,
-            "label": "o",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n5",
-            "x": 120,
-            "y": 200,
-            "label": "r",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n6",
-            "x": -70,
-            "y": 300,
-            "label": "t",
-            "type": "TrieNode"
-          },
-          {
-            "id": "n7",
-            "x": 120,
-            "y": 300,
-            "label": "y",
-            "type": "TrieNode"
-          }
-        ],
-        "edges": [
-          {
-            "from": "n0",
-            "to": "n1",
-            "field": "c"
-          },
-          {
-            "from": "n0",
-            "to": "n2",
-            "field": "t"
-          },
-          {
-            "from": "n1",
-            "to": "n3",
-            "field": "a"
-          },
-          {
-            "from": "n2",
-            "to": "n4",
-            "field": "o"
-          },
-          {
-            "from": "n2",
-            "to": "n5",
-            "field": "r"
-          },
-          {
-            "from": "n3",
-            "to": "n6",
-            "field": "t"
-          },
-          {
-            "from": "n5",
-            "to": "n7",
-            "field": "y"
-          }
-        ],
-        "roots": [
-          "n0"
-        ]
-      },
-      "graph": {
-        "nodes": [
-          {
-            "id": "root",
-            "kind": "entry",
-            "x": 250,
-            "y": -150,
-            "fields": {
-              "name": "root"
+    "canvases": [
+      {
+        "canvasId": "c-trie",
+        "name": "Trie — insert",
+        "language": "cpp",
+        "stepLabel": "Step 18 of 26",
+        "diagram": {
+          "kind": "tree",
+          "nodes": [
+            {
+              "id": "n0",
+              "x": 0,
+              "y": 0,
+              "label": "·",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n1",
+              "x": -70,
+              "y": 100,
+              "label": "c",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n2",
+              "x": 70,
+              "y": 100,
+              "label": "t",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n3",
+              "x": -70,
+              "y": 200,
+              "label": "a",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n4",
+              "x": 20,
+              "y": 200,
+              "label": "o",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n5",
+              "x": 120,
+              "y": 200,
+              "label": "r",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n6",
+              "x": -70,
+              "y": 300,
+              "label": "t",
+              "type": "TrieNode"
+            },
+            {
+              "id": "n7",
+              "x": 120,
+              "y": 300,
+              "label": "y",
+              "type": "TrieNode"
             }
-          },
-          {
-            "id": "t0",
-            "kind": "tree",
-            "x": 300,
-            "y": 0,
-            "fields": {
-              "value": "·"
+          ],
+          "edges": [
+            {
+              "from": "n0",
+              "to": "n1",
+              "field": "c"
+            },
+            {
+              "from": "n0",
+              "to": "n2",
+              "field": "t"
+            },
+            {
+              "from": "n1",
+              "to": "n3",
+              "field": "a"
+            },
+            {
+              "from": "n2",
+              "to": "n4",
+              "field": "o"
+            },
+            {
+              "from": "n2",
+              "to": "n5",
+              "field": "r"
+            },
+            {
+              "from": "n3",
+              "to": "n6",
+              "field": "t"
+            },
+            {
+              "from": "n5",
+              "to": "n7",
+              "field": "y"
             }
-          },
-          {
-            "id": "t1",
-            "kind": "tree",
-            "x": 120,
-            "y": 170,
-            "fields": {
-              "value": "c"
+          ],
+          "roots": [
+            "n0"
+          ]
+        },
+        "graph": {
+          "nodes": [
+            {
+              "id": "root",
+              "kind": "entry",
+              "x": 250,
+              "y": -150,
+              "fields": {
+                "name": "root"
+              }
+            },
+            {
+              "id": "t0",
+              "kind": "tree",
+              "x": 300,
+              "y": 0,
+              "fields": {
+                "value": "·"
+              }
+            },
+            {
+              "id": "t1",
+              "kind": "tree",
+              "x": 120,
+              "y": 170,
+              "fields": {
+                "value": "c"
+              }
+            },
+            {
+              "id": "t2",
+              "kind": "tree",
+              "x": 480,
+              "y": 170,
+              "fields": {
+                "value": "t"
+              }
+            },
+            {
+              "id": "t3",
+              "kind": "tree",
+              "x": 60,
+              "y": 340,
+              "fields": {
+                "value": "a"
+              }
+            },
+            {
+              "id": "t4",
+              "kind": "tree",
+              "x": 390,
+              "y": 340,
+              "fields": {
+                "value": "o"
+              }
+            },
+            {
+              "id": "t5",
+              "kind": "tree",
+              "x": 600,
+              "y": 340,
+              "fields": {
+                "value": "r"
+              }
+            },
+            {
+              "id": "t6",
+              "kind": "tree",
+              "x": 60,
+              "y": 510,
+              "fields": {
+                "value": "t"
+              }
+            },
+            {
+              "id": "t7",
+              "kind": "tree",
+              "x": 600,
+              "y": 510,
+              "fields": {
+                "value": "y"
+              }
             }
-          },
-          {
-            "id": "t2",
-            "kind": "tree",
-            "x": 480,
-            "y": 170,
-            "fields": {
-              "value": "t"
+          ],
+          "edges": [
+            {
+              "id": "root.target-t0.in",
+              "from": "root",
+              "fromPort": "target",
+              "to": "t0",
+              "toPort": "in"
+            },
+            {
+              "id": "t0.left-t1.in",
+              "from": "t0",
+              "fromPort": "left",
+              "to": "t1",
+              "toPort": "in"
+            },
+            {
+              "id": "t0.right-t2.in",
+              "from": "t0",
+              "fromPort": "right",
+              "to": "t2",
+              "toPort": "in"
+            },
+            {
+              "id": "t1.left-t3.in",
+              "from": "t1",
+              "fromPort": "left",
+              "to": "t3",
+              "toPort": "in"
+            },
+            {
+              "id": "t2.left-t4.in",
+              "from": "t2",
+              "fromPort": "left",
+              "to": "t4",
+              "toPort": "in"
+            },
+            {
+              "id": "t2.right-t5.in",
+              "from": "t2",
+              "fromPort": "right",
+              "to": "t5",
+              "toPort": "in"
+            },
+            {
+              "id": "t3.left-t6.in",
+              "from": "t3",
+              "fromPort": "left",
+              "to": "t6",
+              "toPort": "in"
+            },
+            {
+              "id": "t5.right-t7.in",
+              "from": "t5",
+              "fromPort": "right",
+              "to": "t7",
+              "toPort": "in"
             }
-          },
-          {
-            "id": "t3",
-            "kind": "tree",
-            "x": 60,
-            "y": 340,
-            "fields": {
-              "value": "a"
-            }
-          },
-          {
-            "id": "t4",
-            "kind": "tree",
-            "x": 390,
-            "y": 340,
-            "fields": {
-              "value": "o"
-            }
-          },
-          {
-            "id": "t5",
-            "kind": "tree",
-            "x": 600,
-            "y": 340,
-            "fields": {
-              "value": "r"
-            }
-          },
-          {
-            "id": "t6",
-            "kind": "tree",
-            "x": 60,
-            "y": 510,
-            "fields": {
-              "value": "t"
-            }
-          },
-          {
-            "id": "t7",
-            "kind": "tree",
-            "x": 600,
-            "y": 510,
-            "fields": {
-              "value": "y"
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "root.target-t0.in",
-            "from": "root",
-            "fromPort": "target",
-            "to": "t0",
-            "toPort": "in"
-          },
-          {
-            "id": "t0.left-t1.in",
-            "from": "t0",
-            "fromPort": "left",
-            "to": "t1",
-            "toPort": "in"
-          },
-          {
-            "id": "t0.right-t2.in",
-            "from": "t0",
-            "fromPort": "right",
-            "to": "t2",
-            "toPort": "in"
-          },
-          {
-            "id": "t1.left-t3.in",
-            "from": "t1",
-            "fromPort": "left",
-            "to": "t3",
-            "toPort": "in"
-          },
-          {
-            "id": "t2.left-t4.in",
-            "from": "t2",
-            "fromPort": "left",
-            "to": "t4",
-            "toPort": "in"
-          },
-          {
-            "id": "t2.right-t5.in",
-            "from": "t2",
-            "fromPort": "right",
-            "to": "t5",
-            "toPort": "in"
-          },
-          {
-            "id": "t3.left-t6.in",
-            "from": "t3",
-            "fromPort": "left",
-            "to": "t6",
-            "toPort": "in"
-          },
-          {
-            "id": "t5.right-t7.in",
-            "from": "t5",
-            "fromPort": "right",
-            "to": "t7",
-            "toPort": "in"
-          }
-        ]
+          ]
+        },
+        "source": "code-canvas",
+        "code": "// Generated by Lattice Code-Canvas — edit the graph, not this file.\n\n#include <cstdio>\n\nstruct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int v) : val(v), left(nullptr), right(nullptr) {}\n};\n\nint main() {\n    // Nodes\n    TreeNode* t1 = new TreeNode(0);\n    TreeNode* t2 = new TreeNode(0);\n    TreeNode* t3 = new TreeNode(0);\n    TreeNode* t4 = new TreeNode(0);\n    TreeNode* t5 = new TreeNode(0);\n    TreeNode* t6 = new TreeNode(0);\n    TreeNode* t7 = new TreeNode(0);\n    TreeNode* t8 = new TreeNode(0);\n\n    // Connections\n    t1->left = t2;\n    t1->right = t3;\n    t2->left = t4;\n    t3->left = t5;\n    t3->right = t6;\n    t4->left = t7;\n    t6->right = t8;\n\n    // Entry points\n    TreeNode* root = t1;\n\n    return 0;\n}\n"
       }
-    },
+    ],
     "liked_by": [
       "seed:p6:0",
       "seed:p6:1",
@@ -2230,7 +2254,7 @@
     ],
     "saved_by": [],
     "comments": [],
-    "created_at": "2026-08-03T13:11:07.717Z",
-    "updated_at": "2026-08-03T13:11:07.717Z"
+    "created_at": "2026-08-03T21:41:27.927Z",
+    "updated_at": "2026-08-03T21:41:27.927Z"
   }
 ]

@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import CanvasPreview from "./CanvasPreview";
-import { downloadLatticeFile, latticeFileName } from "@/lib/posts/lattice";
+import {
+  archiveFileName,
+  downloadAllAttachments,
+  downloadAttachment,
+  latticeFileName,
+} from "@/lib/posts/lattice";
 import { previewFrame } from "@/lib/posts/preview-frame";
 import { initials } from "@/lib/posts/use-posts";
-import type { Post } from "@/lib/posts/types";
+import { relativeTime } from "@/lib/relative-time";
+import type { CanvasAttachment, Post } from "@/lib/posts/types";
 
 /**
  * The pieces a post is drawn from, shared by the feed card and the post's
@@ -18,7 +24,7 @@ import type { Post } from "@/lib/posts/types";
  * that; two copies would agree until the first time one of them changed.
  */
 
-export const LANGUAGE_LABEL: Record<Post["canvas"]["language"], string> = {
+export const LANGUAGE_LABEL: Record<CanvasAttachment["language"], string> = {
   cpp: "C++",
   javascript: "JavaScript",
   typescript: "TypeScript",
@@ -153,7 +159,11 @@ export function PostByline({ post }: { post: Post }) {
           <span className="font-mono text-[11px] text-[var(--text-secondary)]">{post.handle}</span>
         </div>
         <span className="font-mono text-[11px] text-[var(--text-secondary)]">
-          {post.publishedAt} &middot; {post.readTime}
+          {/* `publishedAt` is an instant now, not the pre-rendered label
+            * it used to be when posts were seed data — so it is formatted
+            * here rather than rendered raw, which put an ISO timestamp in
+            * the byline. */}
+          {relativeTime(post.publishedAt)} &middot; {post.readTime}
         </span>
       </div>
     </div>
@@ -168,83 +178,179 @@ export function PostByline({ post }: { post: Post }) {
  * ceiling stops a tall tree from making a card you cannot see past. */
 const MIN_FIGURE_HEIGHT = 120;
 const MAX_FIGURE_HEIGHT = 400;
-
-/** ...and how narrow the figure may get once the ceiling has cut its
- * width down. Below roughly this, the caption's four items — canvas name,
- * language, step, `.lattice` — stop fitting on one line. */
+/** A floor for the figure's width, so a very wide-and-short diagram still
+ * gets a frame with some presence rather than a letterbox slot. */
 const MIN_FIGURE_WIDTH = 380;
 
 /**
- * The attached canvas, as the post's image.
+ * A post's canvases, as a carousel.
  *
  * The frame is cut to the diagram rather than the diagram fitted into the
- * frame. It used to be a fixed 16:9 with the drawing letterboxed inside,
- * which meant a tall trie and a flat list were shown in the same box and
- * neither filled it — four of the six seed posts covered half their frame
- * or less. Sizing the box from `previewFrame` costs the feed its perfectly
- * even scroll rhythm and buys back the space the drawings were floating in.
+ * frame: a tall trie and a flat list shown in one fixed 16:9 box would
+ * each float in most of it. Sizing from `previewFrame` costs the feed its
+ * perfectly even scroll rhythm and buys back the space the drawings were
+ * floating in.
  *
- * A tall diagram hits `MAX_FIGURE_HEIGHT` before it runs out of width, so
- * its figure ends up narrower than the card and is centred there. That is
- * deliberate: leftover space *outside* a bordered frame reads as a margin,
- * where the same space inside one reads as a hole.
+ * The frame is sized from *every* attachment, not just the visible one —
+ * the widest aspect and the tallest of them win. A box that resized as the
+ * reader stepped through would shift everything below it on the page on
+ * each press, which in a feed means the next post jumping.
+ *
+ * A single-canvas post renders exactly as it always did: no arrows, no
+ * dots, no counter. The carousel appears only when there is something to
+ * step through.
  */
 export function PostCanvasFigure({ post, className = "" }: { post: Post; className?: string }) {
-  const { aspect } = useMemo(() => previewFrame(post.canvas.diagram), [post.canvas.diagram]);
+  const [index, setIndex] = useState(0);
+  const canvases = post.canvases;
+  const many = canvases.length > 1;
+  // A post whose attachments changed under a mounted card (an edit, a
+  // refetch) must not be left pointing past the end of the new list.
+  const current = canvases[Math.min(index, canvases.length - 1)];
+
+  const { aspect } = useMemo(() => {
+    const frames = canvases.map((canvas) => previewFrame(canvas.diagram));
+    return { aspect: Math.max(...frames.map((frame) => frame.aspect)) };
+  }, [canvases]);
+
+  const step = useCallback(
+    (delta: number) => setIndex((i) => (i + delta + canvases.length) % canvases.length),
+    [canvases.length],
+  );
 
   return (
     // The wrapper carries the caller's insets and does the centring; the
     // figure itself cannot do both, since `mx-auto` and a fixed side inset
     // are the same property.
     <div className={`flex justify-center ${className}`}>
-    <figure
-      className="w-full overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--bg-elevated)]"
-      style={{ maxWidth: `max(${MIN_FIGURE_WIDTH}px, ${aspect * MAX_FIGURE_HEIGHT}px)` }}
-    >
-      <div
-        className="relative w-full"
-        // A wash of the post's accent behind the diagram, so the image
-        // area reads as a canvas rather than as a hole in the card.
-        style={{
-          aspectRatio: aspect,
-          minHeight: MIN_FIGURE_HEIGHT,
-          maxHeight: MAX_FIGURE_HEIGHT,
-          background: `radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, ${post.accent} 12%, transparent), transparent 70%)`,
-        }}
+      <figure
+        className="w-full overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--bg-elevated)]"
+        style={{ maxWidth: `max(${MIN_FIGURE_WIDTH}px, ${aspect * MAX_FIGURE_HEIGHT}px)` }}
       >
-        <CanvasPreview diagram={post.canvas.diagram} className="h-full w-full" />
-      </div>
+        <div
+          className="relative w-full"
+          // A wash of the post's accent behind the diagram, so the image
+          // area reads as a canvas rather than as a hole in the card.
+          style={{
+            aspectRatio: aspect,
+            minHeight: MIN_FIGURE_HEIGHT,
+            maxHeight: MAX_FIGURE_HEIGHT,
+            background: `radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, ${post.accent} 12%, transparent), transparent 70%)`,
+          }}
+        >
+          <CanvasPreview diagram={current.diagram} className="h-full w-full" />
 
-      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--hairline)] px-3.5 py-2.5">
-        <span className="font-mono text-[11px] font-medium text-[var(--text-primary)]">
-          {post.canvas.name}
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
-          {LANGUAGE_LABEL[post.canvas.language]}
-        </span>
-        {/* Not a link to /dashboard/visualizer/<id> yet, deliberately:
-          * these canvas ids are seed data with no canvas behind them, and
-          * a control that always 404s is worse than no control. It
-          * becomes a link the moment posts come from the server. */}
-        <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
-          {post.canvas.stepLabel}
-        </span>
-        <LatticeAttachment post={post} />
-      </figcaption>
-    </figure>
+          {many && (
+            <>
+              <CarouselArrow direction="prev" onClick={() => step(-1)} name={current.name} />
+              <CarouselArrow direction="next" onClick={() => step(1)} name={current.name} />
+            </>
+          )}
+        </div>
+
+        {many && (
+          // Under the drawing rather than over it: dots on top of a diagram
+          // sit on whatever the drawing happens to have there, and half of
+          // these are line art on a dark wash.
+          <div className="relative z-10 flex items-center justify-center gap-1.5 border-t border-[var(--hairline)] py-2">
+            {canvases.map((canvas, i) => (
+              <button
+                key={`${canvas.canvasId}-${i}`}
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Show "${canvas.name}" (${i + 1} of ${canvases.length})`}
+                aria-current={i === index}
+                className="h-1.5 rounded-full transition-all"
+                style={{
+                  width: i === index ? 16 : 6,
+                  background: i === index ? "var(--accent-secondary)" : "var(--hairline)",
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--hairline)] px-3.5 py-2.5">
+          <span className="font-mono text-[11px] font-medium text-[var(--text-primary)]">
+            {current.name}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+            {LANGUAGE_LABEL[current.language]}
+          </span>
+          {many && (
+            <span className="font-mono text-[10px] tabular-nums uppercase tracking-wider text-[var(--text-secondary)]">
+              {index + 1}/{canvases.length}
+            </span>
+          )}
+          <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+            {current.stepLabel}
+          </span>
+          <LatticeAttachment post={post} canvas={current} />
+        </figcaption>
+      </figure>
     </div>
   );
 }
 
-/** How long the control admits to having done something, in ms. */
+/** One edge of the carousel. Sized for a thumb and pinned to the frame's
+ * side, so stepping through never requires aiming at a dot. */
+function CarouselArrow({
+  direction,
+  onClick,
+  name,
+}: {
+  direction: "prev" | "next";
+  onClick: () => void;
+  name: string;
+}) {
+  const prev = direction === "prev";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={prev ? `Previous canvas (showing "${name}")` : `Next canvas (showing "${name}")`}
+      // `z-10` for the same reason the download button has it: a feed card
+      // stretches its title link across the whole card, and anything
+      // clickable inside has to sit over that sheet.
+      className={`absolute top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--hairline)] bg-[var(--bg-surface)]/80 text-[var(--text-secondary)] backdrop-blur transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)] ${
+        prev ? "left-2" : "right-2"
+      }`}
+    >
+      <svg
+        aria-hidden="true"
+        width="10"
+        height="10"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ transform: prev ? "rotate(90deg)" : "rotate(-90deg)" }}
+      >
+        <path d="M4 6l4 4 4-4" />
+      </svg>
+    </button>
+  );
+}
+
 const SAVED_FEEDBACK_MS = 2000;
 
 /**
- * The post's `.lattice` file, as something a reader can take away.
+ * The post's attachments, as something a reader can take away — this one,
+ * or all of them.
+ *
+ * Two controls because they answer two different questions, and a single
+ * one would have to guess which was meant. "This" is what a reader who
+ * stepped to a particular canvas wants; "All" is what someone who wants
+ * the whole post wants, and it arrives as a zip because a browser drops
+ * every download after the first one or two from a single gesture. The
+ * second control is absent on a single-canvas post, where the two would do
+ * exactly the same thing.
  *
  * A download is one of the few actions on this page with no visible result
  * — the file lands somewhere the browser chose and the page does not move —
- * so the control says the filename back for a couple of seconds afterwards.
+ * so a control says its filename back for a couple of seconds afterwards.
  * Without it the only feedback is the browser's own download shelf, which
  * several of them no longer show.
  *
@@ -252,32 +358,77 @@ const SAVED_FEEDBACK_MS = 2000;
  * whole card (see PostCard); anything clickable inside one has to be lifted
  * over that sheet or the click opens the post instead.
  */
-function LatticeAttachment({ post }: { post: Post }) {
-  const [saved, setSaved] = useState(false);
+function LatticeAttachment({ post, canvas }: { post: Post; canvas: CanvasAttachment }) {
+  const [saved, setSaved] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const name = latticeFileName(post);
+  const many = post.canvases.length > 1;
 
   // Clearing on unmount rather than only on the next click: navigating from
   // the feed to the post while the label is still up would otherwise set
   // state on a component that has gone.
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  const flash = useCallback((label: string) => {
+    setSaved(label);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setSaved(null), SAVED_FEEDBACK_MS);
+  }, []);
+
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <AttachmentButton
+        onClick={() => {
+          downloadAttachment(canvas);
+          flash("this");
+        }}
+        title={`Download ${latticeFileName(canvas)} — this canvas as a file you can open in Code-Canvas`}
+        ariaLabel={`Download "${canvas.name}" as a .lattice file`}
+        saved={saved === "this"}
+      >
+        {many ? "This" : ".lattice"}
+      </AttachmentButton>
+
+      {many && (
+        <AttachmentButton
+          onClick={() => {
+            downloadAllAttachments(post);
+            flash("all");
+          }}
+          title={`Download ${archiveFileName(post)} — all ${post.canvases.length} canvases as one archive`}
+          ariaLabel={`Download all ${post.canvases.length} canvases as a zip archive`}
+          saved={saved === "all"}
+        >
+          All {post.canvases.length}
+        </AttachmentButton>
+      )}
+    </span>
+  );
+}
+
+function AttachmentButton({
+  onClick,
+  title,
+  ariaLabel,
+  saved,
+  children,
+}: {
+  onClick: () => void;
+  title: string;
+  ariaLabel: string;
+  saved: boolean;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
-      onClick={() => {
-        downloadLatticeFile(post);
-        setSaved(true);
-        clearTimeout(timer.current);
-        timer.current = setTimeout(() => setSaved(false), SAVED_FEEDBACK_MS);
-      }}
-      title={`Download ${name} — the canvas as a file you can open in Code-Canvas`}
-      aria-label={`Download "${post.canvas.name}" as a .lattice file`}
+      onClick={onClick}
+      title={title}
+      aria-label={ariaLabel}
       className="relative z-10 flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--hairline)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-secondary)] hover:text-[var(--text-primary)]"
       style={saved ? { borderColor: "var(--accent-secondary)", color: "var(--accent-secondary)" } : undefined}
     >
       <DownloadIcon />
-      {saved ? "Saved" : ".lattice"}
+      {saved ? "Saved" : children}
     </button>
   );
 }

@@ -3,7 +3,7 @@ import type { CanvasGraph } from "@/lib/code-canvas/graph";
 import type { Diagram } from "@/lib/shape-detection";
 
 /**
- * The canvas a post is built around.
+ * One canvas a post is built around.
  *
  * A post on this page is never just prose — it exists because somebody
  * traced something and wants to show it, so the canvas is the headline
@@ -12,10 +12,17 @@ import type { Diagram } from "@/lib/shape-detection";
  * the exact structure the Visualizer renders, so the preview is the real
  * drawing at a smaller size and not a picture of one that has since gone
  * stale.
+ *
+ * Nothing stores traces, so the diagram cannot be read back off a saved
+ * canvas — the composer runs the code at the moment you attach it and
+ * keeps the one step you chose. See `lib/posts/attach.ts`.
  */
 export type CanvasAttachment = {
-  /** The canvas this was traced on. Links through to the Visualizer. */
+  /** The canvas or graph this came from. Links back into the workspace it
+   * was made in — a real id now, not seed data. */
   canvasId: string;
+  /** Which workspace `canvasId` names, so the link goes to the right one. */
+  source: "canvas" | "code-canvas";
   name: string;
   language: Language;
   /** Which moment of the run is on show — posts pick a step, not a whole
@@ -25,8 +32,18 @@ export type CanvasAttachment = {
   /** The Code-Canvas graph the author built, as opposed to `diagram`, which
    * is what one step of running it looked like. Carried so the post can hand
    * over a `.lattice` file — a reader who wants to try the thing needs the
-   * blocks, and a diagram cannot be edited back into them. */
-  graph: CanvasGraph;
+   * blocks, and a diagram cannot be edited back into them.
+   *
+   * Null for a canvas typed by hand, which never had blocks behind it. */
+  graph: CanvasGraph | null;
+  /** The exact source that was run to produce `diagram`.
+   *
+   * Stored rather than regenerated from `graph` on download. The two used
+   * to be the same thing, but only because the file was always compiled
+   * fresh; now that the drawing is a recording of one particular run, the
+   * file has to hand over the code that run actually executed or the two
+   * describe different programs. */
+  code: string;
 };
 
 export type PostComment = {
@@ -59,7 +76,10 @@ export type Post = {
    * wash. Drawn from the same orange family as the diagram palette so a
    * feed of posts never turns into a colour wheel. */
   accent: string;
-  canvas: CanvasAttachment;
+  /** In the order the author attached them, which is the order the
+   * carousel steps through. Always at least one — the server rejects a
+   * post without an attachment. */
+  canvases: CanvasAttachment[];
   /** Everyone's likes, the reader's included — the server owns the set and
    * sends only its size, so no client ever receives the list of who liked
    * what. */

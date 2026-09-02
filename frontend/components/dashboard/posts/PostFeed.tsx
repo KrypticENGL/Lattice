@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import PostCard from "./PostCard";
 import PostRail from "./PostRail";
 import { filterByTags, searchPosts, sortPosts, type SortOrder } from "@/lib/posts/search";
+import PostComposer from "./PostComposer";
 import { usePosts, usePostState } from "@/lib/posts/use-posts";
 
 /**
@@ -62,6 +63,7 @@ export default function PostFeed() {
   const [query, setQuery] = useState("");
   const [tags, setTags] = useState<ReadonlySet<string>>(() => new Set());
   const [order, setOrder] = useState<SortOrder>("latest");
+  const [composing, setComposing] = useState(false);
 
   const visible = useMemo(
     () => sortPosts(filterByTags(searchPosts(posts, query), tags), order),
@@ -103,6 +105,19 @@ export default function PostFeed() {
               </>
             )}
           </span>
+
+          {/* The one control on this row that adds rather than narrows,
+            * so it carries the accent the filters deliberately do not.
+            * Beside the count because that is what it changes. */}
+          <button
+            type="button"
+            onClick={() => setComposing(true)}
+            title="Write a post — you'll attach a canvas or graph you've built"
+            className="rail-pill inline-flex shrink-0 gap-2 rounded-full px-3.5 font-mono text-[10px] font-medium uppercase tracking-wider transition-opacity hover:opacity-90"
+            style={{ background: "var(--accent-primary)", color: "var(--bg-base)" }}
+          >
+            Write
+          </button>
 
           {/* Two pills in one shell rather than two separate controls: the
             * order is one choice with two answers, and a pair of pills
@@ -205,6 +220,8 @@ export default function PostFeed() {
           </div>
         )}
       </div>
+
+      <PostComposer open={composing} onClose={() => setComposing(false)} />
 
       <PostRail
         activeTags={tags}

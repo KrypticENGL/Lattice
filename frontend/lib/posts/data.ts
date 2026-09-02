@@ -19,8 +19,8 @@
  */
 
 import type { Diagram } from "@/lib/shape-detection";
+import type { CanvasGraph } from "@/lib/code-canvas/graph";
 import { POST_GRAPHS } from "./graphs";
-import type { CanvasAttachment } from "./types";
 
 /**
  * A post as it is *authored* here, which is not the same shape a post has
@@ -32,6 +32,21 @@ import type { CanvasAttachment } from "./types";
  * (`likes: 128`, a comment labelled "2 days ago") and
  * `scripts/export-seed-posts.ts` converts it into the stored document.
  */
+/** A seed's attachment, which is less than a real one.
+ *
+ * `source` and `code` are absent because both are derivable and neither is
+ * worth hand-writing six times: every seed is built from a graph, so the
+ * export script stamps `source: "code-canvas"` and compiles `code` from
+ * `graph` with the same `generateCpp` a real attachment runs through. */
+export type SeedAttachment = {
+  canvasId: string;
+  name: string;
+  language: "cpp";
+  stepLabel: string;
+  diagram: Diagram;
+  graph: CanvasGraph;
+};
+
 export type SeedPost = {
   id: string;
   title: string;
@@ -43,7 +58,7 @@ export type SeedPost = {
   readTime: string;
   tags: string[];
   accent: string;
-  canvas: CanvasAttachment;
+  canvas: SeedAttachment;
   likes: number;
   comments: { id: string; author: string; body: string; at?: string }[];
 };

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import PostFeed from "@/components/dashboard/posts/PostFeed";
 
 export default function PostsPage() {
@@ -30,20 +29,12 @@ export default function PostsPage() {
           </p>
         </div>
 
-        {/* Somewhere to go, on a page that is otherwise only readable.
-          * It links to where the canvases in these posts are actually
-          * built rather than to a composer, because there is no composer
-          * — a control that promised one would be lying about the only
-          * thing it does. */}
-        <Link
-          href="/dashboard/code-canvas"
-          title="Build a canvas in Code-Canvas — the posts here are made from these"
-          className="rail-pill glass-flat inline-flex shrink-0 gap-2 rounded-full px-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-secondary)]"
-        >
-          Trace something &rarr;
-        </Link>
       </div>
 
+      {/* The composer lives inside the feed rather than here: publishing
+        * has to put the new post at the top of the list the feed is
+        * holding, and the button that opens it belongs beside the count
+        * of what it will add to. */}
       <PostFeed />
     </div>
   );

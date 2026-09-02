@@ -233,16 +233,46 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 /* Frosted liquid glass — panels, pills, code windows, animation stages.
-   Modeled on Apple's Liquid Glass material: strong blur/saturation, a
-   bright specular rim catching light along the top edge, a soft inner
-   shadow underneath for depth, and a floating outer drop shadow. */
+   Modeled on Apple's Liquid Glass material — the optics rather than the
+   look: real transmission, a bright specular rim catching light along the
+   top edge, a soft inner shadow underneath for depth, and a floating
+   outer drop shadow.
+
+   ## The frost is the blur, not the tint
+
+   Worth stating, because the obvious fix for "I can read the page through
+   this" is to pour in more tint, and that is the wrong one — past about
+   70% the material stops transmitting and reads as a painted panel with a
+   highlight on it. Transparency is the whole point; a slab you cannot see
+   any of the room through is not glass.
+
+   What actually makes text behind unreadable is the blur radius, and it
+   does not need to be large. At 15px a 14px line is already destroyed —
+   what comes through is the page's *light*: its colour, its bright and
+   dark regions, the fact that something is moving when you scroll. That
+   is what should come through, and at this radius a little of the
+   backdrop's *shape* survives too, which is what stops the material
+   reading as fog.
+
+   The tint is set only high enough to hold contrast for the text painted
+   *on* the glass, which is a much smaller number than the one needed to
+   hide what is behind it. Saturation past 100% is doing real work here
+   too: it keeps the transmitted colour from washing out to grey as the
+   blur averages it, which is the difference between frosted glass and a
+   sheet of vellum. */
 .glass {
   position: relative;
   isolation: isolate;
-  background: color-mix(in srgb, var(--bg-surface) 58%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 46%, transparent);
   border: 1px solid var(--hairline);
-  backdrop-filter: blur(26px) saturate(170%);
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  /* No hand-written `-webkit-` twin here, or anywhere else in this file.
+     Tailwind v4 compiles this through Lightning CSS, which adds whatever
+     prefixes the browserslist actually needs — and which collapses a
+     manually-written pair down to whichever came *last*. With the alias
+     written second the standard property was dropped from the build, so
+     none of the blur below was reaching the browser at all and the tint
+     was holding the material up by itself. */
+  backdrop-filter: blur(15px) saturate(180%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 rgba(0, 0, 0, 0.25),
@@ -271,10 +301,25 @@ input[type="search"]::-webkit-search-results-decoration {
   z-index: -1;
   border-radius: inherit;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 24%),
+    /* An edge glint, not a band. This used to fade out at 24% of the
+       panel's height, which on anything with a `.glass-bar` on it meant
+       the whole title bar sat inside a white wash — and that, not the
+       bar's own fill, was what made the bar read as an opaque lid. A
+       specular highlight on a real slab is a bright line where the light
+       catches the top edge; giving it the height of a header turns it
+       into paint.
+
+       In pixels, not a percentage: the stop is measured against the
+       *panel's* height, so on a short pill 24% is a hairline and on a tall
+       dialog it is eighty pixels of wash. A glint is a property of the
+       edge, not a fraction of whatever the edge happens to belong to. */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 4px),
+    /* The diagonal sheen across the slab. Lightened along with the glint
+       above — it also falls across the top-left corner, which is where a
+       title bar's label sits. */
     linear-gradient(
       145deg,
-      color-mix(in srgb, var(--text-primary) 10%, transparent),
+      color-mix(in srgb, var(--text-primary) 4%, transparent),
       transparent 45%
     );
   pointer-events: none;
@@ -287,25 +332,41 @@ input[type="search"]::-webkit-search-results-decoration {
    edge, and a short sheen falling off over the bar's own height.
 
    The tint is deliberately faint. What makes the bar read as Liquid Glass is
-   the optics, not the fill: a heavy blur with the saturation and brightness
-   pushed past the source (glass concentrates the light it bends), a bright
-   specular rim along the top edge, a darker one along the bottom where the
-   slab's thickness shadows itself, and a touch of the same brightening at
-   the left/right rims where a real edge would refract. Raise the tint and
-   all of that reads as paint instead.
+   the optics, not the fill: a bright specular rim along the top edge, a
+   darker one along the bottom where the slab's thickness shadows itself,
+   and a touch of the same brightening at the left/right rims where a real
+   edge would refract. Raise the tint and all of that reads as paint instead.
 
-   The blur is kept even though a `.glass` ancestor establishes a backdrop
-   root (so this mostly resamples the panel's own sheen and noise rather than
-   the page behind it) — it softens those layers under the toolbar, and it
-   still frosts properly for any future use on a non-glass parent. */
+   It carries no fill of its own, and the *stack* is why: a `.glass-bar`
+   sits over the panel's background, the panel's top sheen, and its own
+   bloom. Each is individually faint and they still add up — which is how
+   a strip with a 16% tint on a 46% panel ended up reading as a solid lid.
+
+   ## No `backdrop-filter` here, on purpose
+
+   The bar is a strip *on* a panel, and the panel has already frosted the
+   page — every one of these sits inside a `.glass` ancestor (Panel,
+   SimulatorEditor, PostComposer, FloatingEditor), which establishes a
+   backdrop root, so a filter here would only re-blur the panel's own sheen
+   and noise. Blurring an already-diffuse surface does not make it more
+   diffuse; it just lightens and flattens it, which is precisely what made
+   the bar read as a solid strip rather than as the thinnest part of the
+   glass. Letting the panel's own frost show through it unmodified is what
+   makes it translucent.
+
+   It is also the cheaper half of a trade nobody was getting anything for:
+   a second backdrop pass per panel, on every frame the panel moves. */
 .glass-bar {
   position: relative;
   isolation: isolate;
-  background: color-mix(in srgb, var(--bg-elevated) 20%, transparent);
-  backdrop-filter: blur(24px) saturate(200%) brightness(1.18);
-  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.18);
+  /* No fill at all. Any tint of its own only paints the bar lighter than
+     the panel it sits on, and "lighter than the rest of the slab" is
+     precisely what reads as a lid. With no fill the bar is the same glass
+     as the body; the hairline under it and the side rims below are what
+     say "this is a title bar", and what is behind the panel shows through
+     it exactly as it shows through everything else. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(0, 0, 0, 0.22);
 }
 
@@ -315,26 +376,19 @@ input[type="search"]::-webkit-search-results-decoration {
   inset: 0;
   z-index: -1;
   background:
-    /* Specular bloom hanging off the top rim, gone by mid-bar. */
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.16),
-      rgba(255, 255, 255, 0.03) 40%,
-      transparent 72%
-    ),
-    /* Refraction at the two side rims, so the strip has visible thickness. */
+    /* Refraction at the two side rims, so the strip has visible thickness.
+       These are the cheapest opacity in the whole bar — a few pixels at
+       each end — and they do most of the work of making it read as a
+       slab. They are also all that is left: the downward bloom that used
+       to sit here has gone, because the panel's own edge glint already
+       lights the top of the bar and two of them stacked is what was
+       filling it. */
     linear-gradient(
       90deg,
       rgba(255, 255, 255, 0.06),
       transparent 10%,
       transparent 90%,
       rgba(255, 255, 255, 0.045)
-    ),
-    /* The last of the tint, kept only so the label holds its contrast. */
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--text-primary) 6%, transparent),
-      transparent 78%
     );
   pointer-events: none;
 }
@@ -389,6 +443,13 @@ input[type="search"]::-webkit-search-results-decoration {
    `.glass` itself is unchanged and still right for the handful of large
    surfaces it was designed for — a code window, the hero's animation
    stage — where one live backdrop is affordable and actually visible. */
+/* The flat variant carries no `backdrop-filter` at all, on purpose: these
+   are pills, and there are 45 of them across the app — every one would be
+   its own blur pass on every frame it moved. With no blur to hide behind,
+   the tint has to be higher than `.glass`'s despite this being the
+   lighter-looking material. It gets away with it because a pill is small:
+   there is not enough of it for the eye to read the loss of transmission
+   as paint. */
 .glass-flat {
   position: relative;
   isolation: isolate;
@@ -451,14 +512,19 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 /* Liquid-glass floating navbar */
+/* The sidebar sits over whatever the page is scrolling, which on the feed
+   means prose moving behind a fixed rail — the one place where the
+   backdrop is not just moving but *changing shape*, and the one most
+   likely to catch the eye mid-sentence. It answers that with a wider
+   blur than `.glass` rather than more tint: the rail is a tall, narrow
+   slab, the shape most obviously ruined by going opaque. */
 .glass-nav {
   position: relative;
   isolation: isolate;
-  background: color-mix(in srgb, var(--bg-surface) 52%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 42%, transparent);
   border: 1px solid var(--hairline-strong);
   border-radius: 50px;
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  backdrop-filter: blur(18px) saturate(200%);
   box-shadow:
     0 14px 44px -14px rgba(0, 0, 0, 0.7),
     inset 0 1px 0 rgba(255, 255, 255, 0.32),
@@ -1113,5 +1179,40 @@ a.rail-pill:hover,
   .var-flash-changed,
   .var-flash-fresh {
     animation-timing-function: steps(2, jump-none);
+  }
+}
+
+/* A dialog's entrance.
+   ------------------------------------------------------------------
+   A keyframe rather than a `motion` component. The two failure modes
+   that led here are worth naming, because both are invisible in review
+   and obvious in use: an `AnimatePresence` exit that never resolves
+   leaves a closed dialog on screen, and a `motion` element whose
+   `animate` never runs leaves an open one stranded on `initial` — in
+   that case `opacity: 0`, so present and interactive but invisible.
+
+   CSS cannot fail this way. The element is visible because it is
+   painted, and the animation is decoration on top of that rather than
+   the thing that makes it appear. */
+.dialog-in {
+  animation: lattice-dialog-in 150ms ease-out;
+}
+
+@keyframes lattice-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The entrance is decoration; someone who has asked for less motion
+   should still get a dialog, just without the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .dialog-in {
+    animation: none;
   }
 }
