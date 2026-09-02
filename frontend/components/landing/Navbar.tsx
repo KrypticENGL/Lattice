@@ -38,7 +38,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => scrollToSection("top")}
-            className="flex items-center gap-2"
+            className="nav-item flex items-center gap-2"
           >
             <LogoMark />
             <span className="font-serif text-[16px] font-semibold tracking-tight text-[var(--text-primary)]">
@@ -49,7 +49,7 @@ export default function Navbar() {
             href="https://github.com"
             target="_blank"
             rel="noreferrer"
-            className="hidden rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] md:inline-flex md:items-center md:justify-center"
+            className="nav-item hidden rounded-full border border-white/15 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] md:inline-flex md:items-center md:justify-center"
           >
             GitHub
           </a>
@@ -61,7 +61,7 @@ export default function Navbar() {
               key={link.id}
               type="button"
               onClick={() => scrollToSection(link.id)}
-              className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors hover:text-[var(--accent-secondary)]"
+              className="nav-item font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--accent-secondary)]"
             >
               {link.label}
             </button>
@@ -76,7 +76,7 @@ export default function Navbar() {
               <SignInButton mode="modal">
                 <button
                   type="button"
-                  className="rounded-full border border-white/15 px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] transition-colors hover:border-[var(--accent-primary)]"
+                  className="nav-item rounded-full border border-white/15 px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[var(--text-primary)] hover:border-[var(--accent-primary)]"
                 >
                   Sign in
                 </button>
@@ -85,7 +85,7 @@ export default function Navbar() {
           {primaryHref ? (
             <a
               href={primaryHref}
-              className="rounded-full px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow"
+              className="nav-item rounded-full px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--bg-base)]"
               style={{
                 background: "var(--accent-primary)",
                 boxShadow: "0 0 0 1px rgba(255,255,255,0.08)",
@@ -97,7 +97,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => scrollToSection("trace")}
-              className="rounded-full px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--bg-base)] transition-shadow hover:shadow-[0_0_24px_var(--accent-glow)]"
+              className="nav-item rounded-full px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--bg-base)] hover:shadow-[0_0_24px_var(--accent-glow)]"
               style={{ background: "var(--accent-primary)" }}
             >
               {primaryLabel}
@@ -110,7 +110,7 @@ export default function Navbar() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
           aria-expanded={open}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-[var(--text-primary)] md:hidden"
+          className="nav-item flex h-8 w-8 items-center justify-center rounded-full border border-white/15 text-[var(--text-primary)] md:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             {open ? (

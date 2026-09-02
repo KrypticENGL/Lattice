@@ -89,6 +89,20 @@ pub struct Frame {
     /// preserves insertion order); `IndexMap` is what preserves that
     /// through deserialize → reserialize instead of discarding it.
     pub locals: IndexMap<String, TraceValue>,
+    /// Where each of those locals lives — `&x`, as bare hex — for the
+    /// frontend's stack view, which draws a frame as a piece of memory.
+    ///
+    /// Keyed by the same names as `locals` but deliberately allowed to be
+    /// *smaller* than it: a variable the compiler kept in a register has
+    /// no address, and the tracer says nothing about those rather than
+    /// inventing a slot (see `slot_address` in tracers/cpp/gdb_hook.py).
+    /// Defaulted and skipped when empty so a trace recorded before this
+    /// field existed — one stored on a canvas, or replayed from a
+    /// `.lattice` file — still deserializes, and so a program whose
+    /// locals are all in registers doesn't pay for an empty map on every
+    /// frame of every event.
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub addrs: IndexMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

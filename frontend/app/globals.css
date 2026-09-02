@@ -489,6 +489,80 @@ input[type="search"]::-webkit-search-results-decoration {
   pointer-events: none;
 }
 
+/* Controls answer the pointer.
+   ------------------------------------------------------------------
+   Two things, and the first is a regression to undo rather than a
+   decision to make. Tailwind v4's preflight leaves `<button>` on the UA
+   default cursor, which is an arrow — so in a row of identically-styled
+   pills, the ones that happen to be `<a>` (a link out to GitHub, a link
+   into the dashboard) said "clickable" and the ones that happen to be
+   `<button>` (Export, Open, Rename canvas, Reset view, Run) said nothing.
+   Nothing about how they look distinguishes the two, and nothing should:
+   the tag is an implementation detail of what the control does when you
+   press it. Restoring the pointer globally settles it everywhere at once,
+   including in the corners of the app nobody has hovered yet.
+
+   Disabled buttons are excluded, and the utilities that ask for
+   `not-allowed` on those still win — a `disabled:` variant carries its
+   own pseudo-class on top of a class, so it outranks this bare element
+   selector. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+/* The lift, for the controls that read as one bar.
+   ------------------------------------------------------------------
+   The landing navbar and a canvas workspace's header rail are the same
+   idea twice: a row of pills where hovering one should say *this one*
+   before you commit to pressing it. The growth is deliberately small —
+   six percent, about a pixel at this type size — because it is meant to
+   be felt as the control acknowledging the pointer rather than seen as
+   an animation. `transform` costs no layout, so a pill growing under the
+   cursor cannot nudge the ones beside it.
+
+   `button.rail-pill`/`a.rail-pill` rather than `.rail-pill` alone,
+   because half the rail is readouts: the zoom percentage, the step
+   counter, the trace status, the name field's input. Those wear the same
+   pill so the row lines up, and a number that swells when the pointer
+   crosses it would be claiming to do something. Element-scoped selectors
+   are what tell the two apart, since nothing in the class list does.
+   `.rail-pill button` picks up the icon buttons that live *inside* a
+   pill — the transport controls, the line-style toggles — which are as
+   pressable as anything else in the row.
+
+   One `transition-property` list rather than Tailwind's
+   `transition-colors`/`-shadow`/`-opacity` per element: those are three
+   shorthands for the same 200ms, and an element that wanted two of them
+   could only have the last one written. Everything travels together
+   here, so a pill that brightens its border and grows does both on the
+   same beat. */
+.nav-item,
+button.rail-pill,
+a.rail-pill,
+.rail-pill button {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 200ms;
+  transition-timing-function: ease-out;
+}
+
+.nav-item:hover,
+button.rail-pill:not(:disabled):hover,
+a.rail-pill:hover,
+.rail-pill button:not(:disabled):hover {
+  transform: scale(1.06);
+}
+
+/* The pointer still changes, and the colours still move — it is only the
+   growth that goes, being the part that is motion for its own sake. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-item:hover,
+  button.rail-pill:hover,
+  a.rail-pill:hover,
+  .rail-pill button:hover {
+    transform: none;
+  }
+}
+
 /* Matte dashboard surface — flat and solid, no blur or gradient sheen.
    Deliberate contrast to the public site's Liquid Glass treatment. */
 .matte {
@@ -554,33 +628,31 @@ input[type="search"]::-webkit-search-results-decoration {
    guaranteed-empty inset on each side is the difference between the
    memory diagram having room for a pointer chain and not.
 
-   So it takes the canvas workspaces' deal instead. The right gutter goes
-   entirely, landing that edge 24px from the screen — the shell's own
-   `p-6`, and the same edge the Visualizer's canvas runs to. The left one
-   drops to clearing the rail *collapsed*, which is only safe because the
-   page opts into `.shifts-with-sidebar` for the other half of that
-   bargain: an expanding rail pushes the whole column aside rather than
-   sliding over the editor.
+   So it takes the canvas workspaces' deal instead. The right gutter drops
+   to a hair — 8px on top of the shell's own `p-6`, so that edge lands
+   32px from the screen. The left one drops to clearing the rail
+   *collapsed*, which is only safe because the page opts into the split
+   shift below (`.simulator-code-column`) for the other half of that
+   bargain: an expanding rail pushes the columns aside rather than sliding
+   over the editor.
 
-   84px, not the 68px the canvas workspaces use: 60px of rail plus the
-   same 24px the shell already leaves on the right. `main`'s box starts at
-   the rail's own left edge, so the rail eats the first 60px of this
-   padding and what is left over is the visible gap — which makes the
-   panels sit 24px clear of the rail and 24px clear of the right edge of
-   the screen. The canvases can afford the tighter 68px because their
+   84px on the left, not the 68px the canvas workspaces use: 60px of rail
+   plus 24px of gap. `main`'s box starts at the rail's own left edge, so
+   the rail eats the first 60px of this padding and what is left over is
+   what you see. The canvases can afford the tighter 68px because their
    left-hand chrome floats over a surface that is happy to be crowded;
-   these are four hard-edged cards, and an 8px gutter on one side against
-   24px on the other reads as a mistake rather than as a tighter fit.
+   these are four hard-edged cards, and an 8px gutter beside the rail
+   would read as a mistake rather than as a tighter fit.
 
-   The hover shift is unaffected: `.shifts-with-sidebar` adds exactly the
-   rail's growth (132px), so the 24px gap survives the rail opening.
+   The two sides are therefore not equal — 24px against the rail, 32px
+   against the screen — and that is on purpose. The left gap is measured
+   from a rail that is already 60px of dark chrome, so the panel has
+   something to sit against; the right one is measured from the edge of
+   the window, where there is nothing, and the same number reads as less.
 
-   That shift costs a reflow the Visualizer's does not — there, only a
-   floating title block moves and the canvas underneath is happy to be
-   covered; here the whole grid narrows for the 300ms the rail is open,
-   and Monaco relays out with it. That is the price of the editor starting
-   at the rail instead of 208px away from it, and it is only paid while
-   someone is deliberately holding the pointer on the navigation.
+   The hover shift is unaffected: the split shift below moves and narrows
+   by exactly the rail's growth (132px), so both gaps survive the rail
+   opening.
 
    Unlayered, so both declarations win over `main`'s Tailwind `wide:p*-*`
    utilities regardless of specificity. Same query as the `wide` variant
@@ -588,7 +660,86 @@ input[type="search"]::-webkit-search-results-decoration {
 @media (min-width: 720px) and (min-height: 520px) {
   main:has([data-workspace-full-width]) {
     padding-left: 84px;
-    padding-right: 0;
+    padding-right: 8px;
+  }
+}
+
+/* …and the Simulator pays for it out of one column only.
+   ------------------------------------------------------------------
+   `.shifts-with-sidebar` on the page root did the job, but it did it to
+   everything: the root's right edge is pinned to the frame, so a 132px
+   left margin narrowed the whole grid and both columns lost 66px. The
+   editor is the one thing on the page that must not be re-measured for
+   that — Monaco runs on `automaticLayout`, i.e. a ResizeObserver, so any
+   change to its box re-wraps every line, re-renders the viewport and
+   re-lays-out the minimap gutter, once per frame, for the entire 300ms.
+
+   So the shift is split by what each column can afford. The code column
+   *moves* and keeps its width: `transform` is off the layout path
+   entirely, so Monaco's box never changes, its observer never fires, and
+   the compositor animates a promoted layer with no main-thread work at
+   all. The machine column — call stack, variables, memory & pointers —
+   takes the whole 132px out of its own left edge, which is exactly the
+   shrink asked of it and the only reflow the rail costs.
+
+   The arithmetic lands them flush: the code column ends at
+   `L + 132`, the machine column starts at `L + gap + 132`, so the 12px
+   gutter between them survives the move unchanged and neither overlaps.
+
+   The header row yields rather than slides for a different reason — it
+   spans both columns and the StepBar is anchored to its right edge, so
+   translating it would push the scrubber off the frame.
+
+   Below `lg` the two columns are stacked, there is no second column to
+   take the width out of, and a translated full-width column would simply
+   hang off the right edge — so the root goes back to shifting whole. */
+.simulator-shell,
+.simulator-chrome,
+.simulator-machine-column {
+  transition: margin-left 300ms ease-out;
+}
+
+.simulator-code-column {
+  transition: transform 300ms ease-out;
+  /* Held permanently, not switched on at hover: promotion applied in the
+     same style recalc that starts the transition is honoured on the way
+     out but not on the way back, and an un-hover that repaints Monaco
+     every frame is the exact cost this whole arrangement exists to
+     avoid. One layer, on the page's heaviest subtree. */
+  will-change: transform;
+}
+
+/* Stacked: one column, so the page steps aside the way it used to. */
+@media (min-width: 720px) and (min-height: 520px) {
+  aside:hover ~ main .simulator-shell {
+    margin-left: 132px;
+  }
+}
+
+/* Side by side, from `lg` up — the split above takes over. */
+@media (min-width: 1024px) and (min-height: 520px) {
+  aside:hover ~ main .simulator-shell {
+    margin-left: 0;
+  }
+
+  aside:hover ~ main .simulator-chrome,
+  aside:hover ~ main .simulator-machine-column {
+    margin-left: 132px;
+  }
+
+  aside:hover ~ main .simulator-code-column {
+    transform: translateX(132px);
+  }
+}
+
+/* The clearance is layout, not decoration — it still has to happen, it
+   just arrives instead of sliding. */
+@media (prefers-reduced-motion: reduce) {
+  .simulator-shell,
+  .simulator-chrome,
+  .simulator-machine-column,
+  .simulator-code-column {
+    transition: none;
   }
 }
 
@@ -860,7 +1011,11 @@ input[type="search"]::-webkit-search-results-decoration {
    up rather than as the text changing colour, and putting it behind the
    content would mean giving the content its own stacking context to sit
    in — more machinery than a half-second tint is worth. */
-@keyframes lattice-stdout-flash {
+/* Shared by every flash on the Simulator page, and named for the shape
+   rather than for stdout because the variables panel lights up the same
+   way when a frame is switched: a layer that rests invisible, is handed a
+   colour, and fades back to where it already lives. */
+@keyframes lattice-flash-out {
   from {
     opacity: 1;
   }
@@ -881,7 +1036,7 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .stdout-flash {
-  animation: lattice-stdout-flash 480ms ease-out;
+  animation: lattice-flash-out 480ms ease-out;
 }
 
 /* A flashing panel is the one thing someone with a motion sensitivity
@@ -889,6 +1044,74 @@ input[type="search"]::-webkit-search-results-decoration {
    it holds the lit state briefly and cuts, with no fade to track. */
 @media (prefers-reduced-motion: reduce) {
   .stdout-flash {
-    animation: lattice-stdout-flash 480ms steps(2, jump-none);
+    animation: lattice-flash-out 480ms steps(2, jump-none);
+  }
+}
+
+/* ------------------------------------------------------------------
+   Switching frames, answered in the variables panel
+   ------------------------------------------------------------------
+   Clicking a frame in the call stack changes what the panel beside it
+   lists, and that is the one change on the page most likely to be
+   missed: in a recursion both frames belong to the same function, so
+   every name in the list is identical and only the values move. Left
+   alone, the reader's own click looks like nothing happened.
+
+   So it is answered twice. The card takes one pulse — that is the whole
+   signal when the two frames happen to agree, or when the frame came
+   from another function and there is nothing to line up against — and
+   the rows that actually differ take a brighter one of their own.
+
+   Same overlay trick as `.stdout-flash-layer`, for the same reason: a
+   layer resting at `opacity: 0` names no colour it has to hand back to,
+   so the animation ends exactly where the row already was, whatever the
+   row is made of. And like that one it is painted over the content
+   rather than behind it — a translucent wash on the way out, not a
+   stacking context for every cell in the list to sit inside. */
+.panel-flash-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid var(--accent-primary);
+  box-shadow: inset 0 0 26px -10px var(--accent-primary);
+  opacity: 0;
+}
+
+.panel-flash {
+  animation: lattice-flash-out 900ms ease-out;
+}
+
+.var-flash-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* A local both frames hold, holding something different here. The row
+   keeps a quiet tint and an edge marker afterwards (set inline, from the
+   diff), so this is the arrival rather than the whole story. */
+.var-flash-changed {
+  background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  animation: lattice-flash-out 1100ms ease-out;
+}
+
+/* A local the other frame simply didn't have. Not a change — a different
+   variable — so it is shown as belonging to the same event and no more. */
+.var-flash-fresh {
+  background: color-mix(in srgb, var(--accent-primary) 9%, transparent);
+  animation: lattice-flash-out 800ms ease-out;
+}
+
+/* Same bargain as the stdout flash: the notice still has to land, so it
+   holds the lit state and cuts rather than fading through it. */
+@media (prefers-reduced-motion: reduce) {
+  .panel-flash,
+  .var-flash-changed,
+  .var-flash-fresh {
+    animation-timing-function: steps(2, jump-none);
   }
 }

@@ -366,14 +366,23 @@ def collect_locals(frame):
     live object left over from a prior call using the same frame address
     (observed: `newNode` pointing at an already-linked node one step
     before `new Node(v)` even runs), corrupting the diagram rather than
-    just looking incomplete."""
+    just looking incomplete.
+
+    Returns the locals *and* where each of them lives — `&x`, as a hex
+    string — so the frontend's stack view can draw the frame as a piece of
+    memory rather than as a table of names. The two are separate maps
+    keyed by the same names rather than one map of richer values, because
+    a local's *value* is a `TraceValue` the whole schema is built around
+    (§8) and wrapping it to carry one extra string would change the shape
+    of every value in every frame."""
     line = frame_line(frame)
     names_seen = set()
     result = {}
+    addrs = {}
     try:
         block = frame.block()
     except (gdb.error, RuntimeError):
-        return result
+        return result, addrs
     heap_walker = frame_locals_walker
     b = block
     while b is not None and not b.is_static and not b.is_global:
@@ -398,10 +407,37 @@ def collect_locals(frame):
             try:
                 val = sym.value(frame)
                 result[sym.name] = heap_walker.serialize_value(val)
+                addr = slot_address(val)
+                if addr is not None:
+                    addrs[sym.name] = addr
             except gdb.error as e:
                 result[sym.name] = f"<error: {e}>"
         b = b.superblock
-    return result
+    return result, addrs
+
+
+def slot_address(val):
+    """`&val` as a hex string, or None if the variable hasn't got one.
+
+    Not every local does. A variable the compiler kept in a register has
+    no address at all and gdb reports `None` for it — the honest answer is
+    to say nothing about that one rather than to invent a slot for it, so
+    the map returned by `collect_locals` is deliberately allowed to be
+    missing names its `locals` has.
+
+    Written as bare hex (`0x7ffd...`), unlike the heap's `obj_` ids: these
+    are stack slots, not objects, and nothing refers to them — no
+    `{"ref": ...}` will ever name one, so they need no id namespace."""
+    try:
+        addr = val.address
+    except gdb.error:
+        return None
+    if addr is None:
+        return None
+    try:
+        return "0x%x" % int(addr)
+    except (gdb.error, ValueError, TypeError):
+        return None
 
 
 def collect_user_frames():
@@ -415,7 +451,16 @@ def collect_user_frames():
     frames.reverse()
     out = []
     for fr in frames:
-        out.append({"function": fr.name() or "?", "locals": collect_locals(fr)})
+        locals_, addrs = collect_locals(fr)
+        frame_out = {"function": fr.name() or "?", "locals": locals_}
+        # Omitted rather than emitted empty: every event carries every
+        # frame, and a program whose locals all live in registers would
+        # otherwise pay for an `"addrs": {}` on each of them against the
+        # output byte cap. The consumers treat a missing map and an empty
+        # one the same way.
+        if addrs:
+            frame_out["addrs"] = addrs
+        out.append(frame_out)
     return out
 
 

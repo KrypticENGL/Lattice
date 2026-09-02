@@ -1,25 +1,39 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   LATTICE_EXTENSION,
   LATTICE_MIME,
   buildLatticeFile,
+  missingSectionMessage,
+  missingSections,
   parseLatticeFile,
   serializeLatticeFile,
   suggestFileName,
   type LatticeCode,
   type LatticeFile,
+  type LatticeSection,
+  type LatticeVisualizer,
 } from "@/lib/lattice-file/format";
+import { isTruncated } from "@/lib/trace-schema/types";
 import type { CanvasGraph } from "@/lib/code-canvas/graph";
 
 /**
- * Save this canvas to a `.lattice` file, and open one back.
+ * Save this workspace to a `.lattice` file, and open one back.
  *
- * Export is unremarkable. Import is not: dropping a file's graph onto the
- * canvas throws away whatever is currently on it, which is destructive and
+ * Shared by both canvas workspaces, because the file is shared: the
+ * Visualizer and Code-Canvas write the same format and can each be handed
+ * the other's file. What differs between them is one prop — `requires`,
+ * the parts a page cannot open a file without — and that is the whole
+ * reason this is one component rather than two. A reader who exports from
+ * Code-Canvas and then tries to open it in the Visualizer is not making a
+ * mistake so much as asking a reasonable question, and the answer has to
+ * name the part that is missing.
+ *
+ * Export is unremarkable. Import is not: dropping a file's contents onto
+ * the page throws away what is currently there, which is destructive and
  * silent, so the file is parsed and *shown* — its own preview, its name,
  * what it contains — before anything is replaced. The preview inside the
  * file is exactly what makes that confirmation worth having; without it
@@ -27,8 +41,8 @@ import type { CanvasGraph } from "@/lib/code-canvas/graph";
  */
 
 /** Refuses a file too big to be one of ours. A `.lattice` is a graph, a
- * page of code and an SVG; anything past this is either not our file or
- * one we should not be reading into a string on the main thread. */
+ * page of code, a trace and an SVG; anything past this is either not our
+ * file or one we should not be reading into a string on the main thread. */
 const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
 
 /** Renders an SVG that came out of a file the user chose.
@@ -79,26 +93,46 @@ function PillButton({
 
 export default function LatticeFileControls({
   name,
-  graph,
-  code,
+  code = null,
+  graph = null,
+  visualizer = null,
+  requires,
   onImport,
   onNotify,
+  importDisabledReason = null,
 }: {
   name: string;
-  graph: CanvasGraph;
-  code: LatticeCode;
+  /** The code half of what `Export` writes, if this page has one. */
+  code?: LatticeCode | null;
+  /** The Code-Canvas half, if this page has one. */
+  graph?: CanvasGraph | null;
+  /** The Visualizer half, if this page has one and a trace to put in it. */
+  visualizer?: LatticeVisualizer | null;
+  /** What this page needs to find in a file before it can open it, most
+   * important first — the first one missing is what the reader is told
+   * about. */
+  requires: readonly LatticeSection[];
   /** Hands the caller the parsed file once the reader has confirmed the
-   * replacement. Naming the whole file rather than just the graph is
+   * replacement, and only after every `requires` part was found in it.
+   * Naming the whole file rather than just the part asked for is
    * deliberate — the code and the name travel with it. */
   onImport: (file: LatticeFile) => void;
   onNotify: (message: string) => void;
+  /** Set to explain why opening a file is not available right now; the
+   * button goes disabled and says this on hover. */
+  importDisabledReason?: string | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<LatticeFile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /** Nothing to write means nothing to export — a page whose workspace
+   * hasn't loaded yet would otherwise offer a file with a name and three
+   * nulls in it. */
+  const canExport = code !== null || graph !== null || visualizer !== null;
+
   const handleExport = useCallback(() => {
-    const file = buildLatticeFile({ name, graph, code });
+    const file = buildLatticeFile({ name, code, graph, visualizer });
     const blob = new Blob([serializeLatticeFile(file)], { type: LATTICE_MIME });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -109,7 +143,7 @@ export default function LatticeFileControls({
     // click above is synchronous, so it is safe to let go immediately.
     URL.revokeObjectURL(url);
     onNotify(`Saved ${suggestFileName(name)}`);
-  }, [name, graph, code, onNotify]);
+  }, [name, code, graph, visualizer, onNotify]);
 
   const handleOpenClick = useCallback(() => {
     setError(null);
@@ -120,31 +154,45 @@ export default function LatticeFileControls({
     inputRef.current?.click();
   }, []);
 
-  const handleFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    if (file.size > MAX_IMPORT_BYTES) {
-      setError(`${file.name} is ${(file.size / (1024 * 1024)).toFixed(1)} MB — too large to be a .lattice file.`);
-      return;
-    }
+      if (file.size > MAX_IMPORT_BYTES) {
+        setError(`${file.name} is ${(file.size / (1024 * 1024)).toFixed(1)} MB — too large to be a .lattice file.`);
+        return;
+      }
 
-    let text: string;
-    try {
-      text = await file.text();
-    } catch {
-      setError(`Couldn't read ${file.name}.`);
-      return;
-    }
+      let text: string;
+      try {
+        text = await file.text();
+      } catch {
+        setError(`Couldn't read ${file.name}.`);
+        return;
+      }
 
-    const result = parseLatticeFile(text);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setError(null);
-    setPending(result.file);
-  }, []);
+      const result = parseLatticeFile(text);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      // A readable file that simply isn't for this page. Reported before
+      // the confirmation rather than through it, because there is nothing
+      // here to confirm: the reader is not choosing whether to replace the
+      // canvas, they are being told this file cannot.
+      const missing = missingSections(result.file, requires);
+      if (missing.length > 0) {
+        setError(missingSectionMessage(missing[0]));
+        return;
+      }
+
+      setError(null);
+      setPending(result.file);
+    },
+    [requires],
+  );
 
   const confirm = useCallback(() => {
     if (!pending) return;
@@ -155,10 +203,18 @@ export default function LatticeFileControls({
 
   return (
     <>
-      <PillButton onClick={handleExport} title="Save this canvas as a .lattice file">
+      <PillButton
+        onClick={handleExport}
+        disabled={!canExport}
+        title={canExport ? "Save this workspace as a .lattice file" : "Nothing to save yet"}
+      >
         Export
       </PillButton>
-      <PillButton onClick={handleOpenClick} title="Open a .lattice file">
+      <PillButton
+        onClick={handleOpenClick}
+        disabled={importDisabledReason !== null}
+        title={importDisabledReason ?? "Open a .lattice file"}
+      >
         Open
       </PillButton>
 
@@ -183,6 +239,25 @@ export default function LatticeFileControls({
   );
 }
 
+/** What the file holds, as a line a reader can check against what they
+ * expected to be opening. Only the parts that are actually in there — a
+ * Visualizer export saying "0 blocks · 0 wires" would read as a warning
+ * about something that is not wrong. */
+function contentsSummary(file: LatticeFile): string {
+  const parts: string[] = [];
+  if (file.graph) {
+    parts.push(`${file.graph.nodes.length} blocks`, `${file.graph.edges.length} wires`);
+  }
+  if (file.visualizer) {
+    const steps = file.visualizer.trace.filter((e) => !isTruncated(e)).length;
+    parts.push(`${steps} steps`);
+  }
+  if (file.code) {
+    parts.push(`${file.code.source.split("\n").length} lines`);
+  }
+  return parts.join(" · ");
+}
+
 function ImportDialog({
   file,
   error,
@@ -195,6 +270,7 @@ function ImportDialog({
   onConfirm: () => void;
 }) {
   const open = file !== null || error !== null;
+  const summary = useMemo(() => (file ? contentsSummary(file) : ""), [file]);
 
   useEffect(() => {
     if (!open) return;
@@ -206,9 +282,9 @@ function ImportDialog({
   }, [open, onCancel]);
 
   // SSR has no `document`. Also: a portal straight to <body> rather than
-  // z-index inside the header — the Code-Canvas header is its own stacking
-  // context, so nothing rendered inside it can come out above the code
-  // pane no matter what number it picks.
+  // z-index inside the header — a canvas workspace's header is its own
+  // stacking context, so nothing rendered inside it can come out above the
+  // code pane no matter what number it picks.
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -246,19 +322,22 @@ function ImportDialog({
             ) : (
               file && (
                 <div className="flex flex-col gap-3 p-5">
-                  <div className="overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--bg-base)]">
-                    <div className="aspect-[16/9] w-full">
-                      <PreviewImage source={file.preview.source} alt={`Preview of ${file.name}`} />
+                  {/* A file with nothing but code in it has no picture to
+                    * show, and an empty frame would read as a broken one. */}
+                  {file.preview && (
+                    <div className="overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--bg-base)]">
+                      <div className="aspect-[16/9] w-full">
+                        <PreviewImage source={file.preview.source} alt={`Preview of ${file.name}`} />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span className="font-mono text-[12px] font-semibold text-[var(--text-primary)]">
                       {file.name}
                     </span>
                     <span className="font-mono text-[11px] text-[var(--text-secondary)]">
-                      {file.graph.nodes.length} blocks · {file.graph.edges.length} wires ·{" "}
-                      {file.code.source.split("\n").length} lines
+                      {summary}
                     </span>
                   </div>
 

@@ -113,6 +113,35 @@ class TestLinkedListGoldenTrace(unittest.TestCase):
                     if isinstance(value, dict) and "ref" in value:
                         self.assertIn(value["ref"], heap, event)
 
+    def test_locals_report_the_stack_slot_they_live_in(self):
+        # `addrs` is what lets the frontend's stack view draw a frame as a
+        # piece of memory rather than as a table of names. It is keyed by
+        # the same names as `locals` and is allowed to be *smaller* — a
+        # variable the compiler kept in a register has no address — but at
+        # -O0 this fixture's locals all have one, so anything missing here
+        # means the address was never collected rather than never existed.
+        for event in self.events:
+            for frame in event["frames"]:
+                addrs = frame.get("addrs", {})
+                self.assertEqual(
+                    set(addrs), set(frame["locals"]), f'{frame["function"]} in {event}'
+                )
+                for name, address in addrs.items():
+                    self.assertRegex(address, r"^0x[0-9a-f]+$", name)
+
+    def test_slots_in_one_frame_are_distinct_and_close_together(self):
+        # The two facts the view is drawn to show: no two locals share a
+        # slot, and the ones in a frame are neighbours. 4KB is far looser
+        # than any frame here actually is (this fixture's main() spans 20
+        # bytes) — the point is to catch an address that came from
+        # somewhere other than this frame, not to pin the ABI's layout.
+        last = self.events[-1]
+        for frame in last["frames"]:
+            slots = [int(a, 16) for a in frame.get("addrs", {}).values()]
+            self.assertEqual(len(slots), len(set(slots)), frame)
+            if len(slots) > 1:
+                self.assertLess(max(slots) - min(slots), 4096, frame)
+
     def test_step_count_is_bounded_and_reasonable(self):
         # Only heap-changing steps become events, so this is roughly "one
         # event per node allocated, plus one per `next` link written, plus

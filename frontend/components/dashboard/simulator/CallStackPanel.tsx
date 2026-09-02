@@ -1,8 +1,10 @@
 "use client";
 
+import { memo, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Frame, StepEvent } from "@/lib/trace-schema/types";
-import Panel, { PanelEmpty } from "./Panel";
+import { downloadPanelImage, renderCallStackImage } from "@/lib/simulator/panel-image";
+import Panel, { PanelAction, PanelEmpty, SaveIcon } from "./Panel";
 
 /**
  * The call stack, drawn the way a stack diagram is drawn in a textbook:
@@ -12,11 +14,18 @@ import Panel, { PanelEmpty } from "./Panel";
  * Clicking a frame is what drives the variables panel beside it — the
  * whole reason to show inactive frames at all is to be able to look inside
  * one that is waiting for a callee to return.
+ *
+ * Memoised: the page above re-renders on every keystroke in the editor and
+ * on every pointer that crosses a pointer pill, and neither has anything
+ * to say about the stack. Re-rendering anyway is not merely wasted work —
+ * every render hands framer-motion's projection tree a new pass over these
+ * rows, which is what a `layout` animation measures against.
  */
-export default function CallStackPanel({
+const CallStackPanel = memo(function CallStackPanel({
   frames,
   event,
   selectedDepth,
+  highlightedDepth,
   onSelect,
 }: {
   frames: Frame[];
@@ -24,9 +33,19 @@ export default function CallStackPanel({
    * legible; an ordinary `line` step leaves the stack alone. */
   event: StepEvent["event"] | null;
   selectedDepth: number | null;
+  /** A frame the reader is pointing at somewhere else — a variable under
+   * the cursor in the memory panel's stack view. Ringed rather than
+   * filled, so it reads as "over here" without competing with the
+   * selection, which is a thing they chose rather than a thing they are
+   * touching. */
+  highlightedDepth?: number | null;
   onSelect: (depth: number) => void;
 }) {
   const top = frames.length - 1;
+
+  const handleSave = useCallback(() => {
+    downloadPanelImage(renderCallStackImage(frames, event), "call-stack");
+  }, [frames, event]);
 
   return (
     <Panel
@@ -38,6 +57,15 @@ export default function CallStackPanel({
             depth {frames.length}
           </span>
         ) : undefined
+      }
+      action={
+        <PanelAction
+          label="Save every frame and its locals as an SVG"
+          onClick={handleSave}
+          disabled={frames.length === 0}
+        >
+          <SaveIcon />
+        </PanelAction>
       }
     >
       {frames.length === 0 ? (
@@ -60,6 +88,7 @@ export default function CallStackPanel({
                 .map(({ frame, depth }) => {
                   const isTop = depth === top;
                   const isSelected = depth === (selectedDepth ?? top);
+                  const isHighlighted = depth === highlightedDepth;
                   const localCount = Object.keys(frame.locals).length;
 
                   return (
@@ -74,10 +103,21 @@ export default function CallStackPanel({
                       <button
                         type="button"
                         onClick={() => onSelect(depth)}
-                        className="flex w-full items-center gap-2 rounded-lg border py-1.5 pl-2 pr-2.5 text-left transition-colors"
+                        className="flex w-full items-center gap-2 rounded-lg border py-1.5 pl-2 pr-2.5 text-left transition-[background-color,border-color,box-shadow]"
                         style={{
-                          background: isSelected ? "var(--bg-elevated)" : "transparent",
-                          borderColor: isSelected ? "var(--hairline-strong)" : "transparent",
+                          background: isHighlighted
+                            ? "color-mix(in srgb, var(--accent-primary) 14%, transparent)"
+                            : isSelected
+                              ? "var(--bg-elevated)"
+                              : "transparent",
+                          borderColor: isHighlighted
+                            ? "var(--accent-primary)"
+                            : isSelected
+                              ? "var(--hairline-strong)"
+                              : "transparent",
+                          boxShadow: isHighlighted
+                            ? "0 0 18px -6px var(--accent-primary)"
+                            : undefined,
                         }}
                       >
                         {/* Depth marker, doubling as the rail's node. */}
@@ -132,4 +172,6 @@ export default function CallStackPanel({
       )}
     </Panel>
   );
-}
+});
+
+export default CallStackPanel;

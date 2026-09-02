@@ -21,6 +21,17 @@ export type TraceValue =
 export type Frame = {
   function: string;
   locals: Record<string, TraceValue>;
+  /** Where each of those locals lives — `&x`, as bare hex — so the stack
+   * view can draw a frame as a piece of memory rather than as a table of
+   * names.
+   *
+   * Optional, and allowed to be missing names `locals` has: a trace
+   * recorded before the tracer emitted these (one stored on a canvas, or
+   * replayed from a `.lattice` file) carries none at all, and a variable
+   * the compiler kept in a register never has an address to report. Every
+   * reader treats an absent entry as "this one has no slot to show"
+   * rather than as a gap to fill in. */
+  addrs?: Record<string, string>;
 };
 
 export type HeapObject = {

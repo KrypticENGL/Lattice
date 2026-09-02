@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import CanvasPreview from "./CanvasPreview";
 import { downloadLatticeFile, latticeFileName } from "@/lib/posts/lattice";
+import { previewFrame } from "@/lib/posts/preview-frame";
 import { initials } from "@/lib/posts/use-posts";
 import type { Post } from "@/lib/posts/types";
 
@@ -159,23 +160,55 @@ export function PostByline({ post }: { post: Post }) {
   );
 }
 
+/* How large a post's canvas may get, in px.
+ *
+ * The frame takes the diagram's own aspect (see `previewFrame`), which
+ * left to itself would make the trie 958px tall and the four-node list
+ * 115px. The floor stops a flat list from becoming a letterbox slit; the
+ * ceiling stops a tall tree from making a card you cannot see past. */
+const MIN_FIGURE_HEIGHT = 120;
+const MAX_FIGURE_HEIGHT = 400;
+
+/** ...and how narrow the figure may get once the ceiling has cut its
+ * width down. Below roughly this, the caption's four items — canvas name,
+ * language, step, `.lattice` — stop fitting on one line. */
+const MIN_FIGURE_WIDTH = 380;
+
 /**
  * The attached canvas, as the post's image.
  *
- * Held at a fixed aspect so a feed of posts scrolls at an even rhythm
- * rather than jumping between a wide list and a tall trie;
- * `CanvasPreview` fits its own diagram inside whatever box it is given.
+ * The frame is cut to the diagram rather than the diagram fitted into the
+ * frame. It used to be a fixed 16:9 with the drawing letterboxed inside,
+ * which meant a tall trie and a flat list were shown in the same box and
+ * neither filled it — four of the six seed posts covered half their frame
+ * or less. Sizing the box from `previewFrame` costs the feed its perfectly
+ * even scroll rhythm and buys back the space the drawings were floating in.
+ *
+ * A tall diagram hits `MAX_FIGURE_HEIGHT` before it runs out of width, so
+ * its figure ends up narrower than the card and is centred there. That is
+ * deliberate: leftover space *outside* a bordered frame reads as a margin,
+ * where the same space inside one reads as a hole.
  */
 export function PostCanvasFigure({ post, className = "" }: { post: Post; className?: string }) {
+  const { aspect } = useMemo(() => previewFrame(post.canvas.diagram), [post.canvas.diagram]);
+
   return (
+    // The wrapper carries the caller's insets and does the centring; the
+    // figure itself cannot do both, since `mx-auto` and a fixed side inset
+    // are the same property.
+    <div className={`flex justify-center ${className}`}>
     <figure
-      className={`overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--bg-elevated)] ${className}`}
+      className="w-full overflow-hidden rounded-xl border border-[var(--hairline)] bg-[var(--bg-elevated)]"
+      style={{ maxWidth: `max(${MIN_FIGURE_WIDTH}px, ${aspect * MAX_FIGURE_HEIGHT}px)` }}
     >
       <div
-        className="relative aspect-[16/9] w-full"
+        className="relative w-full"
         // A wash of the post's accent behind the diagram, so the image
         // area reads as a canvas rather than as a hole in the card.
         style={{
+          aspectRatio: aspect,
+          minHeight: MIN_FIGURE_HEIGHT,
+          maxHeight: MAX_FIGURE_HEIGHT,
           background: `radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, ${post.accent} 12%, transparent), transparent 70%)`,
         }}
       >
@@ -199,6 +232,7 @@ export function PostCanvasFigure({ post, className = "" }: { post: Post; classNa
         <LatticeAttachment post={post} />
       </figcaption>
     </figure>
+    </div>
   );
 }
 
@@ -248,21 +282,65 @@ function LatticeAttachment({ post }: { post: Post }) {
   );
 }
 
-export function PostTags({ post, className = "" }: { post: Post; className?: string }) {
+const TAG_CLASS = "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider";
+
+/**
+ * A post's tags.
+ *
+ * Labels by default and controls when the page around them has a feed to
+ * narrow — the same tag should not look clickable on a post's own page,
+ * where there is nothing for it to filter. That is why `onToggle` is what
+ * decides: the affordance follows the capability rather than a flag
+ * somebody has to remember to set correctly in two places.
+ */
+export function PostTags({
+  post,
+  className = "",
+  active,
+  onToggle,
+}: {
+  post: Post;
+  className?: string;
+  /** Tags the feed is currently narrowed to, so one that is already doing
+   * something says so rather than looking like a fresh choice. */
+  active?: ReadonlySet<string>;
+  /** Given, every tag becomes a filter control. */
+  onToggle?: (tag: string) => void;
+}) {
   return (
     <ul className={`flex flex-wrap gap-1.5 ${className}`}>
-      {post.tags.map((tag) => (
-        <li
-          key={tag}
-          className="rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider"
-          style={{
-            borderColor: `color-mix(in srgb, ${post.accent} 40%, transparent)`,
-            color: post.accent,
-          }}
-        >
-          {tag}
-        </li>
-      ))}
+      {post.tags.map((tag) => {
+        const on = active?.has(tag) ?? false;
+        const style = {
+          borderColor: `color-mix(in srgb, ${post.accent} ${on ? 100 : 40}%, transparent)`,
+          background: on ? `color-mix(in srgb, ${post.accent} 20%, transparent)` : undefined,
+          color: post.accent,
+        };
+
+        return (
+          <li key={tag}>
+            {onToggle ? (
+              // `relative z-10`, because a feed card stretches its title
+              // link across the whole card; without it this click opens
+              // the post instead of filtering by the tag.
+              <button
+                type="button"
+                onClick={() => onToggle(tag)}
+                aria-pressed={on}
+                aria-label={on ? `Stop filtering by ${tag}` : `Show only posts tagged ${tag}`}
+                className={`${TAG_CLASS} relative z-10 transition-colors hover:brightness-125`}
+                style={style}
+              >
+                {tag}
+              </button>
+            ) : (
+              <span className={`${TAG_CLASS} inline-block`} style={style}>
+                {tag}
+              </span>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

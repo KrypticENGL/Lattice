@@ -10,7 +10,7 @@ import Tutorial, { TUTORIAL_STORAGE_KEY } from "@/components/dashboard/code-canv
 import CanvasNameField from "@/components/dashboard/CanvasNameField";
 import WorkspaceGate from "@/components/dashboard/WorkspaceGate";
 import EdgeStyleControl from "@/components/dashboard/EdgeStyleControl";
-import LatticeFileControls from "@/components/dashboard/code-canvas/LatticeFileControls";
+import LatticeFileControls from "@/components/dashboard/LatticeFileControls";
 import type { LatticeFile } from "@/lib/lattice-file/format";
 import { useEdgeStyle } from "@/lib/use-edge-style";
 import {
@@ -34,6 +34,10 @@ import {
 } from "@/lib/code-canvas/api";
 
 const HEADER_GAP = 16;
+/** What this page needs to find in a `.lattice` file. Hoisted so it keeps
+ * one identity — it is a dependency of the control's file-reading
+ * callback, and a fresh array per render would rebuild it every time. */
+const CODE_CANVAS_REQUIRES = ["code-canvas"] as const;
 /** Where this page used to keep the graph, before it had a backend. Read
  * once on load to migrate a browser that still has one, then cleared. */
 const LEGACY_GRAPH_KEY = "lattice:code-canvas:graph:v1";
@@ -459,6 +463,10 @@ export default function CodeCanvasPage() {
   );
   const handleImportLattice = useCallback(
     (file: LatticeFile) => {
+      // Non-null by contract: `requires` below names `code-canvas`, and
+      // the control refuses a file without one before it ever offers the
+      // confirmation this runs from.
+      if (!file.graph) return;
       setGraph(file.graph);
       setSelection(null);
       // The file's name comes with it, and renaming goes through the same
@@ -563,6 +571,10 @@ export default function CodeCanvasPage() {
                 name={graphName ?? "Untitled canvas"}
                 graph={graph}
                 code={latticeCode}
+                // A file without a node graph has nothing this page can
+                // put on the canvas — its code is a rendering of a graph
+                // that isn't in there, and its trace is a recording of one.
+                requires={CODE_CANVAS_REQUIRES}
                 onImport={handleImportLattice}
                 onNotify={flash}
               />
@@ -571,9 +583,6 @@ export default function CodeCanvasPage() {
         </div>
 
         <div className="pointer-events-auto mb-1.5 ml-auto flex flex-wrap items-center justify-end gap-1.5 xl:gap-2">
-          <span className="rail-pill glass-flat hidden rounded-full px-2.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-secondary)] 2xl:flex">
-            Scroll to zoom · Drag to pan
-          </span>
           <EdgeStyleControl value={edgeStyle} onChange={handleEdgeStyle} className="hidden lg:flex" />
           <div className="rail-pill glass-flat flex gap-2 rounded-full px-3">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">Zoom</span>

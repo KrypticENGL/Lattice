@@ -8,6 +8,7 @@ import type { VimAdapterInstance } from "monaco-vim";
 import type * as Monaco from "monaco-editor";
 import { defineLatticeTheme, LATTICE_THEME } from "@/lib/monaco-theme";
 import { registerLatticeCompletions } from "@/lib/monaco-completions";
+import Dropdown from "../Dropdown";
 
 // monaco-editor touches `window` while it's being imported, which crashes
 // SSR ("ReferenceError: window is not defined") if it's pulled in
@@ -35,6 +36,17 @@ const LANGUAGES: { id: Language; label: string; available: boolean }[] = [
   { id: "python", label: "Python", available: false },
   { id: "rust", label: "Rust", available: false },
 ];
+
+/** The same list as the dropdown wants it. The languages without a
+ * tracer stay in the list rather than being hidden: what they say is
+ * "this is coming", and a menu that simply lacked them would say the
+ * editor only ever ran C++. */
+const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({
+  value: l.id,
+  label: l.label,
+  note: l.available ? undefined : "soon",
+  disabled: !l.available,
+}));
 
 const DEFAULT_SNIPPETS: Record<Language, string> = {
   cpp: `#include <cstdio>
@@ -167,6 +179,7 @@ export default function FloatingEditor({
   initialSource,
   initialLanguage,
   onSourceChange,
+  onLanguageChange,
   readOnly = false,
   generatedFrom = null,
 }: {
@@ -206,6 +219,12 @@ export default function FloatingEditor({
    * one that already writes to `localStorage` on every edit) — one more
    * subscriber on the same cadence, for canvas autosave. */
   onSourceChange?: (source: string) => void;
+  /** Fired with the language the editor is actually set to, including the
+   * one it starts on. There are three ways it can change — the picker, an
+   * uploaded file's extension, and the initial value — and a caller that
+   * has to label the buffer (the `.lattice` export does) cannot be asked
+   * to guess which of them last happened. */
+  onLanguageChange?: (language: Language) => void;
   /** The canvas's code is generated from a Code-Canvas graph, so it isn't
    * the user's to edit here (the server answers 409 to a `source_code`
    * PATCH on such a canvas). Puts Monaco in read-only mode, drops the save
@@ -222,6 +241,12 @@ export default function FloatingEditor({
   generatedFrom?: string | null;
 }) {
   const [language, setLanguage] = useState<Language>(initialLanguage ?? "cpp");
+  // Reported from an effect on the value rather than from each of the
+  // three places that set it — a notification wired into the setters is a
+  // notification one more setter can be added without.
+  useEffect(() => {
+    onLanguageChange?.(language);
+  }, [language, onLanguageChange]);
   const [minimized, setMinimized] = useState(false);
   const [vimEnabled, setVimEnabled] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -1052,20 +1077,20 @@ export default function FloatingEditor({
               </Link>
             )}
 
-            <select
+            {/* The app's own dropdown, not a `<select>`: the platform
+              * draws a native control's open list outside this document,
+              * where none of the toolbar's styling reaches it — see
+              * components/dashboard/Dropdown.tsx. The list opens inward
+              * from the right edge, since this sits in the right-hand
+              * group of a header strip. */}
+            <Dropdown
               value={language}
-              onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              options={LANGUAGE_OPTIONS}
+              onChange={handleLanguageChange}
               disabled={readOnly}
-              aria-label="Language"
-              className="rounded-full border border-[var(--hairline)] bg-[var(--bg-elevated)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--text-primary)] focus:border-[var(--accent-secondary)] focus:outline-none"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id} disabled={!l.available}>
-                  {l.label}
-                  {l.available ? "" : " (soon)"}
-                </option>
-              ))}
-            </select>
+              label="Language"
+              align="right"
+            />
 
             <button
               type="button"

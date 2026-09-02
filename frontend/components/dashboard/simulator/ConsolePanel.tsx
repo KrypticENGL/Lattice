@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import Panel from "./Panel";
 
 /**
@@ -17,8 +17,14 @@ import Panel from "./Panel";
  * above a stack of conditional bands (vim status, stale, truncated,
  * errors) that appear and disappear as you work, and every one of them
  * shifted it.
+ *
+ * Memoised: the page above re-renders on every keystroke in the editor and
+ * on every pointer that crosses a pointer pill, and neither has anything
+ * to say about the transcript. Re-rendering anyway is not merely wasted
+ * work — the flash effect below is keyed on the rendered text, and the
+ * fewer renders it sees the less there is to compare.
  */
-export default function ConsolePanel({
+const ConsolePanel = memo(function ConsolePanel({
   console: consoleText,
   status,
 }: {
@@ -61,6 +67,18 @@ export default function ConsolePanel({
     // second line arriving mid-animation would not re-trigger it. Reading
     // `offsetWidth` between the two class changes forces the reflow that
     // makes the removal take effect before the re-add.
+    //
+    // Rewinding through `getAnimations()` instead — no reflow, no forced
+    // layout — looks like it should work and does not, which is worth
+    // recording here so it doesn't get tried twice. A CSS animation is
+    // listed on an element only while it is *relevant*: playing, or
+    // holding a value through a fill. This one has no fill, so the moment
+    // it finishes it drops off the element entirely. `getAnimations()`
+    // then comes back empty and the only thing left to do is add a class
+    // the element is already wearing, which changes nothing. The result
+    // is a flash that fires once per mount and stays dark for every line
+    // after it. A forced layout per printed line is the price of a
+    // restart that actually restarts.
     flash.classList.remove("stdout-flash");
     void flash.offsetWidth;
     flash.classList.add("stdout-flash");
@@ -84,4 +102,6 @@ export default function ConsolePanel({
       </pre>
     </Panel>
   );
-}
+});
+
+export default ConsolePanel;

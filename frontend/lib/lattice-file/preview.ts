@@ -26,6 +26,8 @@ import {
   type CanvasGraph,
   type CanvasNode,
 } from "@/lib/code-canvas/graph";
+import { circleEdgePath } from "@/lib/edge-style";
+import type { Diagram } from "@/lib/shape-detection";
 
 /** The app's theme, frozen as literals. These mirror `:root` in
  * globals.css; a preview is a snapshot, so it keeps the colours it was
@@ -169,19 +171,7 @@ function wireMarkup(graph: CanvasGraph): string {
  * format ever be written server-side — in Node without changing.
  */
 export function renderGraphPreview(graph: CanvasGraph): GraphPreview {
-  if (graph.nodes.length === 0) {
-    const { width, height } = EMPTY_SIZE;
-    return {
-      kind: "svg",
-      width,
-      height,
-      source:
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
-        `<rect width="${width}" height="${height}" fill="${INK.background}"/>` +
-        `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" dominant-baseline="middle" fill="${INK.muted}" font-family="${FONT}" font-size="13">Empty canvas</text>` +
-        `</svg>`,
-    };
-  }
+  if (graph.nodes.length === 0) return placeholderPreview("Empty canvas");
 
   let minX = Infinity;
   let minY = Infinity;
@@ -217,6 +207,157 @@ export function renderGraphPreview(graph: CanvasGraph): GraphPreview {
       `<rect x="${viewX}" y="${viewY}" width="${viewW}" height="${viewH}" fill="${INK.background}"/>` +
       wireMarkup(graph) +
       graph.nodes.map(nodeMarkup).join("") +
+      `</svg>`,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* The Visualizer's half                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The same job for the other kind of drawing in a `.lattice` file.
+ *
+ * A Code-Canvas graph is a fixed arrangement of blocks; a Visualizer graph
+ * is one step of a trace, laid out by `buildDiagram`. Both end up as a bag
+ * of positioned things with lines between them, so both get a picture on
+ * the same terms as everything above: literal colours, a generic font, no
+ * reference to anything outside the file.
+ *
+ * Mirrors DiagramView deliberately — the same radius, the same six-shade
+ * palette indexed the same way, the same six-character label clamp, the
+ * same ring and caption on an entry point. A preview that laid the drawing
+ * out differently from the app would be a picture of a canvas nobody has.
+ */
+
+/** DiagramView's `NODE_RADIUS`. */
+const DIAGRAM_NODE_RADIUS = 22;
+
+/** DiagramView's `PALETTE`, with its two custom properties resolved. */
+const DIAGRAM_PALETTE = [
+  "#f2a65a",
+  "#e0824d",
+  "#f7b267",
+  "#c2703d",
+  "#e8993d",
+  "#a85c2e",
+] as const;
+
+/** DiagramView's `ROOT_LABEL` — what the entry point of each shape is
+ * called, so the marker says "head" over a list and "root" over a tree. */
+const DIAGRAM_ROOT_LABEL: Record<Diagram["kind"], string> = {
+  "linked-list": "head",
+  tree: "root",
+  graph: "start",
+};
+
+/** DiagramView's `MAX_LABEL_LENGTH`. */
+const DIAGRAM_MAX_LABEL = 6;
+
+function diagramLabel(label: string): string {
+  return label.length > DIAGRAM_MAX_LABEL
+    ? `${label.slice(0, DIAGRAM_MAX_LABEL - 1)}…`
+    : label;
+}
+
+function placeholderPreview(caption: string): GraphPreview {
+  const { width, height } = EMPTY_SIZE;
+  return {
+    kind: "svg",
+    width,
+    height,
+    source:
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+      `<rect width="${width}" height="${height}" fill="${INK.background}"/>` +
+      `<text x="${width / 2}" y="${height / 2}" text-anchor="middle" dominant-baseline="middle" fill="${INK.muted}" font-family="${FONT}" font-size="13">${escapeXml(caption)}</text>` +
+      `</svg>`,
+  };
+}
+
+/**
+ * Renders one step of a traced structure to a standalone SVG document.
+ *
+ * Pure, for the same reason `renderGraphPreview` is: the picture in a file
+ * has to be reproducible from the file's own contents, with no canvas
+ * mounted and no camera to ask.
+ */
+export function renderDiagramPreview(diagram: Diagram | null): GraphPreview {
+  if (!diagram || diagram.nodes.length === 0) {
+    return placeholderPreview("Nothing drawn");
+  }
+
+  const roots = new Set(diagram.roots);
+  // The ring around an entry point and the caption above it both reach
+  // further than the circle does, so the extent is measured from what is
+  // actually drawn rather than from the node centres.
+  const reach = DIAGRAM_NODE_RADIUS + 22;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of diagram.nodes) {
+    minX = Math.min(minX, node.x - reach);
+    minY = Math.min(minY, node.y - reach);
+    maxX = Math.max(maxX, node.x + reach);
+    maxY = Math.max(maxY, node.y + reach);
+  }
+
+  const viewX = round(minX - MARGIN);
+  const viewY = round(minY - MARGIN);
+  const viewW = round(maxX - minX + MARGIN * 2);
+  const viewH = round(maxY - minY + MARGIN * 2);
+
+  const scale = Math.min(1, MAX_WIDTH / viewW, MAX_HEIGHT / viewH);
+  const width = Math.max(1, Math.round(viewW * scale));
+  const height = Math.max(1, Math.round(viewH * scale));
+
+  const byId = new Map(diagram.nodes.map((n) => [n.id, n]));
+  const edges: string[] = [];
+  for (const edge of diagram.edges) {
+    const from = byId.get(edge.from);
+    const to = byId.get(edge.to);
+    if (!from || !to) continue;
+    // Always curved, for the same reason the Code-Canvas preview is: the
+    // reader's routing preference lives in their browser and this file is
+    // going to be opened somewhere else.
+    const d = circleEdgePath(from, to, "curved", DIAGRAM_NODE_RADIUS);
+    if (!d) continue;
+    edges.push(
+      `<path d="${d}" fill="none" stroke="${INK.wire}" stroke-width="1.6" stroke-linecap="round" opacity="0.7" marker-end="url(#lattice-arrow)"/>`,
+    );
+  }
+
+  const nodes: string[] = [];
+  diagram.nodes.forEach((node, index) => {
+    const color = DIAGRAM_PALETTE[index % DIAGRAM_PALETTE.length];
+    const x = round(node.x);
+    const y = round(node.y);
+
+    if (roots.has(node.id)) {
+      nodes.push(
+        `<circle cx="${x}" cy="${y}" r="${DIAGRAM_NODE_RADIUS + 6}" fill="none" stroke="${DIAGRAM_PALETTE[1]}" stroke-width="1.5" opacity="0.85"/>`,
+        `<text x="${x}" y="${round(node.y - DIAGRAM_NODE_RADIUS - 15)}" text-anchor="middle" fill="${DIAGRAM_PALETTE[1]}" font-family="${FONT}" font-size="9" letter-spacing="1.6">${escapeXml(DIAGRAM_ROOT_LABEL[diagram.kind].toUpperCase())}</text>`,
+      );
+    }
+
+    nodes.push(
+      `<circle cx="${x}" cy="${y}" r="${DIAGRAM_NODE_RADIUS}" fill="${color}"/>`,
+      `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" fill="${INK.background}" font-family="${FONT}" font-size="11">${escapeXml(diagramLabel(node.label))}</text>`,
+    );
+  });
+
+  return {
+    kind: "svg",
+    width,
+    height,
+    source:
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewX} ${viewY} ${viewW} ${viewH}">` +
+      `<defs><marker id="lattice-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">` +
+      `<path d="M0,0 L10,5 L0,10 z" fill="${INK.wire}"/></marker></defs>` +
+      `<rect x="${viewX}" y="${viewY}" width="${viewW}" height="${viewH}" fill="${INK.background}"/>` +
+      edges.join("") +
+      nodes.join("") +
       `</svg>`,
   };
 }

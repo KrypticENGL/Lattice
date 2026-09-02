@@ -30,7 +30,19 @@ import type { Post } from "@/lib/posts/types";
  * meant the only way to read a post was to make the feed around it longer,
  * and nothing you read could be linked to or come back to.
  */
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({
+  post,
+  activeTags,
+  onToggleTag,
+}: {
+  post: Post;
+  /** Tags the feed is narrowed to. Passed straight through to `PostTags`. */
+  activeTags?: ReadonlySet<string>;
+  /** Given, the card's tags become filter controls. The saved page renders
+   * the same card with this left out, because there is no feed there for a
+   * tag to narrow. */
+  onToggleTag?: (tag: string) => void;
+}) {
   const { liked, saved, likeCount, comments } = usePostView(post);
   const { toggleLike, toggleSave } = usePostActions();
   const [showComments, setShowComments] = useState(false);
@@ -42,7 +54,7 @@ export default function PostCard({ post }: { post: Post }) {
     // whole card so that clicking anywhere on it opens the post. Anything
     // that has its own click — the save buttons, the action bar, the
     // comment thread — is lifted over that sheet with `relative z-10`.
-    <article className="matte relative flex flex-col overflow-hidden rounded-2xl">
+    <article className="matte group relative flex flex-col overflow-hidden rounded-2xl">
       <header className="flex items-start gap-3 p-5 pb-4">
         <PostByline post={post} />
 
@@ -85,18 +97,24 @@ export default function PostCard({ post }: { post: Post }) {
         {/* Deliberately not a second link: the card already is one, and a
           * duplicate landing on the same address is one more stop for
           * anyone tabbing through the feed and nothing at all for
-          * everyone else. It is here to say the post continues. */}
-        {rest.length > 0 && (
-          <span
-            aria-hidden
-            className="mt-2 inline-block font-mono text-[11px] uppercase tracking-wider"
-            style={{ color: "var(--accent-secondary)" }}
-          >
-            Read post &rarr;
-          </span>
-        )}
+          * everyone else. It is here to say the post continues.
+          *
+          * On the tags' row rather than on a line of its own beneath the
+          * prose, where it sat as a stray orange fragment that looked like
+          * a button and was not one. Muted until the card is hovered — the
+          * card is the link, so this only has to confirm where it goes. */}
+        <div className="mt-3.5 flex items-start justify-between gap-3">
+          <PostTags post={post} active={activeTags} onToggle={onToggleTag} />
 
-        <PostTags post={post} className="mt-3.5" />
+          {rest.length > 0 && (
+            <span
+              aria-hidden
+              className="shrink-0 whitespace-nowrap py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition-colors group-hover:text-[var(--accent-secondary)]"
+            >
+              Read post &rarr;
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="relative z-10 mt-4 flex items-center gap-1 border-t border-[var(--hairline)] px-3.5 py-2.5">

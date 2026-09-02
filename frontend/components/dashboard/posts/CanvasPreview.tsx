@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { circleEdgePath } from "@/lib/edge-style";
+import { NODE_RADIUS, previewFrame } from "@/lib/posts/preview-frame";
 import { useEdgeStyle } from "@/lib/use-edge-style";
 import type { Diagram } from "@/lib/shape-detection";
 
@@ -20,11 +21,6 @@ import type { Diagram } from "@/lib/shape-detection";
  * shape is a thumbnail that stops matching the canvas behind it, and the
  * card already has a link for people who want the real thing.
  */
-
-const NODE_RADIUS = 16;
-/** Room around the outermost nodes, in diagram units, so a root marker or
- * an arrowhead never touches the frame. */
-const PADDING = 34;
 
 // The Visualizer's palette, unchanged — shades of orange from pale peach
 // to deep rust. Adjacent nodes stay tellable apart without the preview
@@ -62,20 +58,11 @@ export default function CanvasPreview({
 }) {
   const [edgeStyle] = useEdgeStyle();
 
-  // The frame is solved from the content rather than fixed, because these
-  // diagrams have no common aspect: a six-node list is a wide strip and a
-  // trie is a tall triangle. A fixed viewBox would letterbox one and crop
-  // the other. `preserveAspectRatio` below then fits whatever comes out.
-  const viewBox = useMemo(() => {
-    if (diagram.nodes.length === 0) return "0 0 100 100";
-    const xs = diagram.nodes.map((n) => n.x);
-    const ys = diagram.nodes.map((n) => n.y);
-    const minX = Math.min(...xs) - NODE_RADIUS - PADDING;
-    const minY = Math.min(...ys) - NODE_RADIUS - PADDING;
-    const width = Math.max(...xs) + NODE_RADIUS + PADDING - minX;
-    const height = Math.max(...ys) + NODE_RADIUS + PADDING - minY;
-    return `${minX} ${minY} ${width} ${height}`;
-  }, [diagram]);
+  // Shared with the figure around this preview, which sizes its frame
+  // from the same measurement — see `lib/posts/preview-frame.ts`. Solving
+  // it in one place is what guarantees the box and the drawing inside it
+  // agree; two copies would agree until the first time one changed.
+  const { viewBox } = useMemo(() => previewFrame(diagram), [diagram]);
 
   const positions = useMemo(
     () => new Map(diagram.nodes.map((n) => [n.id, { x: n.x, y: n.y }])),
@@ -87,8 +74,10 @@ export default function CanvasPreview({
   return (
     <svg
       viewBox={viewBox}
-      // Fits the diagram inside the card's image area at its own aspect
-      // ratio, centred, rather than stretching a tall trie into a letterbox.
+      // The frame is now cut to this diagram's own aspect, so `meet`
+      // usually has nothing left to do. It still matters at the extremes,
+      // where the figure's height clamp stops a very flat or very tall
+      // drawing from setting the card's whole shape.
       preserveAspectRatio="xMidYMid meet"
       className={className}
       role="img"
