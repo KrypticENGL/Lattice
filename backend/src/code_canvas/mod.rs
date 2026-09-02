@@ -1,228 +1,209 @@
-//! Persistent Code-Canvas graphs (BLUEPRINT.md §4.3) and the derived
-//! Visualizer canvases they generate.
+//! Code-Canvas node graphs, stored in MongoDB (§ crate::mongo).
 //!
-//! Same conventions as `crate::canvases`: runtime-checked queries
-//! (`sqlx::query`/`query_as`, never the `query!` macro) so `cargo check`
-//! never needs a live database, and every query scoped to the Clerk `sub`
-//! of the caller.
+//! The graph is stored as an opaque document. Nothing here inspects a
+//! node or a wire: the block vocabulary and the rules about which
+//! connections are legal live in `frontend/lib/code-canvas/graph.ts`, and
+//! so does the compiler that turns a graph into C++. This backend's job is
+//! to hold the document the editor sends and hand it back unchanged —
+//! which is exactly the shape a document store is for, and means a new
+//! block kind needs no change on this side at all.
+//!
+//! `visualize` is the one place that does more: it takes the C++ the
+//! client compiled and pushes it into the graph's linked Visualizer
+//! canvas, so the two stay in step.
 
-pub mod codegen;
-pub mod graph;
-
-use chrono::{DateTime, Utc};
-use graph::CanvasGraph;
+use crate::mongo;
+use mongodb::bson::{doc, Bson, Document};
+use mongodb::options::ReturnDocument;
+use mongodb::{Collection, Database};
 use serde::{Deserialize, Serialize};
-use sqlx::types::Json;
-use sqlx::PgPool;
-use uuid::Uuid;
 
-/// The language every graph compiles to today. Kept as a named constant
-/// rather than inlined, so the day a second backend lands there's one
-/// place that has to grow a decision.
-pub const GENERATED_LANGUAGE: &str = "cpp";
+use crate::canvases::{collect, Result};
 
-#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+fn graphs(db: &Database) -> Collection<CodeCanvas> {
+    mongo::collection(db, mongo::CODE_CANVASES)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeCanvas {
-    pub id: Uuid,
+    pub id: String,
     pub owner_id: String,
     pub name: String,
-    pub graph: Json<CanvasGraph>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    /// The full node/edge graph as the canvas sends it. Stored whole
+    /// rather than shredded into node and edge collections: nothing
+    /// queries *into* a graph, it is always read and written as one
+    /// document, so keeping it intact means the editor's own model is the
+    /// storage format.
+    pub graph: Document,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
-/// Row for a quick-switcher: no graph payload, just enough to list and
-/// sort. Counts come from the JSON itself rather than denormalized
-/// columns — nothing has to stay in sync that way.
-#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+/// Row for the graph switcher: counts, no graph payload.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeCanvasSummary {
-    pub id: Uuid,
+    pub id: String,
     pub name: String,
-    pub node_count: i32,
-    pub edge_count: i32,
-    pub updated_at: DateTime<Utc>,
+    pub node_count: i64,
+    pub edge_count: i64,
+    pub updated_at: String,
 }
 
-/// `PATCH /api/code-canvases/{id}` body. `None` means "leave unchanged".
 #[derive(Debug, Default, Deserialize)]
 pub struct CodeCanvasPatch {
     pub name: Option<String>,
-    pub graph: Option<CanvasGraph>,
+    pub graph: Option<Document>,
 }
 
-const SUMMARY_COLUMNS: &str = "id, name, \
-     COALESCE(jsonb_array_length(graph -> 'nodes'), 0) AS node_count, \
-     COALESCE(jsonb_array_length(graph -> 'edges'), 0) AS edge_count, \
-     updated_at";
+/// An empty graph, for a canvas created without one.
+fn empty_graph() -> Document {
+    doc! { "nodes": [], "edges": [] }
+}
 
-pub async fn list(pool: &PgPool, owner_id: &str) -> sqlx::Result<Vec<CodeCanvasSummary>> {
-    sqlx::query_as::<_, CodeCanvasSummary>(&format!(
-        "SELECT {SUMMARY_COLUMNS} FROM code_canvases WHERE owner_id = $1 ORDER BY updated_at DESC"
-    ))
-    .bind(owner_id)
-    .fetch_all(pool)
-    .await
+pub async fn list(db: &Database, owner_id: &str) -> Result<Vec<CodeCanvasSummary>> {
+    // The counts are computed server-side rather than by shipping every
+    // graph to the client and measuring it — a switcher listing twenty
+    // graphs would otherwise transfer twenty full node/edge documents to
+    // render twenty short lines of text.
+    let cursor = mongo::collection::<CodeCanvasSummary>(db, mongo::CODE_CANVASES)
+        .find(doc! { "owner_id": owner_id })
+        .projection(doc! {
+            "id": 1,
+            "name": 1,
+            "updated_at": 1,
+            "node_count": { "$size": { "$ifNull": ["$graph.nodes", []] } },
+            "edge_count": { "$size": { "$ifNull": ["$graph.edges", []] } },
+        })
+        .sort(doc! { "updated_at": -1 })
+        .await?;
+    collect(cursor).await
 }
 
 pub async fn create(
-    pool: &PgPool,
+    db: &Database,
     owner_id: &str,
     name: &str,
-    graph: &CanvasGraph,
-) -> sqlx::Result<CodeCanvas> {
-    sqlx::query_as::<_, CodeCanvas>(
-        "INSERT INTO code_canvases (id, owner_id, name, graph) VALUES ($1, $2, $3, $4) RETURNING *",
-    )
-    .bind(Uuid::new_v4())
-    .bind(owner_id)
-    .bind(name)
-    .bind(Json(graph))
-    .fetch_one(pool)
-    .await
+    graph: Option<Document>,
+) -> Result<CodeCanvas> {
+    let timestamp = mongo::now();
+    let canvas = CodeCanvas {
+        id: uuid::Uuid::new_v4().to_string(),
+        owner_id: owner_id.to_string(),
+        name: name.to_string(),
+        graph: graph.unwrap_or_else(empty_graph),
+        created_at: timestamp.clone(),
+        updated_at: timestamp,
+    };
+    graphs(db).insert_one(&canvas).await?;
+    Ok(canvas)
 }
 
-pub async fn get(pool: &PgPool, owner_id: &str, id: Uuid) -> sqlx::Result<Option<CodeCanvas>> {
-    sqlx::query_as::<_, CodeCanvas>("SELECT * FROM code_canvases WHERE id = $1 AND owner_id = $2")
-        .bind(id)
-        .bind(owner_id)
-        .fetch_optional(pool)
-        .await
+pub async fn get(db: &Database, owner_id: &str, id: &str) -> Result<Option<CodeCanvas>> {
+    graphs(db).find_one(doc! { "id": id, "owner_id": owner_id }).await
 }
 
 pub async fn update(
-    pool: &PgPool,
+    db: &Database,
     owner_id: &str,
-    id: Uuid,
+    id: &str,
     patch: &CodeCanvasPatch,
-) -> sqlx::Result<Option<CodeCanvas>> {
-    sqlx::query_as::<_, CodeCanvas>(
-        "UPDATE code_canvases SET \
-            name = COALESCE($1, name), \
-            graph = COALESCE($2, graph), \
-            updated_at = now() \
-         WHERE id = $3 AND owner_id = $4 \
-         RETURNING *",
-    )
-    .bind(&patch.name)
-    .bind(patch.graph.as_ref().map(Json))
-    .bind(id)
-    .bind(owner_id)
-    .fetch_optional(pool)
-    .await
+) -> Result<Option<CodeCanvas>> {
+    let mut set = Document::new();
+    if let Some(name) = &patch.name {
+        set.insert("name", name);
+    }
+    if let Some(graph) = &patch.graph {
+        set.insert("graph", graph);
+    }
+    if set.is_empty() {
+        return get(db, owner_id, id).await;
+    }
+    set.insert("updated_at", mongo::now());
+
+    graphs(db)
+        .find_one_and_update(doc! { "id": id, "owner_id": owner_id }, doc! { "$set": set })
+        .return_document(ReturnDocument::After)
+        .await
 }
 
-pub async fn delete(pool: &PgPool, owner_id: &str, id: Uuid) -> sqlx::Result<bool> {
-    let result = sqlx::query("DELETE FROM code_canvases WHERE id = $1 AND owner_id = $2")
-        .bind(id)
-        .bind(owner_id)
-        .execute(pool)
+pub async fn delete(db: &Database, owner_id: &str, id: &str) -> Result<bool> {
+    let result = graphs(db)
+        .delete_one(doc! { "id": id, "owner_id": owner_id })
         .await?;
-    Ok(result.rows_affected() > 0)
+    if result.deleted_count > 0 {
+        // Detach rather than cascade — see `canvases::unlink_generated`.
+        crate::canvases::unlink_generated(db, owner_id, id).await?;
+    }
+    Ok(result.deleted_count > 0)
 }
 
 /// What `visualize` did, so the handler can answer 200 vs 201 honestly and
-/// the frontend can tell "here's your canvas again" from "here's a new one".
+/// the frontend can tell "here's your canvas again" from "here's a new
+/// one".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VisualizeOutcome {
     Created,
     Refreshed,
     /// The graph compiled to exactly what the linked canvas already holds,
-    /// so nothing was written — and, importantly, the trace already sitting
-    /// on it is still valid and was left alone.
+    /// so nothing was written — including the resume step, which is still
+    /// valid for source that didn't move.
     Unchanged,
 }
 
-pub struct Visualized {
-    pub canvas_id: Uuid,
-    pub outcome: VisualizeOutcome,
-    pub generated: codegen::GeneratedCode,
-}
-
-/// Compiles a graph and pushes the result into its linked Visualizer
-/// canvas, creating that canvas the first time.
-///
-/// Upsert rather than insert: a graph has at most one derived canvas (see
-/// the unique index in migration 0002), so pressing Visualize repeatedly
-/// refreshes one canvas instead of littering the Visualizer with a new one
-/// per click. When the regenerated source differs from what's stored, the
-/// trace is cleared along with it — a trace describes the code it ran
-/// against, and holding a stale one beside fresh source would put the
-/// step highlight on the wrong lines.
-///
-/// Runs in a transaction: generating, inserting the canvas, and linking it
-/// have to happen together or not at all, or a failure halfway leaves a
-/// canvas nothing points at.
-pub async fn visualize(
-    pool: &PgPool,
-    owner_id: &str,
-    code_canvas: &CodeCanvas,
-) -> sqlx::Result<Visualized> {
-    let generated = codegen::generate(&code_canvas.graph);
-
-    let mut tx = pool.begin().await?;
-
-    let existing: Option<(Uuid, String)> = sqlx::query_as(
-        "SELECT id, source_code FROM canvases WHERE code_canvas_id = $1 AND owner_id = $2 FOR UPDATE",
-    )
-    .bind(code_canvas.id)
-    .bind(owner_id)
-    .fetch_optional(&mut *tx)
-    .await?;
-
-    let result = match existing {
-        Some((canvas_id, current_source)) if current_source == generated.source => {
-            Visualized { canvas_id, outcome: VisualizeOutcome::Unchanged, generated }
+impl VisualizeOutcome {
+    fn from_str(value: &str) -> Self {
+        match value {
+            "created" => Self::Created,
+            "refreshed" => Self::Refreshed,
+            _ => Self::Unchanged,
         }
-        Some((canvas_id, _)) => {
-            // `name` is deliberately absent: it is seeded from the graph
-            // when the canvas is created, but renaming a canvas is
-            // something the user does to *that canvas*, and a later
-            // Visualize shouldn't silently undo it.
-            sqlx::query(
-                "UPDATE canvases SET \
-                    source_code = $1, trace_data = NULL, stdout = NULL, \
-                    compile_command = NULL, compiler_output = NULL, truncated = false, \
-                    step_index = 0, updated_at = now() \
-                 WHERE id = $2 AND owner_id = $3",
-            )
-            .bind(&generated.source)
-            .bind(canvas_id)
-            .bind(owner_id)
-            .execute(&mut *tx)
-            .await?;
-            Visualized { canvas_id, outcome: VisualizeOutcome::Refreshed, generated }
-        }
-        None => {
-            let canvas_id = Uuid::new_v4();
-            sqlx::query(
-                "INSERT INTO canvases (id, owner_id, name, language, source_code, origin, code_canvas_id) \
-                 VALUES ($1, $2, $3, $4, $5, 'code_canvas', $6)",
-            )
-            .bind(canvas_id)
-            .bind(owner_id)
-            .bind(derived_name(&code_canvas.name))
-            .bind(GENERATED_LANGUAGE)
-            .bind(&generated.source)
-            .bind(code_canvas.id)
-            .execute(&mut *tx)
-            .await?;
-            Visualized { canvas_id, outcome: VisualizeOutcome::Created, generated }
-        }
-    };
-
-    tx.commit().await?;
-    Ok(result)
-}
-
-/// Seeds the derived canvas's name from its graph, so it arrives in the
-/// Visualizer's switcher already recognisable. Only applied at creation —
-/// see the refresh branch above.
-fn derived_name(graph_name: &str) -> String {
-    let trimmed = graph_name.trim();
-    if trimmed.is_empty() {
-        "Untitled graph".to_string()
-    } else {
-        trimmed.to_string()
     }
+}
+
+pub struct Visualized {
+    pub canvas_id: String,
+    pub outcome: VisualizeOutcome,
+}
+
+/// Pushes compiled source into the graph's linked Visualizer canvas.
+///
+/// The C++ arrives from the client rather than being generated here: the
+/// compiler lives in `frontend/lib/code-canvas/codegen.ts`, where it also
+/// drives the live code pane, so there is exactly one implementation and
+/// what you watch being built is what runs. The graph is still read back
+/// from the database first — the canvas is named after the *stored* graph,
+/// not after whatever a stale tab thinks it is called.
+pub async fn visualize(
+    db: &Database,
+    owner_id: &str,
+    id: &str,
+    source: &str,
+) -> Result<Option<Visualized>> {
+    let Some(graph) = get(db, owner_id, id).await? else {
+        return Ok(None);
+    };
+    let (canvas, outcome) =
+        crate::canvases::upsert_generated(db, owner_id, &graph.id, &graph.name, source).await?;
+    Ok(Some(Visualized {
+        canvas_id: canvas.id,
+        outcome: VisualizeOutcome::from_str(outcome),
+    }))
+}
+
+/// Rejects anything that isn't a `{nodes: [...], edges: [...]}` document.
+///
+/// Deliberately shallow — the real rules about which wires are legal are
+/// the frontend's (see this module's header) and duplicating them here
+/// would mean two vocabularies to keep in step. This exists only so a
+/// malformed body can't be stored as a "graph" that later loads as a blank
+/// canvas with no explanation.
+pub fn validate(graph: &Document) -> std::result::Result<(), String> {
+    for key in ["nodes", "edges"] {
+        match graph.get(key) {
+            Some(Bson::Array(_)) => {}
+            _ => return Err(format!("this graph isn't one Lattice understands: `{key}` must be a list")),
+        }
+    }
+    Ok(())
 }

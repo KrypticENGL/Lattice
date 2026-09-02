@@ -2,10 +2,10 @@
 
 pub mod canvases;
 pub mod code_canvases;
+pub mod posts;
+pub mod users;
+pub mod webhooks;
 
-// Aliased: this module's own `canvases` (above) is the HTTP-handler layer;
-// `crate::canvases` is the data-access layer those handlers wrap, and
-// `execute()` below also needs it directly to persist a run's results.
 use crate::canvases as canvas_store;
 use crate::sandbox::{self, SandboxConfig, SandboxOutcome};
 use crate::trace::{ExecuteRequest, ExecuteResponse, TraceEvent};
@@ -33,8 +33,8 @@ pub struct AppState {
     /// ever increases (see `reserve_container`), and the free-tier cap
     /// (`MAX_CONTAINERS_PER_USER`) is checked against it. In-memory only
     /// — resets on restart, so this is a soft cap today, not a durable
-    /// one; persisting it to Postgres alongside canvases is the natural
-    /// next step if that matters.
+    /// one; a `usage` table keyed on `users.user_id` is the natural next
+    /// step if that matters.
     pub container_count: Arc<Mutex<HashMap<String, u32>>>,
     /// Names of containers *currently* running per user — separate from
     /// `container_count` above, this is purely bookkeeping for
@@ -51,10 +51,20 @@ pub struct AppState {
     /// because nothing happened, but because polling can't win a race
     /// against a container that's already gone.
     pub recent_usage: Arc<Mutex<HashMap<String, RecentUsage>>>,
-    /// Backs persistent canvases (§ api::canvases) — unlike `docker`, a
-    /// missing connection here is fatal at startup (see main.rs), not a
-    /// soft-503 degradation.
+    /// Backs the Clerk-synced `users`/`sessions` tables (§ crate::users)
+    /// — unlike `docker`, a missing connection here is fatal at startup
+    /// (see main.rs), not a soft-503 degradation.
     pub pool: PgPool,
+    /// Where the user's work lives — canvases, graphs and posts
+    /// (§ crate::mongo). Fatal at startup if unreachable, same as `pool`:
+    /// almost every route below reads or writes it.
+    pub mongo: mongodb::Database,
+    /// Svix signing secret for `POST /api/webhooks/clerk`. `None` when
+    /// `CLERK_WEBHOOK_SECRET` isn't set — that route then reports 503
+    /// rather than accepting unverified events (see api::webhooks), and
+    /// the user tables are kept current by the startup import and
+    /// `users::ensure` alone.
+    pub clerk_webhook_secret: Option<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -136,12 +146,12 @@ pub async fn execute(
     // A canvas whose code was generated from a graph runs *its stored
     // source*, never whatever arrived in the request. The Visualizer
     // renders such a canvas read-only, so a mismatch means a stale tab or
-    // a hand-rolled client — and either way the trace about to be saved
+    // a hand-rolled client — and either way the trace about to be returned
     // has to describe the code the canvas actually holds, or the step
     // highlight would point at lines that aren't there.
     let mut req = req;
-    if let Some(canvas_id) = req.canvas_id {
-        match canvas_store::generated_source(&state.pool, &clerk_jwt.sub, canvas_id).await {
+    if let Some(canvas_id) = req.canvas_id.clone() {
+        match canvas_store::generated_source(&state.mongo, &clerk_jwt.sub, &canvas_id).await {
             Ok(Some(stored)) => {
                 if stored != req.source {
                     tracing::debug!(
@@ -152,14 +162,7 @@ pub async fn execute(
                 req.source = stored;
             }
             Ok(None) => {}
-            Err(e) => {
-                tracing::error!(error = %e, "failed to read canvas source");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": "database error, please try again" })),
-                )
-                    .into_response();
-            }
+            Err(e) => return mongo_error(e, "canvas source lookup"),
         }
     }
 
@@ -237,44 +240,13 @@ pub async fn execute(
                 tracing::debug!("trace completed with an exception in the user's code");
             }
             let response = ExecuteResponse::from_events(events, compile_command, compiler_output);
-            if let Some(canvas_id) = req.canvas_id {
-                let run = canvas_store::RunResult {
-                    source_code: &req.source,
-                    trace_data: Some(&response.trace),
-                    stdout: Some(&response.stdout),
-                    compile_command: Some(&response.compile_command),
-                    compiler_output: Some(&response.compiler_output),
-                    truncated: response.truncated,
-                };
-                if let Err(not_owned) = record_run(&state.pool, &clerk_jwt.sub, canvas_id, run).await {
-                    return not_owned;
-                }
-            }
             (StatusCode::OK, Json(response)).into_response()
         }
         // A snippet that fails to compile never ran at all — closer to
         // "bad input" (§11) than a normal execution outcome, so 4xx
         // rather than 200-with-error (which is reserved for the user's
-        // code compiling fine but throwing/crashing at runtime). Still a
-        // real run result worth recording onto the canvas, if any — the
-        // editor should show the same compile error on reload, not a
-        // stale trace from before the edit that broke the build.
-        Ok(SandboxOutcome::CompileError(message)) => {
-            if let Some(canvas_id) = req.canvas_id {
-                let run = canvas_store::RunResult {
-                    source_code: &req.source,
-                    trace_data: None,
-                    stdout: None,
-                    compile_command: None,
-                    compiler_output: Some(&message),
-                    truncated: false,
-                };
-                if let Err(not_owned) = record_run(&state.pool, &clerk_jwt.sub, canvas_id, run).await {
-                    return not_owned;
-                }
-            }
-            bad_request(&message)
-        }
+        // code compiling fine but throwing/crashing at runtime).
+        Ok(SandboxOutcome::CompileError(message)) => bad_request(&message),
         Err(e) => {
             tracing::error!(error = %e, "sandbox execution failed");
             (
@@ -286,35 +258,30 @@ pub async fn execute(
     }
 }
 
-/// Persists a run's results onto `canvas_id`, translating "not this user's
-/// canvas" into the same 404 shape `api::canvases` handlers use (rather
-/// than silently dropping the save) and a DB error into a 500.
-async fn record_run(
-    pool: &PgPool,
-    owner_id: &str,
-    canvas_id: uuid::Uuid,
-    run: canvas_store::RunResult<'_>,
-) -> Result<(), Response> {
-    match canvas_store::record_run(pool, owner_id, canvas_id, run).await {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(not_found("canvas not found")),
-        Err(e) => {
-            tracing::error!(error = %e, "failed to record run onto canvas");
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": "run succeeded but saving it to the canvas failed" })),
-            )
-                .into_response())
-        }
-    }
+/// A MongoDB failure. The `context` names the operation so a log line
+/// says which query broke; the response deliberately doesn't, because a
+/// driver error can carry connection strings and collection internals.
+pub fn mongo_error(e: mongodb::error::Error, context: &str) -> Response {
+    tracing::error!(error = %e, context, "mongodb query failed");
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": "database error, please try again" })),
+    )
+        .into_response()
+}
+
+/// The Postgres equivalent, for the identity half.
+pub fn db_error(e: sqlx::Error) -> Response {
+    tracing::error!(error = %e, "postgres query failed");
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": "database error, please try again" })),
+    )
+        .into_response()
 }
 
 fn bad_request(message: &str) -> Response {
     (StatusCode::BAD_REQUEST, Json(json!({ "error": message }))).into_response()
-}
-
-fn not_found(message: &str) -> Response {
-    (StatusCode::NOT_FOUND, Json(json!({ "error": message }))).into_response()
 }
 
 /// Resource usage for the signed-in user: lifetime containers spun up

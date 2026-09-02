@@ -3,9 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import PostCard from "./PostCard";
 import PostRail from "./PostRail";
-import { POSTS } from "@/lib/posts/data";
 import { filterByTags, searchPosts, sortPosts, type SortOrder } from "@/lib/posts/search";
-import { usePostState } from "@/lib/posts/use-posts";
+import { usePosts, usePostState } from "@/lib/posts/use-posts";
 
 /**
  * The community feed.
@@ -58,14 +57,15 @@ const ORDERS: { value: SortOrder; label: string }[] = [
 ];
 
 export default function PostFeed() {
+  const { posts, loading, error } = usePosts();
   const { saved } = usePostState();
   const [query, setQuery] = useState("");
   const [tags, setTags] = useState<ReadonlySet<string>>(() => new Set());
   const [order, setOrder] = useState<SortOrder>("latest");
 
   const visible = useMemo(
-    () => sortPosts(filterByTags(searchPosts(POSTS, query), tags), order),
-    [query, tags, order],
+    () => sortPosts(filterByTags(searchPosts(posts, query), tags), order),
+    [posts, query, tags, order],
   );
 
   const filtering = query.trim().length > 0 || tags.size > 0;
@@ -92,7 +92,7 @@ export default function PostFeed() {
               * exists — the number has to agree with the list under it, or
               * it reads as posts the filter has hidden from you. */}
             <span className="text-[var(--text-primary)]">{visible.length}</span>
-            {filtering ? `of ${POSTS.length} posts` : "posts"}
+            {filtering ? `of ${posts.length} posts` : "posts"}
             {/* Only once there is something to point at. A permanent
               * "0 saved" is a label for a feature the reader has not used
               * rather than a way back to anything. */}
@@ -167,11 +167,24 @@ export default function PostFeed() {
           <PostCard key={post.id} post={post} activeTags={tags} onToggleTag={toggleTag} />
         ))}
 
-        {/* A panel rather than a line of centred mono in the middle of
-          * nothing, and one that carries the way out: the reader who has
-          * narrowed this to zero is the one person on the page who
-          * definitely wants a control. */}
-        {visible.length === 0 && (
+        {/* Three ways to have nothing to show, and they want different
+          * answers: the feed hasn't arrived, it failed to, or the reader
+          * filtered it away. Only the last one has a way out to offer. */}
+        {loading && posts.length === 0 && (
+          <div className="matte rounded-2xl px-6 py-14 text-center">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
+              Loading the feed…
+            </p>
+          </div>
+        )}
+
+        {error && posts.length === 0 && (
+          <div className="matte flex flex-col items-center gap-3 rounded-2xl px-6 py-14 text-center">
+            <p className="font-serif text-[15px] leading-7 text-[var(--text-secondary)]">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && visible.length === 0 && posts.length > 0 && (
           <div className="matte flex flex-col items-center gap-3 rounded-2xl px-6 py-14 text-center">
             <p className="font-serif text-[15px] leading-7 text-[var(--text-secondary)]">
               No posts match{" "}

@@ -1,243 +1,200 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
-import { POSTS } from "./data";
+import { useAuth } from "@clerk/nextjs";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
+import * as api from "./api";
 import type { Post, PostComment } from "./types";
+import { relativeTime } from "@/lib/relative-time";
 
 /**
- * What this browser has done to the feed: liked, saved, commented.
+ * The feed, fetched once and shared by every component that renders it.
  *
- * Browser storage rather than a server, because there is no posts API yet
- * (see data.ts). The important part is that it is *one* store rather than
- * component state: /dashboard/posts and /dashboard/saved are separate
- * routes, and a bookmark made on one has to be visible on the other
- * immediately and after a reload. Local state in a feed component could
- * not do that, and lifting it to a context would still lose everything on
- * navigation.
+ * A module-level store rather than component state or a context, for the
+ * reason it has always been one: `/dashboard/posts`, `/dashboard/saved`
+ * and `/dashboard/posts/{id}` are separate routes, and a like made on one
+ * has to be visible on the others immediately. Lifting it to a context
+ * would still lose everything on navigation.
  *
- * Same `useSyncExternalStore` shape as `use-edge-style.ts`, for the same
- * two reasons: storage does not exist on the server, so the snapshot has
- * to start empty and reconcile after hydration, and this project's lint
- * forbids the read-storage-in-an-effect that would otherwise do it.
+ * What changed is where the truth is. Reactions and comments used to live
+ * in this browser's `localStorage`, which meant a like was a private note
+ * to yourself. They are the server's now, so a post's like count is the
+ * real one and a comment is visible to everybody. This store is a cache of
+ * that, refreshed from the response every mutation returns.
+ *
+ * `useSyncExternalStore` for the same reason as before: the snapshot has
+ * to be stable across renders, and the server render has no data yet.
  */
 
-const STORAGE_KEY = "lattice:posts";
-
-export type PostState = {
-  /** Post ids, most recently saved first — the saved page reads this
-   * order directly rather than re-sorting by a date it does not have. */
-  saved: string[];
-  liked: string[];
-  /** Reader-written comments, by post id. Seeded comments live in the
-   * post itself and are never copied in here; the two are concatenated at
-   * read time so editing the seed data can never orphan a reply. */
-  comments: Record<string, PostComment[]>;
+type Snapshot = {
+  posts: Post[];
+  loading: boolean;
+  error: string | null;
 };
 
-/** Stable identity, so an unhydrated render and a storage-less browser
- * both return the *same* object rather than a fresh empty one each call —
- * a `getSnapshot` that returns a new reference every time is an infinite
- * re-render loop. */
-const EMPTY: PostState = { saved: [], liked: [], comments: {} };
+/** Stable identity for the pre-load state — a `getSnapshot` that returns a
+ * fresh object every call is an infinite re-render loop. */
+const EMPTY: Snapshot = { posts: [], loading: true, error: null };
 
-let cached: PostState | null = null;
-let nextCommentId = 0;
+let snapshot: Snapshot = EMPTY;
+let loadStarted = false;
 const listeners = new Set<() => void>();
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((v) => typeof v === "string");
-}
-
-/** Parses whatever is in storage into a shape the rest of the module can
- * trust. Anything unrecognised degrades to the empty default for that one
- * field rather than throwing: this is a convenience store, and a reader
- * whose likes are unreadable should still get a working page. */
-function parse(raw: string | null): PostState {
-  if (!raw) return EMPTY;
-  try {
-    const data = JSON.parse(raw) as Partial<PostState> | null;
-    if (!data || typeof data !== "object") return EMPTY;
-    const comments: Record<string, PostComment[]> = {};
-    if (data.comments && typeof data.comments === "object") {
-      for (const [postId, list] of Object.entries(data.comments)) {
-        if (Array.isArray(list)) comments[postId] = list as PostComment[];
-      }
-    }
-    return {
-      saved: isStringArray(data.saved) ? data.saved : [],
-      liked: isStringArray(data.liked) ? data.liked : [],
-      comments,
-    };
-  } catch {
-    return EMPTY;
-  }
-}
-
-function readStored(): PostState {
-  if (cached !== null) return cached;
-  try {
-    cached = parse(window.localStorage.getItem(STORAGE_KEY));
-  } catch {
-    // Private mode, or storage disabled. Caching the default stops every
-    // render from retrying a call that is going to keep throwing.
-    cached = EMPTY;
-  }
-  return cached;
-}
-
-function write(next: PostState) {
-  cached = next;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Not being able to persist is no reason to refuse the interaction —
-    // `cached` has already made it take effect for this session.
-  }
+function publish(next: Snapshot) {
+  snapshot = next;
   for (const listener of listeners) listener();
 }
 
-function subscribe(onChange: () => void) {
-  listeners.add(onChange);
-  const onStorage = (e: StorageEvent) => {
-    if (e.key !== null && e.key !== STORAGE_KEY) return;
-    cached = null;
-    for (const listener of listeners) listener();
-  };
-  window.addEventListener("storage", onStorage);
+function subscribe(listener: () => void) {
+  listeners.add(listener);
   return () => {
-    listeners.delete(onChange);
-    window.removeEventListener("storage", onStorage);
+    listeners.delete(listener);
   };
 }
 
-function toggle(list: string[], id: string) {
-  return list.includes(id) ? list.filter((x) => x !== id) : [id, ...list];
+function getSnapshot() {
+  return snapshot;
 }
 
-export function usePostState(): PostState {
-  return useSyncExternalStore(subscribe, readStored, () => EMPTY);
+/** The server render and the first client render must agree, and the
+ * server has fetched nothing. */
+function getServerSnapshot() {
+  return EMPTY;
+}
+
+/** Replaces one post in place, keeping feed order. Every mutation answers
+ * with the post as it now stands, so this never has to merge or guess. */
+function replace(updated: Post) {
+  publish({
+    ...snapshot,
+    posts: snapshot.posts.map((p) => (p.id === updated.id ? updated : p)),
+  });
 }
 
 /**
- * The like / save / comment actions.
- *
- * Grouped behind a `useMemo` purely so call sites get a stable identity
- * and can list them in dependency arrays without a lint fight — these
- * close over nothing, so the memo is about identity, not cost.
+ * The feed. Loads on the first mount that asks for it and is shared from
+ * then on; `reload` forces a refetch, which is what a mutation failure
+ * falls back to rather than leaving the cache guessing.
  */
-export function usePostActions() {
-  return useMemo(
-    () => ({
-      toggleLike(postId: string) {
-        const state = readStored();
-        write({ ...state, liked: toggle(state.liked, postId) });
-      },
+export function usePosts(): Snapshot & { reload: () => Promise<void> } {
+  const { getToken, isLoaded } = useAuth();
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-      toggleSave(postId: string) {
-        const state = readStored();
-        write({ ...state, saved: toggle(state.saved, postId) });
-      },
+  const load = useCallback(async () => {
+    try {
+      const posts = await api.fetchPosts(await getToken());
+      publish({ posts, loading: false, error: null });
+    } catch (err) {
+      publish({
+        posts: snapshot.posts,
+        loading: false,
+        error: err instanceof Error ? err.message : "Couldn't load the feed.",
+      });
+    }
+  }, [getToken]);
 
-      addComment(postId: string, body: string) {
-        const text = body.trim();
-        if (!text) return;
-        const state = readStored();
-        const comment: PostComment = {
-          // Not `crypto.randomUUID`: it is unavailable over plain http on
-          // some browsers, which `next dev` is. The timestamp keeps ids
-          // unique across sessions and the counter within one.
-          id: `c-${Date.now().toString(36)}-${(nextCommentId += 1).toString(36)}`,
-          author: "You",
-          body: text,
-          createdAt: Date.now(),
-          mine: true,
-        };
-        write({
-          ...state,
-          comments: {
-            ...state.comments,
-            [postId]: [...(state.comments[postId] ?? []), comment],
-          },
-        });
-      },
+  useEffect(() => {
+    // `getToken()` before Clerk has loaded returns null, and the request
+    // would come back 401.
+    if (!isLoaded || loadStarted) return;
+    loadStarted = true;
+    load();
+  }, [isLoaded, load]);
 
-      removeComment(postId: string, commentId: string) {
-        const state = readStored();
-        const list = state.comments[postId];
-        if (!list) return;
-        write({
-          ...state,
-          comments: {
-            ...state.comments,
-            [postId]: list.filter((c) => c.id !== commentId),
-          },
-        });
-      },
-    }),
-    [],
-  );
+  return { ...state, reload: load };
 }
 
-/** Everything on one post that the store knows about, folded together
- * with the post's own seeded numbers. */
+/** Everything on one post that the store knows about. Kept as a shape
+ * rather than reading the fields off `post` directly because the callers
+ * were written against it, and because `likeCount` reads better than
+ * `likes` beside a `liked` boolean. */
 export type PostView = {
   post: Post;
   liked: boolean;
   saved: boolean;
-  /** Seeded likes plus this reader's, so un-liking can never take the
-   * total below what other people contributed. */
   likeCount: number;
-  /** Seeded comments first, then this reader's, oldest to newest. */
   comments: PostComment[];
 };
 
 export function usePostView(post: Post): PostView {
-  const state = usePostState();
+  // The post passed in may be a stale copy held by a parent that rendered
+  // before the last mutation landed, so the store's own entry wins.
+  const { posts } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   return useMemo(() => {
-    const liked = state.liked.includes(post.id);
+    const current = posts.find((p) => p.id === post.id) ?? post;
     return {
-      post,
-      liked,
-      saved: state.saved.includes(post.id),
-      likeCount: post.likes + (liked ? 1 : 0),
-      comments: [...post.comments, ...(state.comments[post.id] ?? [])],
+      post: current,
+      liked: current.liked,
+      saved: current.saved,
+      likeCount: current.likes,
+      comments: current.comments,
     };
-  }, [post, state]);
+  }, [post, posts]);
 }
 
-/** The saved feed, in the order things were saved. Ids that no longer
- * match a post are dropped rather than rendered as a gap — seed data can
- * change underneath a bookmark, and a server-backed feed will be able to
- * delete posts outright. */
+/** The ids this reader has saved. Kept as the same `{ saved }` shape the
+ * feed's count pill already reads. */
+export function usePostState(): { saved: string[] } {
+  const { posts } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMemo(() => ({ saved: posts.filter((p) => p.saved).map((p) => p.id) }), [posts]);
+}
+
+/** The saved feed. Posts that no longer exist simply aren't in the store,
+ * so a deleted post can't leave a gap here. */
 export function useSavedPosts(): Post[] {
-  const state = usePostState();
+  const { posts } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMemo(() => posts.filter((p) => p.saved), [posts]);
+}
+
+/**
+ * The mutations, each one a request whose response replaces the cached
+ * post.
+ *
+ * No optimistic update: these are single round trips to a database that
+ * answers with the new truth, and the flicker saved by guessing isn't
+ * worth a like that shows as applied and silently wasn't.
+ */
+export function usePostActions() {
+  const { getToken } = useAuth();
   return useMemo(
-    () =>
-      state.saved
-        .map((id) => POSTS.find((p) => p.id === id))
-        .filter((p): p is Post => p !== undefined),
-    [state],
+    () => ({
+      // Toggles rather than setters: the store already holds the current
+      // value, so making every caller read it first and pass it back would
+      // be a race between two tabs waiting to happen.
+      async toggleLike(postId: string) {
+        const on = !snapshot.posts.find((p) => p.id === postId)?.liked;
+        replace(await api.setLiked(postId, on, await getToken()));
+      },
+      async toggleSave(postId: string) {
+        const on = !snapshot.posts.find((p) => p.id === postId)?.saved;
+        replace(await api.setSaved(postId, on, await getToken()));
+      },
+      async addComment(postId: string, body: string) {
+        replace(await api.addComment(postId, body, await getToken()));
+      },
+      async removeComment(postId: string, commentId: string) {
+        replace(await api.deleteComment(postId, commentId, await getToken()));
+      },
+      async publish(post: api.NewPost) {
+        const created = await api.publishPost(post, await getToken());
+        publish({ ...snapshot, posts: [created, ...snapshot.posts] });
+        return created;
+      },
+      async remove(postId: string) {
+        await api.deletePost(postId, await getToken());
+        publish({ ...snapshot, posts: snapshot.posts.filter((p) => p.id !== postId) });
+      },
+    }),
+    [getToken],
   );
 }
 
-/** A relative label for a comment: the seeded one if it has one, otherwise
- * derived from its timestamp. */
+/** A relative label for a comment. */
 export function commentAge(comment: PostComment): string {
-  if (comment.at) return comment.at;
-  if (comment.createdAt === undefined) return "";
-
-  const seconds = Math.max(0, Math.round((Date.now() - comment.createdAt) / 1000));
-  if (seconds < 45) return "Just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return days === 1 ? "Yesterday" : `${days} days ago`;
+  return relativeTime(comment.createdAt);
 }
 
 /** A stable initials badge for an author, so the feed can show an avatar
- * without shipping images for people who do not exist yet.
+ * without shipping images.
  *
  * A one-word name gets one letter, not its first two: the reader's own
  * comments are signed "You", and "YO" reads as a word rather than as

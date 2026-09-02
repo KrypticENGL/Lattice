@@ -1,6 +1,14 @@
+/**
+ * Visualizer workspaces — `/api/canvases`, stored in MongoDB.
+ *
+ * Same functions and signatures these have always had. The storage behind
+ * them has moved twice (Postgres, then browser storage, now Mongo) and no
+ * page above this file changed for any of it, which is the whole reason
+ * the interface is kept this shape.
+ */
+
 import { apiRequest, jsonBody } from "@/lib/api";
 import type { Language } from "@/components/dashboard/visualizer/FloatingEditor";
-import type { TraceEvent } from "@/lib/trace-schema/types";
 
 /** Where a canvas came from. `code_canvas` marks one Lattice generated
  * from a Code-Canvas graph — its code is derived, so it's read-only for as
@@ -13,24 +21,22 @@ export type CanvasSummary = {
   name: string;
   language: Language;
   updated_at: string;
-  step_count: number;
   origin: CanvasOrigin;
   code_canvas_id: string | null;
 };
 
-/** Full saved Visualizer workspace: code, language, last trace, compile
- * status, and the step the user was last looking at. */
+/** Full saved Visualizer workspace: the code you typed, its language, and
+ * the step you were last looking at.
+ *
+ * No trace, stdout, or compiler output — those are recomputed by a run and
+ * returned from `/api/execute`, never stored. Reopening a canvas therefore
+ * restores your code, not your last run. */
 export type Canvas = {
   id: string;
   owner_id: string;
   name: string;
   language: Language;
   source_code: string;
-  trace_data: TraceEvent[] | null;
-  stdout: string | null;
-  compile_command: string | null;
-  compiler_output: string | null;
-  truncated: boolean;
   step_index: number;
   origin: CanvasOrigin;
   /** The graph this canvas was generated from. Non-null means the source

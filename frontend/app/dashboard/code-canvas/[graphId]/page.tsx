@@ -440,8 +440,12 @@ export default function CodeCanvasPage() {
     setHandoffError(null);
     try {
       const token = await getToken();
+      // Saved first, then compiled from the same in-memory graph: the
+      // PATCH is what stops the server naming the canvas after a stale
+      // revision, and passing `graph` is what stops the code being
+      // compiled from one.
       await updateCodeCanvas(graphId, { graph }, token);
-      const result = await visualizeCodeCanvas(graphId, token);
+      const result = await visualizeCodeCanvas(graphId, graph, token);
       router.push(`/dashboard/visualizer/${result.canvas_id}`);
     } catch (err) {
       setHandoffError(err instanceof Error ? err.message : "Couldn't open this in the Visualizer.");

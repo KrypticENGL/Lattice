@@ -55,7 +55,17 @@ export default function Panel({
     // reconcile against every `.glass` surface on the page, each of which
     // owes a fresh 26px backdrop blur for its share of it.
     <div className={`glass flex flex-col overflow-hidden rounded-2xl [contain:paint] ${className}`}>
-      <div className="glass-bar flex shrink-0 items-center justify-between gap-2 border-b border-[var(--hairline)] px-3 py-2">
+      {/* `z-10` is load-bearing, not decoration. This strip and the scroll
+        * box below it are both stacking contexts — `.glass-bar` opens one
+        * with `isolation: isolate`, the body with `contain: paint` — and
+        * two sibling contexts at `z-index: auto` are painted in DOM order,
+        * so the body covered anything the header put over it. A dropdown
+        * opened from `control` is the case that made it visible: the menu
+        * rendered, laid out correctly, and was painted *behind* the panel
+        * body, which then swallowed every click on it. Its own `z-30`
+        * cannot help, because that only orders it within this strip.
+        */}
+      <div className="glass-bar relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--hairline)] px-3 py-2">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">
             {label}
@@ -83,7 +93,15 @@ export default function Panel({
       <div className="scrollbar-thin min-h-0 flex-1 overflow-auto [contain:layout_paint]">
         {children}
       </div>
-      {overlay}
+      {/* Lifted above the header's `z-10` for the same reason the header
+        * needed one. These are whole-card flashes — `inset: 0`, their own
+        * low z-index — and they are supposed to wash over the title strip
+        * as well as the body, so they have to outrank it. `rounded-[inherit]`
+        * because the layers inherit their radius from this wrapper now
+        * rather than from the card. */}
+      {overlay && (
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit]">{overlay}</div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,15 @@
 /**
  * The community feed's seed posts.
  *
- * Front-end only, deliberately: there is no `posts` table and no
- * `/api/posts` behind this yet (the backend's migrations stop at
- * canvases). The page is built against this module — real shapes, canned
- * content — so that wiring a server underneath it later replaces one
- * import and touches no component.
+ * Not read by the app. These are the posts a fresh install is seeded
+ * with: `npm run seed:posts` converts them into
+ * `backend/seed/posts.json`, and the backend inserts them into MongoDB
+ * once, on a boot that finds an empty feed. Everything the feed renders
+ * after that comes from `/api/posts`.
+ *
+ * They are authored here rather than as JSON because of what they carry —
+ * a `Diagram` and a `CanvasGraph`, whose types and hand-tuned coordinates
+ * live on this side.
  *
  * Every post carries a `Diagram` rather than an image URL. That is the
  * same structure `buildDiagram` produces from a real trace, so
@@ -16,7 +20,33 @@
 
 import type { Diagram } from "@/lib/shape-detection";
 import { POST_GRAPHS } from "./graphs";
-import type { Post } from "./types";
+import type { CanvasAttachment } from "./types";
+
+/**
+ * A post as it is *authored* here, which is not the same shape a post has
+ * at runtime.
+ *
+ * The runtime `Post` carries what the server computes for the reader
+ * looking at it — `liked`, `saved`, `mine`, a like *count* — none of which
+ * a seed file can know. So the seed keeps the human-authorable form
+ * (`likes: 128`, a comment labelled "2 days ago") and
+ * `scripts/export-seed-posts.ts` converts it into the stored document.
+ */
+export type SeedPost = {
+  id: string;
+  title: string;
+  body: string[];
+  author: string;
+  handle: string;
+  /** A relative label, converted to a real instant at export. */
+  publishedAt: string;
+  readTime: string;
+  tags: string[];
+  accent: string;
+  canvas: CanvasAttachment;
+  likes: number;
+  comments: { id: string; author: string; body: string; at?: string }[];
+};
 
 /** Nodes evenly spaced along a row, the way `buildDiagram` lays a list
  * out (`NODE_SPACING_X` there is 110). Authoring these by hand is what
@@ -175,7 +205,7 @@ const TRIE: Diagram = {
   roots: ["n0"],
 };
 
-export const POSTS: Post[] = [
+export const POSTS: SeedPost[] = [
   {
     id: "p1",
     title: "Debugging cyclic references in a linked list",
@@ -367,7 +397,3 @@ export const POSTS: Post[] = [
     comments: [],
   },
 ];
-
-export function postById(id: string): Post | undefined {
-  return POSTS.find((p) => p.id === id);
-}

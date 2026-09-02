@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { Avatar } from "./PostChrome";
 import { getAuthorProfile } from "@/lib/posts/authors";
-import { POSTS } from "@/lib/posts/data";
 import { tagCounts } from "@/lib/posts/search";
-import { useSavedPosts } from "@/lib/posts/use-posts";
+import { usePosts, useSavedPosts } from "@/lib/posts/use-posts";
 import type { Post } from "@/lib/posts/types";
 
 /**
@@ -100,7 +99,8 @@ function TagSection({
   onToggle: (tag: string) => void;
   onClear: () => void;
 }) {
-  const tags = tagCounts(POSTS);
+  const { posts } = usePosts();
+  const tags = tagCounts(posts);
 
   return (
     <RailSection title="Browse by tag">
@@ -160,8 +160,9 @@ function TagSection({
  * feature pointed at from somewhere useful rather than a new one.
  */
 function AuthorSection({ onPick }: { onPick: (handle: string) => void }) {
+  const { posts: feed } = usePosts();
   const byHandle = new Map<string, { post: Post; posts: number }>();
-  for (const post of POSTS) {
+  for (const post of feed) {
     const seen = byHandle.get(post.handle);
     if (seen) seen.posts += 1;
     else byHandle.set(post.handle, { post, posts: 1 });

@@ -11,8 +11,9 @@ export class ExecuteRequestError extends Error {}
  * `useAuth().getToken()`) to identify the caller for the per-user
  * container quota, so callers must fetch one before calling this.
  *
- * `canvasId`, when given, tells the backend to write this run's results
- * (trace, compile status) onto that canvas — see `lib/canvases.ts`.
+ * A run writes nothing: the backend stores no canvases and no traces, so
+ * the result is the caller's to keep (the Visualizer holds it in state,
+ * and `lib/canvases.ts` saves only the source you typed).
  *
  * `fullSteps` asks for an event per stepped line instead of only the ones
  * that change the heap. The Simulator wants it (its call-stack and locals
@@ -25,7 +26,6 @@ export async function runTrace(
   language: string,
   source: string,
   token: string | null,
-  canvasId?: string,
   fullSteps = false,
 ): Promise<ExecuteResponse> {
   const res = await fetch("/api/execute", {
@@ -34,7 +34,7 @@ export async function runTrace(
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ language, source, canvas_id: canvasId, full_steps: fullSteps }),
+    body: JSON.stringify({ language, source, full_steps: fullSteps }),
   });
 
   const body = await res.json().catch(() => null);

@@ -4,20 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { deleteCanvas, listCanvases, type CanvasSummary } from "@/lib/canvases";
-
-function relativeTime(iso: string): string {
-  const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diffSec < 60) return "just now";
-  const min = Math.floor(diffSec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  const week = Math.floor(day / 7);
-  if (week < 5) return `${week}w ago`;
-  return new Date(iso).toLocaleDateString();
-}
+import { relativeTime } from "@/lib/relative-time";
 
 export default function CanvasesMenu() {
   const { getToken } = useAuth();
@@ -152,7 +139,7 @@ export default function CanvasesMenu() {
                           )}
                         </span>
                         <span className="mt-0.5 block font-mono text-[12px] uppercase tracking-wider text-[var(--text-secondary)]">
-                          {c.language} · {c.step_count} steps
+                          {c.language}
                         </span>
                       </span>
                       <span className="shrink-0 font-mono text-[12px] text-[var(--text-secondary)]">

@@ -148,12 +148,12 @@ pub enum TraceValue {
 pub struct ExecuteRequest {
     pub language: String,
     pub source: String,
-    /// When set, the run's results are written onto this canvas (§
-    /// `api::canvases`) after a successful (or compile-failed) run — the
-    /// "spin containers inside canvases" wiring. `None` for ad-hoc runs
-    /// not attached to any saved canvas.
+    /// When set, a canvas whose code is *generated* runs the source stored
+    /// on it rather than whatever the client sent (see `api::execute`).
+    /// `None` for an ad-hoc run not attached to a canvas. Nothing is
+    /// written back either way — a run stores no results.
     #[serde(default)]
-    pub canvas_id: Option<uuid::Uuid>,
+    pub canvas_id: Option<String>,
     /// Emit an event for *every* stepped source line, rather than only the
     /// ones that change the heap.
     ///

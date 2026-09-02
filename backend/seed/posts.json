@@ -1,0 +1,2236 @@
+[
+  {
+    "id": "p1",
+    "owner_id": null,
+    "title": "Debugging cyclic references in a linked list",
+    "body": [
+      "I lost the better part of an afternoon to a list that would not finish printing. No crash, no exception, just a loop that never came back — and a tail node that pointed at the middle of its own list instead of at null.",
+      "Floyd's cycle detection is usually filed under interview trivia, but it is genuinely the cheapest instrument you have here: two pointers, no allocation, and it tells you a cycle exists before you have worked out where. Once the trace is on a canvas the where becomes obvious anyway, which is the part I want to show.",
+      "The canvas below is the step right after the bad assignment lands. Node 41's next has been pointed back at 14, and you can see the walk close on itself rather than running off the end."
+    ],
+    "author": "Priya N.",
+    "handle": "@priyan",
+    "published_at": "2026-08-31T13:11:07.717Z",
+    "read_time": "6 min read",
+    "tags": [
+      "linked-list",
+      "debugging",
+      "pointers"
+    ],
+    "accent": "var(--accent-secondary)",
+    "canvas": {
+      "canvasId": "c-cyclic-list",
+      "name": "LinkedList<int> — cycle",
+      "language": "cpp",
+      "stepLabel": "Step 14 of 22",
+      "diagram": {
+        "kind": "linked-list",
+        "nodes": [
+          {
+            "id": "n0",
+            "x": 0,
+            "y": 0,
+            "label": "3",
+            "type": "Node"
+          },
+          {
+            "id": "n1",
+            "x": 110,
+            "y": 0,
+            "label": "9",
+            "type": "Node"
+          },
+          {
+            "id": "n2",
+            "x": 220,
+            "y": 0,
+            "label": "14",
+            "type": "Node"
+          },
+          {
+            "id": "n3",
+            "x": 310,
+            "y": 95,
+            "label": "27",
+            "type": "Node"
+          },
+          {
+            "id": "n4",
+            "x": 200,
+            "y": 135,
+            "label": "41",
+            "type": "Node"
+          }
+        ],
+        "edges": [
+          {
+            "from": "n0",
+            "to": "n1",
+            "field": "next"
+          },
+          {
+            "from": "n1",
+            "to": "n2",
+            "field": "next"
+          },
+          {
+            "from": "n2",
+            "to": "n3",
+            "field": "next"
+          },
+          {
+            "from": "n3",
+            "to": "n4",
+            "field": "next"
+          },
+          {
+            "from": "n4",
+            "to": "n2",
+            "field": "next"
+          }
+        ],
+        "roots": [
+          "n0"
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "id": "head",
+            "kind": "entry",
+            "x": 0,
+            "y": 40,
+            "fields": {
+              "name": "head"
+            }
+          },
+          {
+            "id": "c0",
+            "kind": "list",
+            "x": 280,
+            "y": 30,
+            "fields": {
+              "value": "3"
+            }
+          },
+          {
+            "id": "c1",
+            "kind": "list",
+            "x": 510,
+            "y": 30,
+            "fields": {
+              "value": "9"
+            }
+          },
+          {
+            "id": "c2",
+            "kind": "list",
+            "x": 740,
+            "y": 30,
+            "fields": {
+              "value": "14"
+            }
+          },
+          {
+            "id": "c3",
+            "kind": "list",
+            "x": 930,
+            "y": 190,
+            "fields": {
+              "value": "27"
+            }
+          },
+          {
+            "id": "c4",
+            "kind": "list",
+            "x": 700,
+            "y": 320,
+            "fields": {
+              "value": "41"
+            }
+          },
+          {
+            "id": "walk",
+            "kind": "traverse",
+            "x": 300,
+            "y": 300,
+            "fields": {}
+          }
+        ],
+        "edges": [
+          {
+            "id": "head.target-c0.in",
+            "from": "head",
+            "fromPort": "target",
+            "to": "c0",
+            "toPort": "in"
+          },
+          {
+            "id": "c0.next-c1.in",
+            "from": "c0",
+            "fromPort": "next",
+            "to": "c1",
+            "toPort": "in"
+          },
+          {
+            "id": "c1.next-c2.in",
+            "from": "c1",
+            "fromPort": "next",
+            "to": "c2",
+            "toPort": "in"
+          },
+          {
+            "id": "c2.next-c3.in",
+            "from": "c2",
+            "fromPort": "next",
+            "to": "c3",
+            "toPort": "in"
+          },
+          {
+            "id": "c3.next-c4.in",
+            "from": "c3",
+            "fromPort": "next",
+            "to": "c4",
+            "toPort": "in"
+          },
+          {
+            "id": "c4.next-c2.in",
+            "from": "c4",
+            "fromPort": "next",
+            "to": "c2",
+            "toPort": "in"
+          },
+          {
+            "id": "head.target-walk.data",
+            "from": "head",
+            "fromPort": "target",
+            "to": "walk",
+            "toPort": "data"
+          }
+        ]
+      }
+    },
+    "liked_by": [
+      "seed:p1:0",
+      "seed:p1:1",
+      "seed:p1:2",
+      "seed:p1:3",
+      "seed:p1:4",
+      "seed:p1:5",
+      "seed:p1:6",
+      "seed:p1:7",
+      "seed:p1:8",
+      "seed:p1:9",
+      "seed:p1:10",
+      "seed:p1:11",
+      "seed:p1:12",
+      "seed:p1:13",
+      "seed:p1:14",
+      "seed:p1:15",
+      "seed:p1:16",
+      "seed:p1:17",
+      "seed:p1:18",
+      "seed:p1:19",
+      "seed:p1:20",
+      "seed:p1:21",
+      "seed:p1:22",
+      "seed:p1:23",
+      "seed:p1:24",
+      "seed:p1:25",
+      "seed:p1:26",
+      "seed:p1:27",
+      "seed:p1:28",
+      "seed:p1:29",
+      "seed:p1:30",
+      "seed:p1:31",
+      "seed:p1:32",
+      "seed:p1:33",
+      "seed:p1:34",
+      "seed:p1:35",
+      "seed:p1:36",
+      "seed:p1:37",
+      "seed:p1:38",
+      "seed:p1:39",
+      "seed:p1:40",
+      "seed:p1:41",
+      "seed:p1:42",
+      "seed:p1:43",
+      "seed:p1:44",
+      "seed:p1:45",
+      "seed:p1:46",
+      "seed:p1:47",
+      "seed:p1:48",
+      "seed:p1:49",
+      "seed:p1:50",
+      "seed:p1:51",
+      "seed:p1:52",
+      "seed:p1:53",
+      "seed:p1:54",
+      "seed:p1:55",
+      "seed:p1:56",
+      "seed:p1:57",
+      "seed:p1:58",
+      "seed:p1:59",
+      "seed:p1:60",
+      "seed:p1:61",
+      "seed:p1:62",
+      "seed:p1:63",
+      "seed:p1:64",
+      "seed:p1:65",
+      "seed:p1:66",
+      "seed:p1:67",
+      "seed:p1:68",
+      "seed:p1:69",
+      "seed:p1:70",
+      "seed:p1:71",
+      "seed:p1:72",
+      "seed:p1:73",
+      "seed:p1:74",
+      "seed:p1:75",
+      "seed:p1:76",
+      "seed:p1:77",
+      "seed:p1:78",
+      "seed:p1:79",
+      "seed:p1:80",
+      "seed:p1:81",
+      "seed:p1:82",
+      "seed:p1:83",
+      "seed:p1:84",
+      "seed:p1:85",
+      "seed:p1:86",
+      "seed:p1:87",
+      "seed:p1:88",
+      "seed:p1:89",
+      "seed:p1:90",
+      "seed:p1:91",
+      "seed:p1:92",
+      "seed:p1:93",
+      "seed:p1:94",
+      "seed:p1:95",
+      "seed:p1:96",
+      "seed:p1:97",
+      "seed:p1:98",
+      "seed:p1:99",
+      "seed:p1:100",
+      "seed:p1:101",
+      "seed:p1:102",
+      "seed:p1:103",
+      "seed:p1:104",
+      "seed:p1:105",
+      "seed:p1:106",
+      "seed:p1:107",
+      "seed:p1:108",
+      "seed:p1:109",
+      "seed:p1:110",
+      "seed:p1:111",
+      "seed:p1:112",
+      "seed:p1:113",
+      "seed:p1:114",
+      "seed:p1:115",
+      "seed:p1:116",
+      "seed:p1:117",
+      "seed:p1:118",
+      "seed:p1:119",
+      "seed:p1:120",
+      "seed:p1:121",
+      "seed:p1:122",
+      "seed:p1:123",
+      "seed:p1:124",
+      "seed:p1:125",
+      "seed:p1:126",
+      "seed:p1:127"
+    ],
+    "saved_by": [],
+    "comments": [
+      {
+        "id": "p1c1",
+        "author": "Marcus O.",
+        "author_id": null,
+        "body": "The pointer swap finally clicked once I stepped it rather than read it. Thanks for posting the canvas and not just the code.",
+        "created_at": "2026-09-01T13:11:07.717Z"
+      },
+      {
+        "id": "p1c2",
+        "author": "Sam K.",
+        "author_id": null,
+        "body": "Worth adding that the tortoise and hare meet inside the cycle, not at its entrance — finding the entrance needs the second walk from the head.",
+        "created_at": "2026-09-01T15:11:07.717Z"
+      }
+    ],
+    "created_at": "2026-08-31T13:11:07.717Z",
+    "updated_at": "2026-08-31T13:11:07.717Z"
+  },
+  {
+    "id": "p2",
+    "owner_id": null,
+    "title": "Why does my BST rotation break the invariant?",
+    "body": [
+      "Every rotation write-up draws the same three-node picture, and every one of them quietly assumes the subtree you are rotating is the root. It usually is not, and the parent pointer is the part that gets forgotten.",
+      "A left rotation moves three links, not two. If you only reassign the child pointers you end up with a perfectly well-formed subtree that nothing points at any more, and the tree above it still believes the old node is in charge.",
+      "Here is the tree at the step before the rotation, with 30 still at the root. Step forward once on the canvas and watch which of the three edges does not get rewritten."
+    ],
+    "author": "Marcus O.",
+    "handle": "@marcuso",
+    "published_at": "2026-08-29T13:11:07.717Z",
+    "read_time": "4 min read",
+    "tags": [
+      "tree",
+      "bst",
+      "invariants"
+    ],
+    "accent": "#c2703d",
+    "canvas": {
+      "canvasId": "c-bst-rotate",
+      "name": "TreeNode — left rotation",
+      "language": "cpp",
+      "stepLabel": "Step 8 of 19",
+      "diagram": {
+        "kind": "tree",
+        "nodes": [
+          {
+            "id": "n0",
+            "x": 0,
+            "y": 0,
+            "label": "30",
+            "type": "TreeNode"
+          },
+          {
+            "id": "n1",
+            "x": -90,
+            "y": 100,
+            "label": "20",
+            "type": "TreeNode"
+          },
+          {
+            "id": "n2",
+            "x": 90,
+            "y": 100,
+            "label": "45",
+            "type": "TreeNode"
+          },
+          {
+            "id": "n3",
+            "x": -135,
+            "y": 200,
+            "label": "10",
+            "type": "TreeNode"
+          },
+          {
+            "id": "n4",
+            "x": -45,
+            "y": 200,
+            "label": "25",
+            "type": "TreeNode"
+          },
+          {
+            "id": "n5",
+            "x": 45,
+            "y": 200,
+            "label": "40",
+            "type": "TreeNode"
+          },
+          {
+            "id": "n6",
+            "x": 135,
+            "y": 200,
+            "label": "60",
+            "type": "TreeNode"
+          }
+        ],
+        "edges": [
+          {
+            "from": "n0",
+            "to": "n1",
+            "field": "left"
+          },
+          {
+            "from": "n0",
+            "to": "n2",
+            "field": "right"
+          },
+          {
+            "from": "n1",
+            "to": "n3",
+            "field": "left"
+          },
+          {
+            "from": "n1",
+            "to": "n4",
+            "field": "right"
+          },
+          {
+            "from": "n2",
+            "to": "n5",
+            "field": "left"
+          },
+          {
+            "from": "n2",
+            "to": "n6",
+            "field": "right"
+          }
+        ],
+        "roots": [
+          "n0"
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "id": "root",
+            "kind": "entry",
+            "x": 250,
+            "y": -150,
+            "fields": {
+              "name": "root"
+            }
+          },
+          {
+            "id": "t0",
+            "kind": "tree",
+            "x": 300,
+            "y": 0,
+            "fields": {
+              "value": "30"
+            }
+          },
+          {
+            "id": "t1",
+            "kind": "tree",
+            "x": 100,
+            "y": 170,
+            "fields": {
+              "value": "20"
+            }
+          },
+          {
+            "id": "t2",
+            "kind": "tree",
+            "x": 500,
+            "y": 170,
+            "fields": {
+              "value": "45"
+            }
+          },
+          {
+            "id": "t3",
+            "kind": "tree",
+            "x": -20,
+            "y": 340,
+            "fields": {
+              "value": "10"
+            }
+          },
+          {
+            "id": "t4",
+            "kind": "tree",
+            "x": 190,
+            "y": 340,
+            "fields": {
+              "value": "25"
+            }
+          },
+          {
+            "id": "t5",
+            "kind": "tree",
+            "x": 400,
+            "y": 340,
+            "fields": {
+              "value": "40"
+            }
+          },
+          {
+            "id": "t6",
+            "kind": "tree",
+            "x": 610,
+            "y": 340,
+            "fields": {
+              "value": "60"
+            }
+          },
+          {
+            "id": "find",
+            "kind": "search",
+            "x": 830,
+            "y": 150,
+            "fields": {
+              "value": "25"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "root.target-t0.in",
+            "from": "root",
+            "fromPort": "target",
+            "to": "t0",
+            "toPort": "in"
+          },
+          {
+            "id": "t0.left-t1.in",
+            "from": "t0",
+            "fromPort": "left",
+            "to": "t1",
+            "toPort": "in"
+          },
+          {
+            "id": "t0.right-t2.in",
+            "from": "t0",
+            "fromPort": "right",
+            "to": "t2",
+            "toPort": "in"
+          },
+          {
+            "id": "t1.left-t3.in",
+            "from": "t1",
+            "fromPort": "left",
+            "to": "t3",
+            "toPort": "in"
+          },
+          {
+            "id": "t1.right-t4.in",
+            "from": "t1",
+            "fromPort": "right",
+            "to": "t4",
+            "toPort": "in"
+          },
+          {
+            "id": "t2.left-t5.in",
+            "from": "t2",
+            "fromPort": "left",
+            "to": "t5",
+            "toPort": "in"
+          },
+          {
+            "id": "t2.right-t6.in",
+            "from": "t2",
+            "fromPort": "right",
+            "to": "t6",
+            "toPort": "in"
+          },
+          {
+            "id": "root.target-find.data",
+            "from": "root",
+            "fromPort": "target",
+            "to": "find",
+            "toPort": "data"
+          }
+        ]
+      }
+    },
+    "liked_by": [
+      "seed:p2:0",
+      "seed:p2:1",
+      "seed:p2:2",
+      "seed:p2:3",
+      "seed:p2:4",
+      "seed:p2:5",
+      "seed:p2:6",
+      "seed:p2:7",
+      "seed:p2:8",
+      "seed:p2:9",
+      "seed:p2:10",
+      "seed:p2:11",
+      "seed:p2:12",
+      "seed:p2:13",
+      "seed:p2:14",
+      "seed:p2:15",
+      "seed:p2:16",
+      "seed:p2:17",
+      "seed:p2:18",
+      "seed:p2:19",
+      "seed:p2:20",
+      "seed:p2:21",
+      "seed:p2:22",
+      "seed:p2:23",
+      "seed:p2:24",
+      "seed:p2:25",
+      "seed:p2:26",
+      "seed:p2:27",
+      "seed:p2:28",
+      "seed:p2:29",
+      "seed:p2:30",
+      "seed:p2:31",
+      "seed:p2:32",
+      "seed:p2:33",
+      "seed:p2:34",
+      "seed:p2:35",
+      "seed:p2:36",
+      "seed:p2:37",
+      "seed:p2:38",
+      "seed:p2:39",
+      "seed:p2:40",
+      "seed:p2:41",
+      "seed:p2:42",
+      "seed:p2:43",
+      "seed:p2:44",
+      "seed:p2:45",
+      "seed:p2:46",
+      "seed:p2:47",
+      "seed:p2:48",
+      "seed:p2:49",
+      "seed:p2:50",
+      "seed:p2:51",
+      "seed:p2:52",
+      "seed:p2:53",
+      "seed:p2:54",
+      "seed:p2:55",
+      "seed:p2:56",
+      "seed:p2:57",
+      "seed:p2:58",
+      "seed:p2:59",
+      "seed:p2:60",
+      "seed:p2:61",
+      "seed:p2:62",
+      "seed:p2:63",
+      "seed:p2:64",
+      "seed:p2:65",
+      "seed:p2:66",
+      "seed:p2:67",
+      "seed:p2:68",
+      "seed:p2:69",
+      "seed:p2:70",
+      "seed:p2:71",
+      "seed:p2:72",
+      "seed:p2:73",
+      "seed:p2:74",
+      "seed:p2:75",
+      "seed:p2:76",
+      "seed:p2:77",
+      "seed:p2:78",
+      "seed:p2:79",
+      "seed:p2:80",
+      "seed:p2:81",
+      "seed:p2:82",
+      "seed:p2:83",
+      "seed:p2:84",
+      "seed:p2:85",
+      "seed:p2:86",
+      "seed:p2:87",
+      "seed:p2:88",
+      "seed:p2:89",
+      "seed:p2:90",
+      "seed:p2:91",
+      "seed:p2:92",
+      "seed:p2:93"
+    ],
+    "saved_by": [],
+    "comments": [
+      {
+        "id": "p2c1",
+        "author": "Elena V.",
+        "author_id": null,
+        "body": "This is the diagram I needed three years ago. The parent link being invisible in most drawings is exactly why it gets dropped.",
+        "created_at": "2026-08-30T13:11:07.717Z"
+      }
+    ],
+    "created_at": "2026-08-29T13:11:07.717Z",
+    "updated_at": "2026-08-29T13:11:07.717Z"
+  },
+  {
+    "id": "p3",
+    "owner_id": null,
+    "title": "Visualizing Dijkstra without a priority queue",
+    "body": [
+      "Reaching for a binary heap before you can see the algorithm is how Dijkstra ends up memorised instead of understood. The O(V^2) version — scan the array, take the smallest unvisited node — does exactly the same thing and has nothing in it to hide behind.",
+      "Traced on a six-node graph it fits on one screen, and the relaxation step stops looking like bookkeeping: you can watch a tentative distance get overwritten the moment a cheaper path shows up.",
+      "Swap the scan for a heap afterwards and the only thing that changes is how you find the minimum. That is a much easier thing to believe once you have seen the slow one run."
+    ],
+    "author": "Elena V.",
+    "handle": "@elenav",
+    "published_at": "2026-08-26T13:11:07.717Z",
+    "read_time": "8 min read",
+    "tags": [
+      "graph",
+      "dijkstra",
+      "shortest-path"
+    ],
+    "accent": "#e8993d",
+    "canvas": {
+      "canvasId": "c-dijkstra",
+      "name": "Graph<string> — relaxation",
+      "language": "cpp",
+      "stepLabel": "Step 31 of 64",
+      "diagram": {
+        "kind": "graph",
+        "nodes": [
+          {
+            "id": "n0",
+            "x": 0,
+            "y": -130,
+            "label": "a",
+            "type": "Node"
+          },
+          {
+            "id": "n1",
+            "x": 113,
+            "y": -65,
+            "label": "b",
+            "type": "Node"
+          },
+          {
+            "id": "n2",
+            "x": 113,
+            "y": 65,
+            "label": "c",
+            "type": "Node"
+          },
+          {
+            "id": "n3",
+            "x": 0,
+            "y": 130,
+            "label": "d",
+            "type": "Node"
+          },
+          {
+            "id": "n4",
+            "x": -113,
+            "y": 65,
+            "label": "e",
+            "type": "Node"
+          },
+          {
+            "id": "n5",
+            "x": -113,
+            "y": -65,
+            "label": "f",
+            "type": "Node"
+          }
+        ],
+        "edges": [
+          {
+            "from": "n0",
+            "to": "n1",
+            "field": "4"
+          },
+          {
+            "from": "n0",
+            "to": "n5",
+            "field": "8"
+          },
+          {
+            "from": "n1",
+            "to": "n2",
+            "field": "11"
+          },
+          {
+            "from": "n2",
+            "to": "n3",
+            "field": "7"
+          },
+          {
+            "from": "n3",
+            "to": "n4",
+            "field": "9"
+          },
+          {
+            "from": "n4",
+            "to": "n5",
+            "field": "10"
+          },
+          {
+            "from": "n1",
+            "to": "n4",
+            "field": "2"
+          },
+          {
+            "from": "n2",
+            "to": "n5",
+            "field": "6"
+          }
+        ],
+        "roots": [
+          "n0"
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "id": "start",
+            "kind": "entry",
+            "x": -560,
+            "y": -33,
+            "fields": {
+              "name": "start"
+            }
+          },
+          {
+            "id": "v0",
+            "kind": "graph",
+            "x": -75,
+            "y": -373,
+            "fields": {
+              "value": "a"
+            }
+          },
+          {
+            "id": "v1",
+            "kind": "graph",
+            "x": 219,
+            "y": -203,
+            "fields": {
+              "value": "b"
+            }
+          },
+          {
+            "id": "v2",
+            "kind": "graph",
+            "x": 219,
+            "y": 137,
+            "fields": {
+              "value": "c"
+            }
+          },
+          {
+            "id": "v3",
+            "kind": "graph",
+            "x": -75,
+            "y": 307,
+            "fields": {
+              "value": "d"
+            }
+          },
+          {
+            "id": "v4",
+            "kind": "graph",
+            "x": -369,
+            "y": 137,
+            "fields": {
+              "value": "e"
+            }
+          },
+          {
+            "id": "v5",
+            "kind": "graph",
+            "x": -369,
+            "y": -203,
+            "fields": {
+              "value": "f"
+            }
+          },
+          {
+            "id": "walk",
+            "kind": "traverse",
+            "x": -88,
+            "y": -20,
+            "fields": {}
+          }
+        ],
+        "edges": [
+          {
+            "id": "start.target-v0.in",
+            "from": "start",
+            "fromPort": "target",
+            "to": "v0",
+            "toPort": "in"
+          },
+          {
+            "id": "v0.edges-v1.in",
+            "from": "v0",
+            "fromPort": "edges",
+            "to": "v1",
+            "toPort": "in"
+          },
+          {
+            "id": "v0.edges-v5.in",
+            "from": "v0",
+            "fromPort": "edges",
+            "to": "v5",
+            "toPort": "in"
+          },
+          {
+            "id": "v1.edges-v2.in",
+            "from": "v1",
+            "fromPort": "edges",
+            "to": "v2",
+            "toPort": "in"
+          },
+          {
+            "id": "v2.edges-v3.in",
+            "from": "v2",
+            "fromPort": "edges",
+            "to": "v3",
+            "toPort": "in"
+          },
+          {
+            "id": "v3.edges-v4.in",
+            "from": "v3",
+            "fromPort": "edges",
+            "to": "v4",
+            "toPort": "in"
+          },
+          {
+            "id": "v4.edges-v5.in",
+            "from": "v4",
+            "fromPort": "edges",
+            "to": "v5",
+            "toPort": "in"
+          },
+          {
+            "id": "v1.edges-v4.in",
+            "from": "v1",
+            "fromPort": "edges",
+            "to": "v4",
+            "toPort": "in"
+          },
+          {
+            "id": "v2.edges-v5.in",
+            "from": "v2",
+            "fromPort": "edges",
+            "to": "v5",
+            "toPort": "in"
+          },
+          {
+            "id": "start.target-walk.data",
+            "from": "start",
+            "fromPort": "target",
+            "to": "walk",
+            "toPort": "data"
+          }
+        ]
+      }
+    },
+    "liked_by": [
+      "seed:p3:0",
+      "seed:p3:1",
+      "seed:p3:2",
+      "seed:p3:3",
+      "seed:p3:4",
+      "seed:p3:5",
+      "seed:p3:6",
+      "seed:p3:7",
+      "seed:p3:8",
+      "seed:p3:9",
+      "seed:p3:10",
+      "seed:p3:11",
+      "seed:p3:12",
+      "seed:p3:13",
+      "seed:p3:14",
+      "seed:p3:15",
+      "seed:p3:16",
+      "seed:p3:17",
+      "seed:p3:18",
+      "seed:p3:19",
+      "seed:p3:20",
+      "seed:p3:21",
+      "seed:p3:22",
+      "seed:p3:23",
+      "seed:p3:24",
+      "seed:p3:25",
+      "seed:p3:26",
+      "seed:p3:27",
+      "seed:p3:28",
+      "seed:p3:29",
+      "seed:p3:30",
+      "seed:p3:31",
+      "seed:p3:32",
+      "seed:p3:33",
+      "seed:p3:34",
+      "seed:p3:35",
+      "seed:p3:36",
+      "seed:p3:37",
+      "seed:p3:38",
+      "seed:p3:39",
+      "seed:p3:40",
+      "seed:p3:41",
+      "seed:p3:42",
+      "seed:p3:43",
+      "seed:p3:44",
+      "seed:p3:45",
+      "seed:p3:46",
+      "seed:p3:47",
+      "seed:p3:48",
+      "seed:p3:49",
+      "seed:p3:50",
+      "seed:p3:51",
+      "seed:p3:52",
+      "seed:p3:53",
+      "seed:p3:54",
+      "seed:p3:55",
+      "seed:p3:56",
+      "seed:p3:57",
+      "seed:p3:58",
+      "seed:p3:59",
+      "seed:p3:60",
+      "seed:p3:61",
+      "seed:p3:62",
+      "seed:p3:63",
+      "seed:p3:64",
+      "seed:p3:65",
+      "seed:p3:66",
+      "seed:p3:67",
+      "seed:p3:68",
+      "seed:p3:69",
+      "seed:p3:70",
+      "seed:p3:71",
+      "seed:p3:72",
+      "seed:p3:73",
+      "seed:p3:74",
+      "seed:p3:75",
+      "seed:p3:76",
+      "seed:p3:77",
+      "seed:p3:78",
+      "seed:p3:79",
+      "seed:p3:80",
+      "seed:p3:81",
+      "seed:p3:82",
+      "seed:p3:83",
+      "seed:p3:84",
+      "seed:p3:85",
+      "seed:p3:86",
+      "seed:p3:87",
+      "seed:p3:88",
+      "seed:p3:89",
+      "seed:p3:90",
+      "seed:p3:91",
+      "seed:p3:92",
+      "seed:p3:93",
+      "seed:p3:94",
+      "seed:p3:95",
+      "seed:p3:96",
+      "seed:p3:97",
+      "seed:p3:98",
+      "seed:p3:99",
+      "seed:p3:100",
+      "seed:p3:101",
+      "seed:p3:102",
+      "seed:p3:103",
+      "seed:p3:104",
+      "seed:p3:105",
+      "seed:p3:106",
+      "seed:p3:107",
+      "seed:p3:108",
+      "seed:p3:109",
+      "seed:p3:110",
+      "seed:p3:111",
+      "seed:p3:112",
+      "seed:p3:113",
+      "seed:p3:114",
+      "seed:p3:115",
+      "seed:p3:116",
+      "seed:p3:117",
+      "seed:p3:118",
+      "seed:p3:119",
+      "seed:p3:120",
+      "seed:p3:121",
+      "seed:p3:122",
+      "seed:p3:123",
+      "seed:p3:124",
+      "seed:p3:125",
+      "seed:p3:126",
+      "seed:p3:127",
+      "seed:p3:128",
+      "seed:p3:129",
+      "seed:p3:130",
+      "seed:p3:131",
+      "seed:p3:132",
+      "seed:p3:133",
+      "seed:p3:134",
+      "seed:p3:135",
+      "seed:p3:136",
+      "seed:p3:137",
+      "seed:p3:138",
+      "seed:p3:139",
+      "seed:p3:140",
+      "seed:p3:141",
+      "seed:p3:142",
+      "seed:p3:143",
+      "seed:p3:144",
+      "seed:p3:145",
+      "seed:p3:146",
+      "seed:p3:147",
+      "seed:p3:148",
+      "seed:p3:149",
+      "seed:p3:150",
+      "seed:p3:151",
+      "seed:p3:152",
+      "seed:p3:153",
+      "seed:p3:154",
+      "seed:p3:155",
+      "seed:p3:156",
+      "seed:p3:157",
+      "seed:p3:158",
+      "seed:p3:159",
+      "seed:p3:160",
+      "seed:p3:161",
+      "seed:p3:162",
+      "seed:p3:163",
+      "seed:p3:164",
+      "seed:p3:165",
+      "seed:p3:166",
+      "seed:p3:167",
+      "seed:p3:168",
+      "seed:p3:169",
+      "seed:p3:170",
+      "seed:p3:171",
+      "seed:p3:172",
+      "seed:p3:173",
+      "seed:p3:174",
+      "seed:p3:175",
+      "seed:p3:176",
+      "seed:p3:177",
+      "seed:p3:178",
+      "seed:p3:179",
+      "seed:p3:180",
+      "seed:p3:181",
+      "seed:p3:182",
+      "seed:p3:183",
+      "seed:p3:184",
+      "seed:p3:185",
+      "seed:p3:186",
+      "seed:p3:187",
+      "seed:p3:188",
+      "seed:p3:189",
+      "seed:p3:190",
+      "seed:p3:191",
+      "seed:p3:192",
+      "seed:p3:193",
+      "seed:p3:194",
+      "seed:p3:195",
+      "seed:p3:196",
+      "seed:p3:197",
+      "seed:p3:198",
+      "seed:p3:199",
+      "seed:p3:200",
+      "seed:p3:201",
+      "seed:p3:202",
+      "seed:p3:203",
+      "seed:p3:204",
+      "seed:p3:205",
+      "seed:p3:206",
+      "seed:p3:207",
+      "seed:p3:208",
+      "seed:p3:209",
+      "seed:p3:210",
+      "seed:p3:211"
+    ],
+    "saved_by": [],
+    "comments": [
+      {
+        "id": "p3c1",
+        "author": "Diego R.",
+        "author_id": null,
+        "body": "Ran the same trace with a heap side by side and the step counts tell the story better than the big-O does.",
+        "created_at": "2026-08-28T13:11:07.717Z"
+      },
+      {
+        "id": "p3c2",
+        "author": "Priya N.",
+        "author_id": null,
+        "body": "The edge weights being on the wires rather than in a table is doing a lot of work here.",
+        "created_at": "2026-08-29T13:11:07.717Z"
+      }
+    ],
+    "created_at": "2026-08-26T13:11:07.717Z",
+    "updated_at": "2026-08-26T13:11:07.717Z"
+  },
+  {
+    "id": "p4",
+    "owner_id": null,
+    "title": "Ring buffer wrap-around explained",
+    "body": [
+      "Modulo indexing is one of those things that reads as arithmetic and behaves as geometry. Written as (head + 1) % capacity it looks like a special case bolted onto the end of the array. Drawn as a ring, there is no end for it to be bolted onto.",
+      "That is the whole trick, and it is why the canvas below is laid out as a circle rather than a row: index 5 pointing at index 0 is the same edge as every other one on the diagram.",
+      "Once the wrap stops being a special case, the full and empty conditions stop being confusing too — they are the only two states where head and tail agree."
+    ],
+    "author": "Diego R.",
+    "handle": "@diegor",
+    "published_at": "2026-08-19T13:11:07.717Z",
+    "read_time": "5 min read",
+    "tags": [
+      "ring-buffer",
+      "arrays",
+      "modulo"
+    ],
+    "accent": "var(--accent-primary)",
+    "canvas": {
+      "canvasId": "c-ring-buffer",
+      "name": "RingBuffer<int> — wrap",
+      "language": "cpp",
+      "stepLabel": "Step 12 of 12",
+      "diagram": {
+        "kind": "graph",
+        "nodes": [
+          {
+            "id": "n0",
+            "x": 0,
+            "y": -120,
+            "label": "0",
+            "type": "Node"
+          },
+          {
+            "id": "n1",
+            "x": 104,
+            "y": -60,
+            "label": "1",
+            "type": "Node"
+          },
+          {
+            "id": "n2",
+            "x": 104,
+            "y": 60,
+            "label": "2",
+            "type": "Node"
+          },
+          {
+            "id": "n3",
+            "x": 0,
+            "y": 120,
+            "label": "3",
+            "type": "Node"
+          },
+          {
+            "id": "n4",
+            "x": -104,
+            "y": 60,
+            "label": "4",
+            "type": "Node"
+          },
+          {
+            "id": "n5",
+            "x": -104,
+            "y": -60,
+            "label": "5",
+            "type": "Node"
+          }
+        ],
+        "edges": [
+          {
+            "from": "n0",
+            "to": "n1",
+            "field": "next"
+          },
+          {
+            "from": "n1",
+            "to": "n2",
+            "field": "next"
+          },
+          {
+            "from": "n2",
+            "to": "n3",
+            "field": "next"
+          },
+          {
+            "from": "n3",
+            "to": "n4",
+            "field": "next"
+          },
+          {
+            "from": "n4",
+            "to": "n5",
+            "field": "next"
+          },
+          {
+            "from": "n5",
+            "to": "n0",
+            "field": "next"
+          }
+        ],
+        "roots": [
+          "n0"
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "id": "head",
+            "kind": "entry",
+            "x": -560,
+            "y": -33,
+            "fields": {
+              "name": "head"
+            }
+          },
+          {
+            "id": "c0",
+            "kind": "list",
+            "x": -75,
+            "y": -333,
+            "fields": {
+              "value": "0"
+            }
+          },
+          {
+            "id": "c1",
+            "kind": "list",
+            "x": 185,
+            "y": -183,
+            "fields": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "c2",
+            "kind": "list",
+            "x": 185,
+            "y": 117,
+            "fields": {
+              "value": "2"
+            }
+          },
+          {
+            "id": "c3",
+            "kind": "list",
+            "x": -75,
+            "y": 267,
+            "fields": {
+              "value": "3"
+            }
+          },
+          {
+            "id": "c4",
+            "kind": "list",
+            "x": -335,
+            "y": 117,
+            "fields": {
+              "value": "4"
+            }
+          },
+          {
+            "id": "c5",
+            "kind": "list",
+            "x": -335,
+            "y": -183,
+            "fields": {
+              "value": "5"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "head.target-c0.in",
+            "from": "head",
+            "fromPort": "target",
+            "to": "c0",
+            "toPort": "in"
+          },
+          {
+            "id": "c0.next-c1.in",
+            "from": "c0",
+            "fromPort": "next",
+            "to": "c1",
+            "toPort": "in"
+          },
+          {
+            "id": "c1.next-c2.in",
+            "from": "c1",
+            "fromPort": "next",
+            "to": "c2",
+            "toPort": "in"
+          },
+          {
+            "id": "c2.next-c3.in",
+            "from": "c2",
+            "fromPort": "next",
+            "to": "c3",
+            "toPort": "in"
+          },
+          {
+            "id": "c3.next-c4.in",
+            "from": "c3",
+            "fromPort": "next",
+            "to": "c4",
+            "toPort": "in"
+          },
+          {
+            "id": "c4.next-c5.in",
+            "from": "c4",
+            "fromPort": "next",
+            "to": "c5",
+            "toPort": "in"
+          },
+          {
+            "id": "c5.next-c0.in",
+            "from": "c5",
+            "fromPort": "next",
+            "to": "c0",
+            "toPort": "in"
+          }
+        ]
+      }
+    },
+    "liked_by": [
+      "seed:p4:0",
+      "seed:p4:1",
+      "seed:p4:2",
+      "seed:p4:3",
+      "seed:p4:4",
+      "seed:p4:5",
+      "seed:p4:6",
+      "seed:p4:7",
+      "seed:p4:8",
+      "seed:p4:9",
+      "seed:p4:10",
+      "seed:p4:11",
+      "seed:p4:12",
+      "seed:p4:13",
+      "seed:p4:14",
+      "seed:p4:15",
+      "seed:p4:16",
+      "seed:p4:17",
+      "seed:p4:18",
+      "seed:p4:19",
+      "seed:p4:20",
+      "seed:p4:21",
+      "seed:p4:22",
+      "seed:p4:23",
+      "seed:p4:24",
+      "seed:p4:25",
+      "seed:p4:26",
+      "seed:p4:27",
+      "seed:p4:28",
+      "seed:p4:29",
+      "seed:p4:30",
+      "seed:p4:31",
+      "seed:p4:32",
+      "seed:p4:33",
+      "seed:p4:34",
+      "seed:p4:35",
+      "seed:p4:36",
+      "seed:p4:37",
+      "seed:p4:38",
+      "seed:p4:39",
+      "seed:p4:40",
+      "seed:p4:41",
+      "seed:p4:42",
+      "seed:p4:43",
+      "seed:p4:44",
+      "seed:p4:45",
+      "seed:p4:46",
+      "seed:p4:47",
+      "seed:p4:48",
+      "seed:p4:49",
+      "seed:p4:50",
+      "seed:p4:51",
+      "seed:p4:52",
+      "seed:p4:53",
+      "seed:p4:54",
+      "seed:p4:55",
+      "seed:p4:56",
+      "seed:p4:57",
+      "seed:p4:58",
+      "seed:p4:59",
+      "seed:p4:60",
+      "seed:p4:61",
+      "seed:p4:62",
+      "seed:p4:63",
+      "seed:p4:64",
+      "seed:p4:65",
+      "seed:p4:66",
+      "seed:p4:67",
+      "seed:p4:68",
+      "seed:p4:69",
+      "seed:p4:70",
+      "seed:p4:71",
+      "seed:p4:72",
+      "seed:p4:73",
+      "seed:p4:74",
+      "seed:p4:75"
+    ],
+    "saved_by": [],
+    "comments": [],
+    "created_at": "2026-08-19T13:11:07.717Z",
+    "updated_at": "2026-08-19T13:11:07.717Z"
+  },
+  {
+    "id": "p5",
+    "owner_id": null,
+    "title": "LRU cache eviction, step by step",
+    "body": [
+      "An LRU cache is two data structures pretending to be one, and almost every bug in one comes from the two disagreeing. The map finds a node in constant time; the doubly linked list is what makes moving that node to the front constant too.",
+      "Eviction is the step worth tracing. You drop the tail, and you have to remember to erase its key from the map as well — miss that and the map keeps growing forever while the list stays exactly at capacity, which is a leak that looks like correct behaviour from the outside.",
+      "The canvas shows the recency order the list encodes: head is the most recently touched key, tail is the one about to go. Every get is a splice out and a re-insert at the front, which is the whole reason this is a list and not an array."
+    ],
+    "author": "Sam K.",
+    "handle": "@samk",
+    "published_at": "2026-08-12T13:11:07.717Z",
+    "read_time": "7 min read",
+    "tags": [
+      "lru",
+      "linked-list",
+      "caching"
+    ],
+    "accent": "#b5651d",
+    "canvas": {
+      "canvasId": "c-lru-cache",
+      "name": "LRUCache — evict tail",
+      "language": "cpp",
+      "stepLabel": "Step 27 of 40",
+      "diagram": {
+        "kind": "linked-list",
+        "nodes": [
+          {
+            "id": "n0",
+            "x": 0,
+            "y": 0,
+            "label": "k4",
+            "type": "Node"
+          },
+          {
+            "id": "n1",
+            "x": 110,
+            "y": 0,
+            "label": "k7",
+            "type": "Node"
+          },
+          {
+            "id": "n2",
+            "x": 220,
+            "y": 0,
+            "label": "k1",
+            "type": "Node"
+          },
+          {
+            "id": "n3",
+            "x": 330,
+            "y": 0,
+            "label": "k9",
+            "type": "Node"
+          }
+        ],
+        "edges": [
+          {
+            "from": "n0",
+            "to": "n1",
+            "field": "next"
+          },
+          {
+            "from": "n1",
+            "to": "n2",
+            "field": "next"
+          },
+          {
+            "from": "n2",
+            "to": "n3",
+            "field": "next"
+          }
+        ],
+        "roots": [
+          "n0"
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "id": "head",
+            "kind": "entry",
+            "x": 0,
+            "y": 0,
+            "fields": {
+              "name": "head"
+            }
+          },
+          {
+            "id": "d0",
+            "kind": "dlist",
+            "x": 280,
+            "y": 0,
+            "fields": {
+              "value": "4"
+            }
+          },
+          {
+            "id": "d1",
+            "kind": "dlist",
+            "x": 510,
+            "y": 0,
+            "fields": {
+              "value": "7"
+            }
+          },
+          {
+            "id": "d2",
+            "kind": "dlist",
+            "x": 740,
+            "y": 0,
+            "fields": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "d3",
+            "kind": "dlist",
+            "x": 970,
+            "y": 0,
+            "fields": {
+              "value": "9"
+            }
+          },
+          {
+            "id": "tail",
+            "kind": "entry",
+            "x": 970,
+            "y": 200,
+            "fields": {
+              "name": "tail"
+            }
+          },
+          {
+            "id": "find",
+            "kind": "search",
+            "x": 400,
+            "y": 200,
+            "fields": {
+              "value": "1"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "head.target-d0.in",
+            "from": "head",
+            "fromPort": "target",
+            "to": "d0",
+            "toPort": "in"
+          },
+          {
+            "id": "d0.next-d1.in",
+            "from": "d0",
+            "fromPort": "next",
+            "to": "d1",
+            "toPort": "in"
+          },
+          {
+            "id": "d1.next-d2.in",
+            "from": "d1",
+            "fromPort": "next",
+            "to": "d2",
+            "toPort": "in"
+          },
+          {
+            "id": "d2.next-d3.in",
+            "from": "d2",
+            "fromPort": "next",
+            "to": "d3",
+            "toPort": "in"
+          },
+          {
+            "id": "d1.prev-d0.in",
+            "from": "d1",
+            "fromPort": "prev",
+            "to": "d0",
+            "toPort": "in"
+          },
+          {
+            "id": "d2.prev-d1.in",
+            "from": "d2",
+            "fromPort": "prev",
+            "to": "d1",
+            "toPort": "in"
+          },
+          {
+            "id": "d3.prev-d2.in",
+            "from": "d3",
+            "fromPort": "prev",
+            "to": "d2",
+            "toPort": "in"
+          },
+          {
+            "id": "tail.target-d3.in",
+            "from": "tail",
+            "fromPort": "target",
+            "to": "d3",
+            "toPort": "in"
+          },
+          {
+            "id": "head.target-find.data",
+            "from": "head",
+            "fromPort": "target",
+            "to": "find",
+            "toPort": "data"
+          }
+        ]
+      }
+    },
+    "liked_by": [
+      "seed:p5:0",
+      "seed:p5:1",
+      "seed:p5:2",
+      "seed:p5:3",
+      "seed:p5:4",
+      "seed:p5:5",
+      "seed:p5:6",
+      "seed:p5:7",
+      "seed:p5:8",
+      "seed:p5:9",
+      "seed:p5:10",
+      "seed:p5:11",
+      "seed:p5:12",
+      "seed:p5:13",
+      "seed:p5:14",
+      "seed:p5:15",
+      "seed:p5:16",
+      "seed:p5:17",
+      "seed:p5:18",
+      "seed:p5:19",
+      "seed:p5:20",
+      "seed:p5:21",
+      "seed:p5:22",
+      "seed:p5:23",
+      "seed:p5:24",
+      "seed:p5:25",
+      "seed:p5:26",
+      "seed:p5:27",
+      "seed:p5:28",
+      "seed:p5:29",
+      "seed:p5:30",
+      "seed:p5:31",
+      "seed:p5:32",
+      "seed:p5:33",
+      "seed:p5:34",
+      "seed:p5:35",
+      "seed:p5:36",
+      "seed:p5:37",
+      "seed:p5:38",
+      "seed:p5:39",
+      "seed:p5:40",
+      "seed:p5:41",
+      "seed:p5:42",
+      "seed:p5:43",
+      "seed:p5:44",
+      "seed:p5:45",
+      "seed:p5:46",
+      "seed:p5:47",
+      "seed:p5:48",
+      "seed:p5:49",
+      "seed:p5:50",
+      "seed:p5:51",
+      "seed:p5:52",
+      "seed:p5:53",
+      "seed:p5:54",
+      "seed:p5:55",
+      "seed:p5:56",
+      "seed:p5:57",
+      "seed:p5:58",
+      "seed:p5:59",
+      "seed:p5:60",
+      "seed:p5:61",
+      "seed:p5:62",
+      "seed:p5:63",
+      "seed:p5:64",
+      "seed:p5:65",
+      "seed:p5:66",
+      "seed:p5:67",
+      "seed:p5:68",
+      "seed:p5:69",
+      "seed:p5:70",
+      "seed:p5:71",
+      "seed:p5:72",
+      "seed:p5:73",
+      "seed:p5:74",
+      "seed:p5:75",
+      "seed:p5:76",
+      "seed:p5:77",
+      "seed:p5:78",
+      "seed:p5:79",
+      "seed:p5:80",
+      "seed:p5:81",
+      "seed:p5:82",
+      "seed:p5:83",
+      "seed:p5:84",
+      "seed:p5:85",
+      "seed:p5:86",
+      "seed:p5:87",
+      "seed:p5:88",
+      "seed:p5:89",
+      "seed:p5:90",
+      "seed:p5:91",
+      "seed:p5:92",
+      "seed:p5:93",
+      "seed:p5:94",
+      "seed:p5:95",
+      "seed:p5:96",
+      "seed:p5:97",
+      "seed:p5:98",
+      "seed:p5:99",
+      "seed:p5:100",
+      "seed:p5:101",
+      "seed:p5:102",
+      "seed:p5:103",
+      "seed:p5:104",
+      "seed:p5:105",
+      "seed:p5:106",
+      "seed:p5:107",
+      "seed:p5:108",
+      "seed:p5:109",
+      "seed:p5:110",
+      "seed:p5:111",
+      "seed:p5:112",
+      "seed:p5:113",
+      "seed:p5:114",
+      "seed:p5:115",
+      "seed:p5:116",
+      "seed:p5:117",
+      "seed:p5:118",
+      "seed:p5:119",
+      "seed:p5:120",
+      "seed:p5:121",
+      "seed:p5:122",
+      "seed:p5:123",
+      "seed:p5:124",
+      "seed:p5:125",
+      "seed:p5:126",
+      "seed:p5:127",
+      "seed:p5:128",
+      "seed:p5:129",
+      "seed:p5:130",
+      "seed:p5:131",
+      "seed:p5:132",
+      "seed:p5:133",
+      "seed:p5:134",
+      "seed:p5:135",
+      "seed:p5:136",
+      "seed:p5:137",
+      "seed:p5:138",
+      "seed:p5:139",
+      "seed:p5:140",
+      "seed:p5:141",
+      "seed:p5:142"
+    ],
+    "saved_by": [],
+    "comments": [
+      {
+        "id": "p5c1",
+        "author": "Marcus O.",
+        "author_id": null,
+        "body": "Could you post the trace for evicting the tail node too? The splice is the part I keep getting wrong.",
+        "created_at": "2026-08-19T13:11:07.717Z"
+      }
+    ],
+    "created_at": "2026-08-12T13:11:07.717Z",
+    "updated_at": "2026-08-12T13:11:07.717Z"
+  },
+  {
+    "id": "p6",
+    "owner_id": null,
+    "title": "A trie is just a tree that spells",
+    "body": [
+      "The word trie makes it sound like a distinct structure. It is a tree whose edges are labelled with characters, and once you draw it that way the prefix property stops needing an explanation — shared prefixes are shared paths, and that is the entire idea.",
+      "Insertion is a walk that creates nodes when it runs out of them. Lookup is the same walk without the creating. The only thing worth being careful about is the terminal flag, because a node existing does not mean a word ends there.",
+      "Traced below with cat, cot and try inserted, so you can see cat and cot share a node and try does not share anything."
+    ],
+    "author": "Priya N.",
+    "handle": "@priyan",
+    "published_at": "2026-08-03T13:11:07.717Z",
+    "read_time": "5 min read",
+    "tags": [
+      "trie",
+      "tree",
+      "strings"
+    ],
+    "accent": "var(--accent-secondary)",
+    "canvas": {
+      "canvasId": "c-trie",
+      "name": "Trie — insert",
+      "language": "cpp",
+      "stepLabel": "Step 18 of 26",
+      "diagram": {
+        "kind": "tree",
+        "nodes": [
+          {
+            "id": "n0",
+            "x": 0,
+            "y": 0,
+            "label": "·",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n1",
+            "x": -70,
+            "y": 100,
+            "label": "c",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n2",
+            "x": 70,
+            "y": 100,
+            "label": "t",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n3",
+            "x": -70,
+            "y": 200,
+            "label": "a",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n4",
+            "x": 20,
+            "y": 200,
+            "label": "o",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n5",
+            "x": 120,
+            "y": 200,
+            "label": "r",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n6",
+            "x": -70,
+            "y": 300,
+            "label": "t",
+            "type": "TrieNode"
+          },
+          {
+            "id": "n7",
+            "x": 120,
+            "y": 300,
+            "label": "y",
+            "type": "TrieNode"
+          }
+        ],
+        "edges": [
+          {
+            "from": "n0",
+            "to": "n1",
+            "field": "c"
+          },
+          {
+            "from": "n0",
+            "to": "n2",
+            "field": "t"
+          },
+          {
+            "from": "n1",
+            "to": "n3",
+            "field": "a"
+          },
+          {
+            "from": "n2",
+            "to": "n4",
+            "field": "o"
+          },
+          {
+            "from": "n2",
+            "to": "n5",
+            "field": "r"
+          },
+          {
+            "from": "n3",
+            "to": "n6",
+            "field": "t"
+          },
+          {
+            "from": "n5",
+            "to": "n7",
+            "field": "y"
+          }
+        ],
+        "roots": [
+          "n0"
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "id": "root",
+            "kind": "entry",
+            "x": 250,
+            "y": -150,
+            "fields": {
+              "name": "root"
+            }
+          },
+          {
+            "id": "t0",
+            "kind": "tree",
+            "x": 300,
+            "y": 0,
+            "fields": {
+              "value": "·"
+            }
+          },
+          {
+            "id": "t1",
+            "kind": "tree",
+            "x": 120,
+            "y": 170,
+            "fields": {
+              "value": "c"
+            }
+          },
+          {
+            "id": "t2",
+            "kind": "tree",
+            "x": 480,
+            "y": 170,
+            "fields": {
+              "value": "t"
+            }
+          },
+          {
+            "id": "t3",
+            "kind": "tree",
+            "x": 60,
+            "y": 340,
+            "fields": {
+              "value": "a"
+            }
+          },
+          {
+            "id": "t4",
+            "kind": "tree",
+            "x": 390,
+            "y": 340,
+            "fields": {
+              "value": "o"
+            }
+          },
+          {
+            "id": "t5",
+            "kind": "tree",
+            "x": 600,
+            "y": 340,
+            "fields": {
+              "value": "r"
+            }
+          },
+          {
+            "id": "t6",
+            "kind": "tree",
+            "x": 60,
+            "y": 510,
+            "fields": {
+              "value": "t"
+            }
+          },
+          {
+            "id": "t7",
+            "kind": "tree",
+            "x": 600,
+            "y": 510,
+            "fields": {
+              "value": "y"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "root.target-t0.in",
+            "from": "root",
+            "fromPort": "target",
+            "to": "t0",
+            "toPort": "in"
+          },
+          {
+            "id": "t0.left-t1.in",
+            "from": "t0",
+            "fromPort": "left",
+            "to": "t1",
+            "toPort": "in"
+          },
+          {
+            "id": "t0.right-t2.in",
+            "from": "t0",
+            "fromPort": "right",
+            "to": "t2",
+            "toPort": "in"
+          },
+          {
+            "id": "t1.left-t3.in",
+            "from": "t1",
+            "fromPort": "left",
+            "to": "t3",
+            "toPort": "in"
+          },
+          {
+            "id": "t2.left-t4.in",
+            "from": "t2",
+            "fromPort": "left",
+            "to": "t4",
+            "toPort": "in"
+          },
+          {
+            "id": "t2.right-t5.in",
+            "from": "t2",
+            "fromPort": "right",
+            "to": "t5",
+            "toPort": "in"
+          },
+          {
+            "id": "t3.left-t6.in",
+            "from": "t3",
+            "fromPort": "left",
+            "to": "t6",
+            "toPort": "in"
+          },
+          {
+            "id": "t5.right-t7.in",
+            "from": "t5",
+            "fromPort": "right",
+            "to": "t7",
+            "toPort": "in"
+          }
+        ]
+      }
+    },
+    "liked_by": [
+      "seed:p6:0",
+      "seed:p6:1",
+      "seed:p6:2",
+      "seed:p6:3",
+      "seed:p6:4",
+      "seed:p6:5",
+      "seed:p6:6",
+      "seed:p6:7",
+      "seed:p6:8",
+      "seed:p6:9",
+      "seed:p6:10",
+      "seed:p6:11",
+      "seed:p6:12",
+      "seed:p6:13",
+      "seed:p6:14",
+      "seed:p6:15",
+      "seed:p6:16",
+      "seed:p6:17",
+      "seed:p6:18",
+      "seed:p6:19",
+      "seed:p6:20",
+      "seed:p6:21",
+      "seed:p6:22",
+      "seed:p6:23",
+      "seed:p6:24",
+      "seed:p6:25",
+      "seed:p6:26",
+      "seed:p6:27",
+      "seed:p6:28",
+      "seed:p6:29",
+      "seed:p6:30",
+      "seed:p6:31",
+      "seed:p6:32",
+      "seed:p6:33",
+      "seed:p6:34",
+      "seed:p6:35",
+      "seed:p6:36",
+      "seed:p6:37",
+      "seed:p6:38",
+      "seed:p6:39",
+      "seed:p6:40",
+      "seed:p6:41",
+      "seed:p6:42",
+      "seed:p6:43",
+      "seed:p6:44",
+      "seed:p6:45",
+      "seed:p6:46",
+      "seed:p6:47",
+      "seed:p6:48",
+      "seed:p6:49",
+      "seed:p6:50",
+      "seed:p6:51",
+      "seed:p6:52",
+      "seed:p6:53",
+      "seed:p6:54",
+      "seed:p6:55",
+      "seed:p6:56",
+      "seed:p6:57"
+    ],
+    "saved_by": [],
+    "comments": [],
+    "created_at": "2026-08-03T13:11:07.717Z",
+    "updated_at": "2026-08-03T13:11:07.717Z"
+  }
+]

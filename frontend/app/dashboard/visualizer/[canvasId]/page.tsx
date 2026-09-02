@@ -108,14 +108,10 @@ export default function VisualizerPage() {
         setLiveLanguage(canvas.language);
         setCanvasName(canvas.name);
         setGeneratedFrom(canvas.code_canvas_id);
-        if (canvas.trace_data) {
-          setTrace(canvas.trace_data);
-          setStdout(canvas.stdout ?? undefined);
-          setTruncated(canvas.truncated);
-          setCompileCommand(canvas.compile_command ?? undefined);
-          setCompilerOutput(canvas.compiler_output ?? undefined);
-          setStepIndex(canvas.step_index);
-        }
+        // Only the code comes back — a canvas no longer carries its last
+        // trace, so the diagram starts empty until you press Run. The
+        // resets above already put every trace-derived piece of state in
+        // that state.
       } catch (err) {
         if (!cancelled) {
           setCanvasError(err instanceof Error ? err.message : "Couldn't load this canvas.");
@@ -229,15 +225,15 @@ export default function VisualizerPage() {
     setRunError(null);
     try {
       const token = await getToken();
-      const result = await runTrace(language, source, token, canvasId);
+      const result = await runTrace(language, source, token);
       setTrace(result.trace);
       setStdout(result.stdout);
       setTruncated(result.truncated);
       setCompileCommand(result.compile_command);
       setCompilerOutput(result.compiler_output);
-      // A new run always starts review at its own step 0 — mirrors the
-      // backend resetting step_index the same way when it records this run
-      // onto the canvas (canvas_store::record_run).
+      // A new run always starts review at its own step 0. The stored
+      // step_index follows on the next save; nothing persists the trace
+      // itself, so this state is the only copy of it.
       setStepIndex(0);
       setRunStatus("done");
     } catch (err) {
@@ -247,7 +243,7 @@ export default function VisualizerPage() {
       setRunError(err instanceof Error ? err.message : "trace request failed");
       setRunStatus("error");
     }
-  }, [getToken, canvasId]);
+  }, [getToken]);
 
   // Fired from FloatingEditor's own 500ms-debounced change listener — one
   // more PATCH on the same cadence the editor already autosaves to

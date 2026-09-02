@@ -122,7 +122,7 @@ export default function CodeFlowSimulator() {
       // `fullSteps`: without it the tracer emits only steps that change
       // the heap, and the call stack below would sit at depth 1 through
       // any recursion that doesn't allocate.
-      const result = await runTrace("cpp", submitted, token, undefined, true);
+      const result = await runTrace("cpp", submitted, token, true);
       // The trailing "truncated" sentinel isn't a step anyone can look at;
       // `result.truncated` is what says the run was cut short.
       const events = result.trace.filter((e): e is StepEvent => !isTruncated(e));

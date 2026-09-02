@@ -33,18 +33,13 @@ export type PostComment = {
   id: string;
   author: string;
   body: string;
-  /** Seeded comments carry a pre-rendered relative label, because there is
-   * no real date behind them to derive one from. */
-  at?: string;
-  /** Comments the reader writes carry an actual timestamp instead, and are
-   * formatted at render by `commentAge`. Storing "Just now" would have been
-   * simpler and would have been a lie the moment the page was reloaded.
-   * These only ever exist client-side, so formatting a relative time during
-   * render is safe here in a way it would not be for seeded content. */
-  createdAt?: number;
-  /** Marks a comment this browser wrote, so it can be styled as yours and
-   * deleted again. Seeded comments belong to other people and cannot be. */
-  mine?: boolean;
+  /** ISO-8601, from the server. Formatted at render by `commentAge` rather
+   * than stored as a label — "2 days ago" is only true on the day it is
+   * written. */
+  createdAt: string;
+  /** Whether the signed-in reader wrote it, and may therefore delete it.
+   * Decided by the server from the token, never by the client. */
+  mine: boolean;
 };
 
 export type Post = {
@@ -56,6 +51,7 @@ export type Post = {
   body: string[];
   author: string;
   handle: string;
+  /** ISO-8601. The feed sorts on it and renders it relatively. */
   publishedAt: string;
   readTime: string;
   tags: string[];
@@ -64,9 +60,14 @@ export type Post = {
    * feed of posts never turns into a colour wheel. */
   accent: string;
   canvas: CanvasAttachment;
-  /** Everyone else's likes. The viewer's own is tracked separately in
-   * `use-posts.ts` and added on top, so un-liking can never take the
-   * count below what the rest of the world contributed. */
+  /** Everyone's likes, the reader's included — the server owns the set and
+   * sends only its size, so no client ever receives the list of who liked
+   * what. */
   likes: number;
+  /** Whether *this* reader has liked it, saved it, or wrote it. All three
+   * are the server's answer for the caller's token. */
+  liked: boolean;
+  saved: boolean;
+  mine: boolean;
   comments: PostComment[];
 };
