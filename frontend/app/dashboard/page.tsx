@@ -1,12 +1,11 @@
 import ActivityHeatmap from "@/components/dashboard/ActivityHeatmap";
-import StatCard from "@/components/dashboard/StatCard";
+import StatsRow from "@/components/dashboard/StatsRow";
 import Greeting from "@/components/dashboard/Greeting";
 import ResourceMonitor from "@/components/dashboard/ResourceMonitor";
 import Notifications from "@/components/dashboard/Notifications";
 import CanvasesMenu from "@/components/dashboard/CanvasesMenu";
 import NewCanvasButton from "@/components/dashboard/NewCanvasButton";
 import RecentTraces from "@/components/dashboard/RecentTraces";
-import { STATS } from "@/lib/dashboard-data";
 
 export default function YouPage() {
   return (
@@ -49,11 +48,7 @@ export default function YouPage() {
         * definite height established above. */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[1fr_288px] xl:grid-rows-[minmax(0,1fr)]">
         <div className="flex min-h-0 flex-col gap-3">
-          <div className="grid shrink-0 gap-3 sm:grid-cols-3">
-            {STATS.map((stat) => (
-              <StatCard key={stat.label} {...stat} />
-            ))}
-          </div>
+          <StatsRow />
 
           <div className="shrink-0">
             <ActivityHeatmap />

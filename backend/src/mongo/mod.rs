@@ -36,6 +36,7 @@ use mongodb::{Client, Collection, Database, IndexModel};
 pub const CANVASES: &str = "canvases";
 pub const CODE_CANVASES: &str = "code_canvases";
 pub const POSTS: &str = "posts";
+pub const TRACE_RUNS: &str = "trace_runs";
 
 /// Connects, verifies the connection is actually usable, and ensures the
 /// indexes exist.
@@ -74,7 +75,7 @@ async fn ensure_indexes(db: &Database) -> mongodb::error::Result<()> {
     // caller (and every route that builds a URL out of it) expects `id`.
     // Mongo still assigns its own `_id`; nothing reads it. The unique
     // index below is what makes `id` a real key.
-    for name in [CANVASES, CODE_CANVASES, POSTS] {
+    for name in [CANVASES, CODE_CANVASES, POSTS, TRACE_RUNS] {
         db.collection::<mongodb::bson::Document>(name)
             .create_index(
                 IndexModel::builder()
@@ -96,6 +97,16 @@ async fn ensure_indexes(db: &Database) -> mongodb::error::Result<()> {
             )
             .await?;
     }
+
+    // Recent Traces and the Activity heatmap both read this one newest-first
+    // — see `crate::trace_runs`.
+    db.collection::<mongodb::bson::Document>(TRACE_RUNS)
+        .create_index(
+            IndexModel::builder()
+                .keys(doc! { "owner_id": 1, "ran_at": -1 })
+                .build(),
+        )
+        .await?;
 
     // One derived canvas per graph — the constraint that makes pressing
     // Visualize twice refresh a canvas instead of creating a second one.
@@ -135,7 +146,7 @@ async fn ensure_indexes(db: &Database) -> mongodb::error::Result<()> {
 /// posts would linger with an owner id that resolves to nobody.
 pub async fn delete_owner(db: &Database, owner_id: &str) -> mongodb::error::Result<u64> {
     let mut deleted = 0;
-    for name in [CANVASES, CODE_CANVASES, POSTS] {
+    for name in [CANVASES, CODE_CANVASES, POSTS, TRACE_RUNS] {
         let result = db
             .collection::<mongodb::bson::Document>(name)
             .delete_many(doc! { "owner_id": owner_id })

@@ -76,6 +76,19 @@ pub async fn list(db: &Database, owner_id: &str) -> Result<Vec<CanvasSummary>> {
     collect(cursor).await
 }
 
+/// Total canvases `owner_id` has — the You page's "Canvases created" stat.
+pub async fn count(db: &Database, owner_id: &str) -> Result<u64> {
+    canvases(db).count_documents(doc! { "owner_id": owner_id }).await
+}
+
+/// How many of `owner_id`'s canvases were created at or after `since` (an
+/// RFC 3339 instant) — the stat's "+N this week" delta.
+pub async fn count_since(db: &Database, owner_id: &str, since: &str) -> Result<u64> {
+    canvases(db)
+        .count_documents(doc! { "owner_id": owner_id, "created_at": { "$gte": since } })
+        .await
+}
+
 pub async fn create(db: &Database, owner_id: &str, name: &str, language: &str) -> Result<Canvas> {
     let timestamp = mongo::now();
     let canvas = Canvas {

@@ -1,4 +1,8 @@
-import { getActivityWeeks } from "@/lib/dashboard-data";
+"use client";
+
+import { useAuth } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
+import { getTraces, type ActivityDay } from "@/lib/dashboard-data";
 
 const LEVEL_STYLE: Record<number, string> = {
   0: "color-mix(in srgb, var(--bg-elevated) 100%, transparent)",
@@ -11,9 +15,32 @@ const LEVEL_STYLE: Record<number, string> = {
 const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 export default function ActivityHeatmap() {
-  const weeks = getActivityWeeks();
-  const totalTraces = weeks.flat().reduce((sum, d) => sum + d.count, 0);
-  const activeDays = weeks.flat().filter((d) => d.count > 0).length;
+  const { getToken, isSignedIn } = useAuth();
+  const [weeks, setWeeks] = useState<ActivityDay[][] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await getToken();
+        const { weeks } = await getTraces(token);
+        if (!cancelled) setWeeks(weeks);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Couldn't load activity.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn, getToken]);
+
+  const days = weeks?.flat() ?? [];
+  const totalTraces = days.reduce((sum, d) => sum + d.count, 0);
+  const activeDays = days.filter((d) => d.count > 0).length;
 
   return (
     <div className="matte rounded-2xl p-4">
@@ -22,7 +49,7 @@ export default function ActivityHeatmap() {
           Activity
         </h2>
         <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--text-secondary)]">
-          {totalTraces} traces · {activeDays} active days
+          {weeks ? `${totalTraces} traces · ${activeDays} active days` : error ?? "Loading…"}
         </p>
       </div>
 
@@ -36,7 +63,7 @@ export default function ActivityHeatmap() {
         </div>
 
         <div className="flex gap-[3px]">
-          {weeks.map((week, wi) => (
+          {(weeks ?? []).map((week, wi) => (
             <div key={wi} className="flex flex-col gap-[3px]">
               {week.map((day) => (
                 <span

@@ -2,8 +2,11 @@
 
 pub mod canvases;
 pub mod code_canvases;
+pub mod notifications;
 pub mod posts;
+pub mod stats;
 pub mod streaks;
+pub mod traces;
 pub mod users;
 pub mod webhooks;
 
@@ -249,6 +252,21 @@ pub async fn execute(
             // fail a trace that already succeeded.
             if let Err(e) = crate::streaks::record_activity(&state.pool, &clerk_jwt.sub, Utc::now().date_naive()).await {
                 tracing::error!(error = %e, "failed to record streak activity");
+            }
+
+            // Same "it ran, regardless of what it then did" standard as the
+            // streak update above, and same non-fatal treatment: the trace
+            // the caller is about to get back already succeeded, so a
+            // failure to log it for Recent Traces/the heatmap isn't a
+            // reason to fail the response.
+            let steps = events.iter().filter(|e| matches!(e, TraceEvent::Step(_))).count() as i64;
+            let structure = crate::trace_runs::infer_structure(&events);
+            let snippet = crate::trace_runs::derive_snippet(&req.source);
+            if let Err(e) =
+                crate::trace_runs::record(&state.mongo, &clerk_jwt.sub, &req.language, &structure, &snippet, steps)
+                    .await
+            {
+                tracing::error!(error = %e, "failed to record trace run");
             }
 
             let response = ExecuteResponse::from_events(events, compile_command, compiler_output);

@@ -306,6 +306,47 @@ pub async fn delete_comment(
         .map(|p| p.view(viewer)))
 }
 
+/// One comment on one of `recipient`'s own posts, written by someone else —
+/// the You page's Notifications widget.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct NotificationView {
+    pub id: String,
+    pub author: String,
+    pub post_title: String,
+    pub excerpt: String,
+    pub time: String,
+}
+
+/// How many rows `notifications` returns — the widget is a fixed-size
+/// scrollable list, not a paginated one.
+const NOTIFICATIONS_LIMIT: i64 = 20;
+
+/// Comments on `viewer`'s own posts, written by somebody else, newest
+/// first. Always "somebody commented" — comments here are flat (see
+/// `Comment`, no `parent_comment_id`), so there is no separate "somebody
+/// replied to your comment" case to distinguish from it. A viewer's own
+/// comments on their own post are excluded by the `$ne`: there's nothing to
+/// notify them of.
+pub async fn notifications(db: &Database, viewer: &str) -> Result<Vec<NotificationView>> {
+    let pipeline = vec![
+        doc! { "$match": { "owner_id": viewer } },
+        doc! { "$unwind": "$comments" },
+        doc! { "$match": { "comments.author_id": { "$ne": viewer } } },
+        doc! { "$sort": { "comments.created_at": -1 } },
+        doc! { "$limit": NOTIFICATIONS_LIMIT },
+        doc! { "$project": {
+            "_id": 0,
+            "id": "$comments.id",
+            "author": "$comments.author",
+            "post_title": "$title",
+            "excerpt": "$comments.body",
+            "time": "$comments.created_at",
+        } },
+    ];
+    let cursor = posts(db).aggregate(pipeline).with_type::<NotificationView>().await?;
+    collect(cursor).await
+}
+
 /// Loads the posts Lattice ships with, once, if the feed is empty.
 ///
 /// Authored in `frontend/lib/posts/data.ts` and exported to JSON by

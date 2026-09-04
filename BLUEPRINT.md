@@ -70,7 +70,7 @@ data other sections (Canvas, Posts) are built around.
 | Job queue | **Tokio mpsc channel + bounded worker pool** (in-process) initially; **Redis + a proper queue** (e.g. via `deadpool-redis`) once you need multi-instance scaling | don't build distributed infra before you need it |
 | Observability | **tracing** + **tracing-subscriber** (already scaffolded) → later **OpenTelemetry** export | structured logs from day one, minimal lift to add metrics/traces later |
 | Tracer harnesses (run *inside* the sandbox, not the backend) | **Python: `sys.settrace`**, **JavaScript: Babel/SWC AST instrumentation → V8 inspector later** | see §7 |
-| Persistence | **Postgres** via `sqlx` | backs saved canvases and trace runs, *and* the Posts/Comments/Notifications community layer (§10) — not needed for the bare trace pipeline (§9 MVP contract is stateless), but load-bearing the moment Posts, the Canvases quick-switcher, or Recent Traces stop reading mock data |
+| Persistence | **Postgres** via `sqlx` for identity (§10.2's actual split); **MongoDB** for everything a user makes — canvases, graphs, trace runs, posts, and the notifications they generate | not needed for the bare trace pipeline (§9 MVP contract is stateless), but load-bearing the moment Posts, the Canvases quick-switcher, or Recent Traces stop reading mock data — which, for Canvases/Recent Traces/Notifications, they now don't |
 | AI assistant | **Hermes-based agent pipeline** (§4.5) | reads the user's current trace + canvas + question together, so answers are grounded in *this* execution, not a generic textbook explanation |
 
 ---
@@ -140,7 +140,7 @@ navigation — five sections, in the order they appear:
 ```mermaid
 flowchart TB
     Sidebar["Sidebar nav\n(collapsed icon rail, expands on hover)"]
-    Sidebar --> You["You\n/dashboard\nBUILT (mock data)"]
+    Sidebar --> You["You\n/dashboard\nBUILT"]
     Sidebar --> Visualizer["Visualizer\n/dashboard/visualizer\nComingSoon placeholder"]
     Sidebar --> Canvas["Code-Canvas\n/dashboard/code-canvas\nBUILT (frontend, local persistence)"]
     Sidebar --> Posts["Posts\n/dashboard/posts\nComingSoon placeholder"]
@@ -155,33 +155,44 @@ flowchart TB
     Canvas -.->|"canvas + question"| AI
 ```
 
-Status today: only **You** is built against real UI (still backed by mock
-arrays in `lib/dashboard-data.ts`, see §10). The other four routes render
-the shared `ComingSoon` component with section-specific copy — they're
-placeholders that already define the product's scope, not yet its
+Status today: only **You** is built against real UI. The other four routes
+render the shared `ComingSoon` component with section-specific copy —
+they're placeholders that already define the product's scope, not yet its
 implementation.
 
 ### 4.1 You — personal home (built)
 
 `app/dashboard/page.tsx`. The landing screen after sign-in:
 
-- **Stat cards** (`StatCard.tsx`) — canvases created, traces run, day streak.
+- **Stat cards** (`StatCard.tsx`, via `StatsRow.tsx`) — canvases created,
+  traces run, day streak, all read from `GET /api/stats/me`.
 - **Activity heatmap** (`ActivityHeatmap.tsx`) — GitHub-style 18-week grid,
-  driven by `getActivityWeeks()`.
+  computed server-side from `trace_runs` and served by `GET /api/traces`.
 - **Recent traces** (`RecentTraces.tsx`) — scrollable list of the user's
-  last trace runs (structure, snippet, step count, when).
-- **Notifications** (`Notifications.tsx`) — replies/comments on the user's
-  Posts (§4.4), the same shape as `NOTIFICATIONS` in §10's data model.
+  last trace runs (structure, snippet, step count, when), the other half of
+  `GET /api/traces` (see §10.2's indexing note on why the two share a route).
+- **Notifications** (`Notifications.tsx`) — comments on the user's Posts
+  (§4.4), from `GET /api/notifications`. Always "commented on": the
+  underlying `comments` are flat (no `parent_comment_id`), so there is no
+  "replied to" case to distinguish, unlike the two-type model §10.2
+  originally sketched.
 - **Canvases quick-switcher** (`CanvasesMenu.tsx`) — searchable dropdown
-  over the user's saved canvases; "+ New canvas" sits next to it.
+  over the user's saved canvases (`GET /api/canvases`); "+ New canvas" sits
+  next to it.
 - **Music widget** (`MusicPlayer.tsx`) — local audio file playback (works
   today, purely client-side, no persistence) plus a disabled "Connect
   Spotify" stub pending OAuth credentials. This is a personal-workspace
   touch, not core to the trace/visualization product — see §13's open
   question on whether it warrants backend state at all.
 
-All five widgets currently read static arrays from `lib/dashboard-data.ts`.
-That file is the seam to replace with real API calls once §10 and §11 land.
+`lib/dashboard-data.ts` used to hold the mock arrays behind the first four
+widgets; it now holds the typed fetch functions that replaced them
+(`getStats`, `getTraces`, `getNotifications`), still the one seam between
+the You page and the backend. Trace runs and notifications persist to
+MongoDB rather than the Postgres tables §10.1 sketches — same reasoning as
+`canvases`/`code_canvases`/`posts` (§4.3, §10.2): each is read and written
+whole, as one document, so there's nothing here for a relational join to
+buy. See `crate::trace_runs` and `crate::posts::notifications`.
 
 ### 4.2 Visualizer — code to diagram
 
@@ -333,8 +344,8 @@ Lattice/
       viz/                         # NOT YET BUILT — ArrayView, LinkedListView, TreeView,
                                     # GraphView, HashMapView, StackView, … (§9)
     lib/
-      dashboard-data.ts             # mock data behind the You page — swap for real API
-                                     # calls once §10/§11 land
+      dashboard-data.ts             # typed fetch functions backing the You page
+                                     # (getStats/getTraces/getNotifications)
       clerk-appearance.ts           # Clerk theme, matched to the site's design system
       scroll-to-section.ts
       trace-schema/                 # NOT YET BUILT — TS types generated from the Rust schema (§8)
@@ -837,7 +848,11 @@ actual animated node/pointer diagram you can step through.
 
 ### Phase 3 — Canvas, community & persistence (L)
 - [ ] Stand up Postgres + `sqlx` migrations for the §10 schema (`users`,
-      `canvases`, `trace_runs`, `posts`, `comments`, `notifications`)
+      `canvases`, `trace_runs`, `posts`, `comments`, `notifications`) — in
+      practice `canvases`, `code_canvases`, `posts`, `trace_runs` and
+      notifications all went to MongoDB instead (§4.3, §10.2); only `users`,
+      `sessions` and `streaks` ended up in Postgres, so this item as
+      literally written is superseded by what's below rather than done
 - [x] Canvas builder frontend (§4.3): scoped node/edge vocabulary (array,
       linked list, tree, graph, hashmap + their basic operations only — not
       general control flow, see §13), hand-rolled node editor, and a codegen
@@ -849,11 +864,15 @@ actual animated node/pointer diagram you can step through.
 - [x] Point the Code-Canvas page at those routes (§4.3): entry route +
       `[graphId]` workspace, debounced autosave, one-call Visualize, and a
       read-only Visualizer for generated canvases
-- [ ] Posts backend (§11): `POST/GET /api/posts`, comment threads with
-      reply support, notification fan-out on comment/reply create
-- [ ] Replace `lib/dashboard-data.ts` mock reads with real API calls across
-      the You page (stat cards, activity heatmap, recent traces, canvases
-      menu, notifications all currently read static arrays)
+- [x] Posts backend (§11): `POST/GET /api/posts`, flat (non-threaded)
+      comments — `parent_comment_id`/reply support not built, see §10.2's
+      updated note
+- [x] Replace `lib/dashboard-data.ts` mock reads with real API calls across
+      the You page: stat cards (`GET /api/stats/me`), activity heatmap +
+      recent traces (`GET /api/traces`, backed by the new `trace_runs`
+      Mongo collection recorded from `api::execute`), notifications
+      (`GET /api/notifications`, aggregated from post comments), canvases
+      menu (already done, `GET /api/canvases`)
 - [ ] `tracers/javascript/tracer.mjs` via Babel/SWC AST instrumentation,
       `sandbox-images/javascript.Dockerfile`, language picker in the
       Visualizer UI — confirms §9's shape-detection and renderers work

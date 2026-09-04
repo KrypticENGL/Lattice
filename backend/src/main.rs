@@ -12,6 +12,7 @@ mod posts;
 mod sandbox;
 mod streaks;
 mod trace;
+mod trace_runs;
 mod users;
 
 use api::AppState;
@@ -56,6 +57,9 @@ fn router(state: AppState, clerk: Clerk) -> Router {
         .route("/api/resources", get(api::resources))
         .route("/api/me", get(api::users::me))
         .route("/api/streaks/me", get(api::streaks::me))
+        .route("/api/stats/me", get(api::stats::me))
+        .route("/api/traces", get(api::traces::list))
+        .route("/api/notifications", get(api::notifications::list))
         .route(
             "/api/canvases",
             get(api::canvases::list).post(api::canvases::create),
