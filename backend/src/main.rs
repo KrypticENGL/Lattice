@@ -10,6 +10,7 @@ mod code_canvas;
 mod mongo;
 mod posts;
 mod sandbox;
+mod streaks;
 mod trace;
 mod users;
 
@@ -54,6 +55,7 @@ fn router(state: AppState, clerk: Clerk) -> Router {
         .route("/api/execute", post(api::execute))
         .route("/api/resources", get(api::resources))
         .route("/api/me", get(api::users::me))
+        .route("/api/streaks/me", get(api::streaks::me))
         .route(
             "/api/canvases",
             get(api::canvases::list).post(api::canvases::create),

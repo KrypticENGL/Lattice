@@ -3,6 +3,7 @@
 pub mod canvases;
 pub mod code_canvases;
 pub mod posts;
+pub mod streaks;
 pub mod users;
 pub mod webhooks;
 
@@ -14,6 +15,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use bollard::Docker;
+use chrono::Utc;
 use clerk_rs::validators::authorizer::ClerkJwt;
 use serde_json::json;
 use sqlx::PgPool;
@@ -239,6 +241,16 @@ pub async fn execute(
             if events.iter().any(TraceEvent::is_exception) {
                 tracing::debug!("trace completed with an exception in the user's code");
             }
+
+            // The code compiled and ran — that's what a day streak counts,
+            // regardless of whether it then threw or segfaulted (still a
+            // trace the user ran). A failure here is logged, not
+            // propagated: losing today's streak update is not a reason to
+            // fail a trace that already succeeded.
+            if let Err(e) = crate::streaks::record_activity(&state.pool, &clerk_jwt.sub, Utc::now().date_naive()).await {
+                tracing::error!(error = %e, "failed to record streak activity");
+            }
+
             let response = ExecuteResponse::from_events(events, compile_command, compiler_output);
             (StatusCode::OK, Json(response)).into_response()
         }
